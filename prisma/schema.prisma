@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// 1. ตารางเก็บข้อมูลตัวละคร
+model Characters {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @db.Text
+  imageUrl    String?  // รูปภาพอาจจะมีหรือไม่มีตอนแรกก็ได้
+  tags        String[] // เผื่อเอาไว้ใส่แท็กจัดหมวดหมู่ เช่น สังกัด, ประเภท
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 2. ตารางเก็บผลงาน Code HTML
+model CodeShowcase {
+  id            String   @id @default(cuid())
+  title         String
+  htmlContent   String   @db.Text
+  // ใช้ Json เพื่อเก็บชุด Inline CSS Variables สำหรับให้สลับดู 2-3 แบบได้ง่ายๆ โดยไม่ต้องสร้างคลาส CSS แยก
+  cssVariations Json     
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// 3. ตารางเก็บผลงาน Cover เพลง
+model SongCover {
+  id            String   @id @default(cuid())
+  title         String
+  youtubeUrl    String
+  coverImageUrl String   // สำหรับเก็บลิงก์ภาพหน้าปก 16:9
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

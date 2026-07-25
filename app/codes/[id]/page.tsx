@@ -394,7 +394,7 @@ export default function CodeDetail() {
 
               {editMode === 'customize' && (
                 <div className="draft-row">
-                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#4c1d95' }}>💾 ระบบ Draft (เซฟงานในเครื่อง)</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#4c1d95' }}>💾 Draft (บันทึกในบราวเซอร์)</span>
                   
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <input type="text" className="glass-input" style={{ padding: '6px 10px', fontSize: '0.9rem' }} placeholder="ตั้งชื่อดราฟต์ใหม่..." value={draftName} onChange={e => setDraftName(e.target.value)} />
@@ -422,7 +422,7 @@ export default function CodeDetail() {
               {/* 🌟 ซ่อน Preset ในโหมด Customize ถาวร โชว์เฉพาะ Original เท่านั้น */}
               {editMode === 'original' && code.variations && code.variations.length > 0 && (
                 <div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#4c1d95', marginBottom: '8px' }}>🎨 เลือกพรีเซ็ตตั้งต้น:</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#4c1d95', marginBottom: '8px' }}>🎨 เลือกดูพรีเซ็ตตัวอย่าง:</div>
                   <div className="variations-list">
                     {code.variations.map((v: any, index: number) => (
                       <button key={v.id || index} className={`var-btn ${activeVariation === index ? 'active' : ''}`} onClick={() => setActiveVariation(index)}>

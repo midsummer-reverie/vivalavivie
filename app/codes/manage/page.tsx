@@ -17,7 +17,8 @@ export default function ManageCodes() {
     isLocked: false, 
     lockPassword: "",
     variations: [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", replacements: "**สีหลัก**=#d8b4fe" }],
-    customFields: [] as { id: string, label: string, variableName: string, type: string }[] 
+    customFields: [] as { id: string, label: string, variableName: string, type: string }[],
+    blocks: [] as any[]
   });
 
   const fetchCodes = async () => {
@@ -25,6 +26,93 @@ export default function ManageCodes() {
       const res = await fetch('/api/codes');
       if (res.ok) setCodes(await res.json());
     } catch (error) { console.error(error); }
+  };
+
+  // 🌟 Auto Resize สำหรับกล่องโค้ด
+  useEffect(() => {
+    const textareas = document.querySelectorAll('.code-textarea');
+    textareas.forEach(el => {
+      const target = el as HTMLTextAreaElement;
+      target.style.height = 'auto';
+      target.style.height = target.scrollHeight + 'px';
+    });
+  }, [formData.htmlCode, formData.variations, formData.blocks, selectedCodeId]);
+
+  // 🌟 ฟังก์ชันรองรับการกดปุ่ม Tab ในกล่องโค้ดเพื่อไม่ให้หลุดโฟกัส
+  const handleCodeKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, onChangeCallback: (val: string) => void) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const target = e.target as HTMLTextAreaElement;
+      const start = target.selectionStart;
+      const end = target.selectionEnd;
+      const value = target.value;
+      const newValue = value.substring(0, start) + "  " + value.substring(end);
+      
+      onChangeCallback(newValue);
+      
+      // ดึง Cursor กลับมาตำแหน่งที่ถูกต้องหลังใส่ Tab
+      setTimeout(() => {
+        target.selectionStart = target.selectionEnd = start + 2;
+      }, 0);
+    }
+  };
+
+  const handleAddBlock = (type: string) => {
+    let newBlock = { 
+      id: `block_${Date.now()}`, 
+      name: "", 
+      placeholder: "", 
+      html: "", 
+      fields: [] as any[] 
+    };
+
+    if (type === "gallery") {
+      newBlock = { ...newBlock, name: "แกลลอรี่ภาพ", placeholder: "[[GALLERY_HERE]]", html: "<div class=\"gallery\">\n  <img src=\"**IMG_1**\" />\n</div>", fields: [{ id: `field_${Date.now()}_1`, variableName: "**IMG_1**", label: "รูปที่ 1", type: "image" }] };
+    } else if (type === "textbox") {
+      newBlock = { ...newBlock, name: "กล่องข้อความ", placeholder: "[[TEXTBOX_HERE]]", html: "<div class=\"textbox\">\n  <p>**TEXT_1**</p>\n</div>", fields: [{ id: `field_${Date.now()}_1`, variableName: "**TEXT_1**", label: "ข้อความ", type: "richtext" }] };
+    } else {
+      newBlock = { ...newBlock, name: "บล็อกเปล่า", placeholder: "[[PLACEHOLDER]]" };
+    }
+
+    setFormData({
+      ...formData,
+      blocks: [...formData.blocks, newBlock]
+    });
+  };
+
+  const handleUpdateBlock = (index: number, key: string, value: any) => {
+    const newBlocks = [...formData.blocks];
+    newBlocks[index] = { ...newBlocks[index], [key]: value };
+    setFormData({ ...formData, blocks: newBlocks });
+  };
+
+  const handleRemoveBlock = (index: number) => {
+    if (confirm("ลบบล็อกนี้ทิ้งใช่หรือไม่?")) {
+      setFormData({ ...formData, blocks: formData.blocks.filter((_, i) => i !== index) });
+    }
+  };
+
+  const handleAddFieldToBlock = (blockIndex: number) => {
+    const newBlocks = [...formData.blocks];
+    newBlocks[blockIndex].fields.push({
+      id: `field_${Date.now()}`,
+      variableName: "",
+      label: "",
+      type: "text"
+    });
+    setFormData({ ...formData, blocks: newBlocks });
+  };
+
+  const handleUpdateBlockField = (blockIndex: number, fieldIndex: number, key: string, value: any) => {
+    const newBlocks = [...formData.blocks];
+    newBlocks[blockIndex].fields[fieldIndex] = { ...newBlocks[blockIndex].fields[fieldIndex], [key]: value };
+    setFormData({ ...formData, blocks: newBlocks });
+  };
+
+  const handleRemoveBlockField = (blockIndex: number, fieldIndex: number) => {
+    const newBlocks = [...formData.blocks];
+    newBlocks[blockIndex].fields = newBlocks[blockIndex].fields.filter((_: any, i: number) => i !== fieldIndex);
+    setFormData({ ...formData, blocks: newBlocks });
   };
 
   useEffect(() => { fetchCodes(); }, []);
@@ -35,17 +123,22 @@ export default function ManageCodes() {
         name: "", codeType: "", activityTags: "", previewUrl: "", htmlCode: "", 
         isLocked: false, lockPassword: "",
         variations: [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", replacements: "" }],
-        customFields: []
+        customFields: [],
+        blocks: []
       });
     } else {
       const code = codes.find(c => c.id === selectedCodeId);
       if (code) {
         let parsedVariations = [];
         let parsedCustomFields = [];
+        let parsedBlocks = []; 
+        
         try { parsedVariations = code.variations ? JSON.parse(code.variations) : []; } catch { parsedVariations = []; }
         try { parsedCustomFields = code.customFields ? JSON.parse(code.customFields) : []; } catch { parsedCustomFields = []; }
+        try { parsedBlocks = code.blocks ? (typeof code.blocks === 'string' ? JSON.parse(code.blocks) : code.blocks) : []; } catch { parsedBlocks = []; }
 
         if (parsedVariations.length === 0) parsedVariations = [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", replacements: "" }];
+        if (!Array.isArray(parsedBlocks)) parsedBlocks = [];
 
         setFormData({
           name: code.name || "",
@@ -56,7 +149,8 @@ export default function ManageCodes() {
           isLocked: code.isLocked || false,
           lockPassword: code.lockPassword || "",
           variations: parsedVariations,
-          customFields: parsedCustomFields
+          customFields: parsedCustomFields,
+          blocks: parsedBlocks
         });
       }
     }
@@ -95,7 +189,8 @@ export default function ManageCodes() {
       isLocked: formData.isLocked,
       lockPassword: formData.isLocked ? formData.lockPassword : "",
       variations: JSON.stringify(formData.variations),
-      customFields: JSON.stringify(formData.customFields)
+      customFields: JSON.stringify(formData.customFields),
+      blocks: JSON.stringify(formData.blocks)
     };
 
     try {
@@ -135,7 +230,25 @@ export default function ManageCodes() {
         .form-hint { font-size: 0.75rem; color: #6b21a8; font-weight: 400; opacity: 0.8; }
         .glass-input { width: 100%; background: rgba(255,255,255,0.7); border: 1px solid rgba(216, 180, 254, 0.6); border-radius: 12px; padding: 12px 14px; font-size: 0.95rem; outline: none; transition: 0.2s; color: #2e1065; }
         .glass-input:focus { border-color: #a855f7; background: rgba(255,255,255,0.9); box-shadow: 0 0 0 3px rgba(216, 180, 254, 0.3); }
-        .code-textarea { font-family: monospace !important; font-size: 0.9rem; line-height: 1.5; background: rgba(255,255,255,0.8); }
+        
+        /* 🌟 CSS ที่ทำให้ Textarea เหมือน Code Editor */
+        .code-textarea { 
+          font-family: monospace !important; 
+          font-size: 0.9rem; 
+          line-height: 1.5; 
+          background: rgba(255,255,255,0.8); 
+          white-space: pre-wrap; 
+          overflow-x: auto;
+          resize: none;
+          min-height: 80px;
+          transition: height 0.1s ease;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.3); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(168, 85, 247, 0.5); }
+
         .section-title { font-size: 1.15rem; border-bottom: 2px solid rgba(139, 92, 246, 0.15); padding-bottom: 10px; margin: 36px 0 20px; font-weight: 700; color: #4c1d95; }
         .btn-submit { width: 100%; background: linear-gradient(135deg, #d8b4fe, #bae6fd); border: 1px solid #fff; border-radius: 12px; padding: 16px; font-weight: 700; font-size: 1.1rem; cursor: pointer; margin-top: 30px; transition: 0.2s; color: #2e1065; box-shadow: 0 6px 20px rgba(216, 180, 254, 0.4); }
         .btn-submit:hover { transform: translateY(-2px); filter: brightness(1.05); }
@@ -173,7 +286,14 @@ export default function ManageCodes() {
           <h3 className="section-title">💻 โค้ด HTML (Template)</h3>
           <div className="form-group">
             <label className="form-label"><span>วางโค้ด HTML (รองรับ **ตัวแปร** แบบเดิม และแบบเก่า center/cover)</span></label>
-            <textarea required className="glass-input code-textarea" rows={10} value={formData.htmlCode} onChange={e => setFormData({...formData, htmlCode: e.target.value})} />
+            <textarea 
+              required 
+              className="glass-input code-textarea custom-scrollbar" 
+              rows={10} 
+              value={formData.htmlCode} 
+              onChange={e => setFormData({...formData, htmlCode: e.target.value})} 
+              onKeyDown={e => handleCodeKeyDown(e, (val) => setFormData({...formData, htmlCode: val}))}
+            />
           </div>
 
           <h3 className="section-title">🎨 Variations (ปุ่มสีพรีเซ็ต)</h3>
@@ -189,7 +309,13 @@ export default function ManageCodes() {
               </div>
               <div className="form-group">
                 <label className="form-label"><span>ตัวแปรสีเริ่มต้น</span></label>
-                <textarea className="glass-input code-textarea" rows={2} value={v.replacements} onChange={e => handleVariationChange(index, 'replacements', e.target.value)} />
+                <textarea 
+                  className="glass-input code-textarea custom-scrollbar" 
+                  rows={2} 
+                  value={v.replacements} 
+                  onChange={e => handleVariationChange(index, 'replacements', e.target.value)} 
+                  onKeyDown={e => handleCodeKeyDown(e, (val) => handleVariationChange(index, 'replacements', val))}
+                />
               </div>
             </div>
           ))}
@@ -219,6 +345,99 @@ export default function ManageCodes() {
             </div>
           ))}
           <button type="button" className="btn-add" onClick={addCustomField}>+ เพิ่มจุดปรับแต่ง</button>
+
+          <div style={{ marginTop: '40px', padding: '24px', background: 'rgba(255,255,255,0.7)', border: '2px dashed #a855f7', borderRadius: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '10px' }}>
+              <h3 style={{ margin: 0, color: '#4c1d95', fontSize: '1.15rem', fontWeight: 700 }}>🧱 จัดการส่วนเสริม (Dynamic Blocks)</h3>
+              
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <select 
+                  id="add-block-select" 
+                  className="glass-input" 
+                  style={{ width: 'auto', padding: '8px 12px', fontWeight: 'bold' }}
+                >
+                  <option value="blank">📦 บล็อกเปล่า</option>
+                  <option value="gallery">🖼️ บล็อก: แกลลอรี่ภาพ</option>
+                  <option value="textbox">📝 บล็อก: กล่องข้อความ</option>
+                </select>
+                <button type="button" onClick={() => handleAddBlock((document.getElementById('add-block-select') as HTMLSelectElement).value)} style={{ background: '#a855f7', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                  ➕ เพิ่ม
+                </button>
+              </div>
+            </div>
+
+            {formData.blocks.length === 0 && <p style={{ color: '#6b21a8', opacity: 0.7, textAlign: 'center', margin: '20px 0' }}>ยังไม่มีบล็อกเสริมสำหรับโค้ดชุดนี้</p>}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {formData.blocks.map((block, bIndex) => (
+                <div key={block.id} style={{ background: '#fff', border: '1px solid #d8b4fe', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 12px rgba(139, 92, 246, 0.05)' }}>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                    <h4 style={{ margin: 0, color: '#6b21a8' }}>บล็อกที่ {bIndex + 1}</h4>
+                    <button type="button" onClick={() => handleRemoveBlock(bIndex)} style={{ background: '#fee2e2', color: '#ef4444', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                      🗑️ ลบบล็อก
+                    </button>
+                  </div>
+
+                  <div className="form-grid-2">
+                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                      <label className="form-label" style={{ fontSize: '0.85rem' }}>ชื่อบล็อก (ให้ผู้ใช้เห็น)</label>
+                      <input type="text" value={block.name} onChange={(e) => handleUpdateBlock(bIndex, 'name', e.target.value)} placeholder="เช่น กล่องเนื้อเพลง, แกลลอรี่" className="glass-input" />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                      <label className="form-label" style={{ fontSize: '0.85rem' }}>ตัวแทนตำแหน่ง (Placeholder)</label>
+                      <input type="text" value={block.placeholder} onChange={(e) => handleUpdateBlock(bIndex, 'placeholder', e.target.value)} placeholder="เช่น [[GALLERY_HERE]]" className="glass-input" style={{ fontFamily: 'monospace' }} />
+                      <div className="form-hint" style={{ marginTop: '4px' }}>*ต้องเอาคำนี้ไปแทรกไว้ใน "โค้ด HTML หลัก" ด้านบนด้วยนะ</div>
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '16px' }}>
+                    <label className="form-label" style={{ fontSize: '0.85rem' }}>โค้ด HTML เฉพาะส่วนของบล็อกนี้</label>
+                    <textarea 
+                      value={block.html} 
+                      onChange={(e) => handleUpdateBlock(bIndex, 'html', e.target.value)} 
+                      onKeyDown={e => handleCodeKeyDown(e, (val) => handleUpdateBlock(bIndex, 'html', val))}
+                      placeholder="<div class='song-box'>...</div>" 
+                      className="glass-input code-textarea custom-scrollbar" 
+                      rows={4} 
+                    />
+                  </div>
+
+                  <div style={{ background: 'rgba(243, 232, 255, 0.5)', padding: '16px', borderRadius: '12px', marginTop: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                      <strong style={{ color: '#4c1d95', fontSize: '0.9rem' }}>🛠️ จุดแก้ไข (Fields) ภายในบล็อกนี้</strong>
+                      <button type="button" onClick={() => handleAddFieldToBlock(bIndex)} style={{ background: '#fff', color: '#6b21a8', border: '1px solid #c084fc', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                        + เพิ่มจุดแก้ไขย่อย
+                      </button>
+                    </div>
+
+                    {block.fields.map((field: any, fIndex: number) => (
+                      <div key={field.id} style={{ display: 'flex', gap: '12px', background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #e9d5ff', marginBottom: '8px', flexWrap: 'wrap' }}>
+                        <div style={{ flex: '1 1 200px' }}>
+                          <input type="text" value={field.label} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'label', e.target.value)} placeholder="ชื่อป้ายกำกับ (Label)" className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', marginBottom: '8px' }} />
+                          <input type="text" value={field.variableName} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'variableName', e.target.value)} placeholder="ตัวแปร (เช่น TEXT_1)" className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', fontFamily: 'monospace' }} />
+                        </div>
+                        <div style={{ flex: '0 0 160px' }}>
+                          <select value={field.type} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'type', e.target.value)} className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', width: '100%' }}>
+                            <option value="text">ข้อความสั้น</option>
+                            <option value="richtext">กล่องข้อความ (BBCode)</option>
+                            <option value="roleplay">โรลเพลย์ (นับคำ)</option>
+                            <option value="image">รูปภาพ</option>
+                            <option value="color">เลือกสี</option>
+                          </select>
+                        </div>
+                        <button type="button" onClick={() => handleRemoveBlockField(bIndex, fIndex)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '4px' }} title="ลบ Field">
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    {block.fields.length === 0 && <p style={{ fontSize: '0.85rem', color: '#a78bfa', margin: '4px 0', textAlign: 'center' }}>ยังไม่มีจุดแก้ไขในบล็อกนี้</p>}
+                  </div>
+
+                </div>
+              ))}
+            </div>
+          </div>
 
           <button type="submit" className="btn-submit" disabled={isSaving}>
             {isSaving ? "กำลังบันทึก..." : (selectedCodeId === "new" ? "✨ บันทึกโค้ดใหม่" : "💾 อัปเดตข้อมูล")}

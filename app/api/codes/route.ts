@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { 
       id, name, codeType, activityTags, previewUrl, htmlCode, 
-      isLocked, lockPassword, variations, customFields // 🌟 เพิ่ม customFields ตรงนี้
+      isLocked, lockPassword, variations, customFields, blocks // 🌟 เพิ่ม blocks ตรงนี้
     } = body;
 
     const newId = id || Math.floor(10000 + Math.random() * 90000).toString();
@@ -30,11 +30,11 @@ export async function POST(request: Request) {
     const newCode = await sql`
       INSERT INTO "Codes" (
         id, name, "codeType", "activityTags", "previewUrl", "htmlCode", 
-        "isLocked", "lockPassword", variations, "customFields", "createdAt", "updatedAt"
+        "isLocked", "lockPassword", variations, "customFields", blocks, "createdAt", "updatedAt"
       )
       VALUES (
         ${newId}, ${name}, ${codeType}, ${pgTags}::text[], ${previewUrl}, ${htmlCode},
-        ${isLocked || false}, ${lockPassword || ''}, ${variations || '[]'}, ${customFields || '[]'}, NOW(), NOW()
+        ${isLocked || false}, ${lockPassword || ''}, ${variations || '[]'}, ${customFields || '[]'}, ${blocks || '[]'}, NOW(), NOW()
       )
       RETURNING *
     `;
@@ -51,7 +51,7 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { 
       id, name, codeType, activityTags, previewUrl, htmlCode, 
-      isLocked, lockPassword, variations, customFields // 🌟 เพิ่ม customFields ตรงนี้
+      isLocked, lockPassword, variations, customFields, blocks // 🌟 เพิ่ม blocks ตรงนี้
     } = body;
 
     if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
@@ -65,7 +65,7 @@ export async function PUT(request: Request) {
         name = ${name}, "codeType" = ${codeType}, "activityTags" = ${pgTags}::text[], 
         "previewUrl" = ${previewUrl}, "htmlCode" = ${htmlCode}, 
         "isLocked" = ${isLocked || false}, "lockPassword" = ${lockPassword || ''}, 
-        variations = ${variations}, "customFields" = ${customFields || '[]'}, "updatedAt" = NOW()
+        variations = ${variations}, "customFields" = ${customFields || '[]'}, blocks = ${blocks || '[]'}, "updatedAt" = NOW()
       WHERE id = ${id}
       RETURNING *
     `;

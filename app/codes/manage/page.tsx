@@ -16,7 +16,8 @@ export default function ManageCodes() {
     htmlCode: "", 
     isLocked: false, 
     lockPassword: "",
-    variations: [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", replacements: "**สีหลัก**=#d8b4fe" }],
+    // 🌟 อัปเดตโครงสร้าง Variations ให้รองรับ type และ fullHtml
+    variations: [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", type: "replace", replacements: "**สีหลัก**=#d8b4fe", fullHtml: "" }],
     customFields: [] as { id: string, label: string, variableName: string, type: string }[],
     blocks: [] as any[]
   });
@@ -28,7 +29,6 @@ export default function ManageCodes() {
     } catch (error) { console.error(error); }
   };
 
-  // 🌟 Auto Resize สำหรับกล่องโค้ด
   useEffect(() => {
     const textareas = document.querySelectorAll('.code-textarea');
     textareas.forEach(el => {
@@ -38,7 +38,6 @@ export default function ManageCodes() {
     });
   }, [formData.htmlCode, formData.variations, formData.blocks, selectedCodeId]);
 
-  // 🌟 ฟังก์ชันรองรับการกดปุ่ม Tab ในกล่องโค้ดเพื่อไม่ให้หลุดโฟกัส
   const handleCodeKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, onChangeCallback: (val: string) => void) => {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -50,7 +49,6 @@ export default function ManageCodes() {
       
       onChangeCallback(newValue);
       
-      // ดึง Cursor กลับมาตำแหน่งที่ถูกต้องหลังใส่ Tab
       setTimeout(() => {
         target.selectionStart = target.selectionEnd = start + 2;
       }, 0);
@@ -122,7 +120,7 @@ export default function ManageCodes() {
       setFormData({
         name: "", codeType: "", activityTags: "", previewUrl: "", htmlCode: "", 
         isLocked: false, lockPassword: "",
-        variations: [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", replacements: "" }],
+        variations: [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", type: "replace", replacements: "", fullHtml: "" }],
         customFields: [],
         blocks: []
       });
@@ -137,7 +135,7 @@ export default function ManageCodes() {
         try { parsedCustomFields = code.customFields ? JSON.parse(code.customFields) : []; } catch { parsedCustomFields = []; }
         try { parsedBlocks = code.blocks ? (typeof code.blocks === 'string' ? JSON.parse(code.blocks) : code.blocks) : []; } catch { parsedBlocks = []; }
 
-        if (parsedVariations.length === 0) parsedVariations = [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", replacements: "" }];
+        if (parsedVariations.length === 0) parsedVariations = [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", type: "replace", replacements: "", fullHtml: "" }];
         if (!Array.isArray(parsedBlocks)) parsedBlocks = [];
 
         setFormData({
@@ -161,7 +159,7 @@ export default function ManageCodes() {
     newVariations[index] = { ...newVariations[index], [field]: value };
     setFormData({ ...formData, variations: newVariations });
   };
-  const addVariation = () => setFormData({ ...formData, variations: [...formData.variations, { id: Date.now().toString(), label: "New Theme", color: "#bae6fd", replacements: "" }] });
+  const addVariation = () => setFormData({ ...formData, variations: [...formData.variations, { id: Date.now().toString(), label: "New Theme", color: "#bae6fd", type: "replace", replacements: "", fullHtml: "" }] });
   const removeVariation = (index: number) => setFormData({ ...formData, variations: formData.variations.filter((_, i) => i !== index) });
 
   const handleCustomFieldChange = (index: number, field: string, value: string) => {
@@ -230,25 +228,11 @@ export default function ManageCodes() {
         .form-hint { font-size: 0.75rem; color: #6b21a8; font-weight: 400; opacity: 0.8; }
         .glass-input { width: 100%; background: rgba(255,255,255,0.7); border: 1px solid rgba(216, 180, 254, 0.6); border-radius: 12px; padding: 12px 14px; font-size: 0.95rem; outline: none; transition: 0.2s; color: #2e1065; }
         .glass-input:focus { border-color: #a855f7; background: rgba(255,255,255,0.9); box-shadow: 0 0 0 3px rgba(216, 180, 254, 0.3); }
-        
-        /* 🌟 CSS ที่ทำให้ Textarea เหมือน Code Editor */
-        .code-textarea { 
-          font-family: monospace !important; 
-          font-size: 0.9rem; 
-          line-height: 1.5; 
-          background: rgba(255,255,255,0.8); 
-          white-space: pre-wrap; 
-          overflow-x: auto;
-          resize: none;
-          min-height: 80px;
-          transition: height 0.1s ease;
-        }
-
+        .code-textarea { font-family: monospace !important; font-size: 0.9rem; line-height: 1.5; background: rgba(255,255,255,0.8); white-space: pre-wrap; overflow-x: auto; resize: none; min-height: 80px; transition: height 0.1s ease; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.3); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(168, 85, 247, 0.5); }
-
         .section-title { font-size: 1.15rem; border-bottom: 2px solid rgba(139, 92, 246, 0.15); padding-bottom: 10px; margin: 36px 0 20px; font-weight: 700; color: #4c1d95; }
         .btn-submit { width: 100%; background: linear-gradient(135deg, #d8b4fe, #bae6fd); border: 1px solid #fff; border-radius: 12px; padding: 16px; font-weight: 700; font-size: 1.1rem; cursor: pointer; margin-top: 30px; transition: 0.2s; color: #2e1065; box-shadow: 0 6px 20px rgba(216, 180, 254, 0.4); }
         .btn-submit:hover { transform: translateY(-2px); filter: brightness(1.05); }
@@ -283,11 +267,11 @@ export default function ManageCodes() {
           </div>
           <div className="form-group"><label className="form-label">URL ภาพพรีวิว</label><input type="url" className="glass-input" value={formData.previewUrl} onChange={e => setFormData({...formData, previewUrl: e.target.value})} /></div>
 
-          <h3 className="section-title">💻 โค้ด HTML (Template)</h3>
+          <h3 className="section-title">💻 โค้ด HTML (Template หลัก)</h3>
           <div className="form-group">
-            <label className="form-label"><span>วางโค้ด HTML (รองรับ **ตัวแปร** แบบเดิม และแบบเก่า center/cover)</span></label>
+            <label className="form-label"><span>วางโค้ด HTML หลัก (จะถูกใช้ถ้าพรีเซ็ตไม่มีโค้ดเต็ม)</span></label>
             <textarea 
-              required 
+              required={formData.variations.every(v => v.type === 'replace')}
               className="glass-input code-textarea custom-scrollbar" 
               rows={10} 
               value={formData.htmlCode} 
@@ -296,7 +280,7 @@ export default function ManageCodes() {
             />
           </div>
 
-          <h3 className="section-title">🎨 Variations (ปุ่มสีพรีเซ็ต)</h3>
+          <h3 className="section-title">🎨 Variations (ปุ่มพรีเซ็ต)</h3>
           {formData.variations.map((v, index) => (
             <div key={v.id} className="variation-box">
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
@@ -307,19 +291,45 @@ export default function ManageCodes() {
                 <div className="form-group"><label className="form-label">ชื่อพรีเซ็ต</label><input type="text" required className="glass-input" value={v.label} onChange={e => handleVariationChange(index, 'label', e.target.value)} /></div>
                 <div className="form-group"><label className="form-label">สีปุ่มพรีวิว</label><input type="color" className="color-picker" value={v.color} onChange={e => handleVariationChange(index, 'color', e.target.value)} /></div>
               </div>
-              <div className="form-group">
-                <label className="form-label"><span>ตัวแปรสีเริ่มต้น</span></label>
-                <textarea 
-                  className="glass-input code-textarea custom-scrollbar" 
-                  rows={2} 
-                  value={v.replacements} 
-                  onChange={e => handleVariationChange(index, 'replacements', e.target.value)} 
-                  onKeyDown={e => handleCodeKeyDown(e, (val) => handleVariationChange(index, 'replacements', val))}
-                />
+              
+              {/* 🌟 เลือกรูปแบบของ Preset */}
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">รูปแบบพรีเซ็ต</label>
+                <select className="glass-input" value={v.type || "replace"} onChange={e => handleVariationChange(index, 'type', e.target.value)}>
+                  <option value="replace">🔄 แทนที่ตัวแปร (ใช้โครงสร้างจาก HTML หลัก)</option>
+                  <option value="full_html">📝 โค้ด HTML เต็ม (ไม่พึ่ง HTML หลัก)</option>
+                </select>
               </div>
+
+              {(!v.type || v.type === "replace") ? (
+                <div className="form-group">
+                  <label className="form-label"><span>ตัวแปรที่ต้องการแทนที่ (1 บรรทัดต่อ 1 ค่า เช่น **สีหลัก**=#000000)</span></label>
+                  <textarea 
+                    className="glass-input code-textarea custom-scrollbar" 
+                    rows={2} 
+                    value={v.replacements} 
+                    onChange={e => handleVariationChange(index, 'replacements', e.target.value)} 
+                    onKeyDown={e => handleCodeKeyDown(e, (val) => handleVariationChange(index, 'replacements', val))}
+                  />
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label className="form-label"><span>วางโค้ด HTML แบบเต็มๆ สำหรับพรีเซ็ตนี้</span></label>
+                  <textarea 
+                    className="glass-input code-textarea custom-scrollbar" 
+                    rows={6} 
+                    value={v.fullHtml || ""} 
+                    onChange={e => handleVariationChange(index, 'fullHtml', e.target.value)} 
+                    onKeyDown={e => handleCodeKeyDown(e, (val) => handleVariationChange(index, 'fullHtml', val))}
+                  />
+                </div>
+              )}
             </div>
           ))}
           <button type="button" className="btn-add" onClick={addVariation}>+ เพิ่มพรีเซ็ต</button>
+
+          {/* ซ่อนส่วน Custom Fields และ Dynamic Blocks ในโค้ดตัวอย่างเพื่อให้สั้นลง แต่มันยังเหมือนเดิมทุกประการ */}
+          {/* ... โค้ด Custom Fields และ Dynamic Blocks ส่วนล่างยังเหมือนเดิมที่ส่งไปก่อนหน้าเลยครับ ... */}
 
           <h3 className="section-title">🛠️ กำหนดจุดที่ให้ผู้ใช้ปรับแต่ง (Custom Fields)</h3>
           {formData.customFields.map((field, index) => (

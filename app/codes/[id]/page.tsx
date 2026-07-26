@@ -271,7 +271,6 @@ export default function CodeDetail() {
     return '#8b5cf6';
   };
 
-  // 🌟 จุดที่มีการปรับปรุงการเรนเดอร์ HTML
   const getRenderedHtml = (isForPreview: boolean = false) => {
     if (!code || !code.htmlCode) return "";
     let finalHtml = code.htmlCode;
@@ -363,17 +362,25 @@ export default function CodeDetail() {
       }
 
     } else {
+      // 🌟 โหมดดูตัวอย่างต้นฉบับ (Original)
       const variation = code.variations?.[activeVariation];
-      if (variation && variation.replacements) {
-        const lines = variation.replacements.split('\n');
-        lines.forEach((line: string) => {
-          const idx = line.indexOf('=');
-          if (idx !== -1) {
-            const k = line.substring(0, idx).trim();
-            const v = line.substring(idx + 1).trim();
-            if (k) finalHtml = finalHtml.split(k).join(v);
-          }
-        });
+      if (variation) {
+        // หากตั้งค่าพรีเซ็ตเป็น "full_html" ให้ใช้โค้ดเต็มแทนที่ไปเลย
+        if (variation.type === 'full_html' && variation.fullHtml) {
+          finalHtml = variation.fullHtml;
+        } 
+        // ถ้าเป็นแบบ "replace" ก็ใช้โค้ดหลักมาไล่แทนที่ตามเดิม
+        else if (variation.replacements) {
+          const lines = variation.replacements.split('\n');
+          lines.forEach((line: string) => {
+            const idx = line.indexOf('=');
+            if (idx !== -1) {
+              const k = line.substring(0, idx).trim();
+              const v = line.substring(idx + 1).trim();
+              if (k) finalHtml = finalHtml.split(k).join(v);
+            }
+          });
+        }
       }
       
       if (code.blocks && Array.isArray(code.blocks)) {
@@ -383,10 +390,7 @@ export default function CodeDetail() {
       }
     }
 
-    // 🌟 พระเอกของเราอยู่ตรงนี้ครับ!
-    // หากเป็นการแสดงผลใน Live Preview ให้จัดฟอร์แมต BBCode และขึ้นบรรทัดใหม่ทั้งหมดให้เหมือนเว็บบอร์ด
     if (isForPreview) {
-      // 1. แปลง BBCode ที่ถูกพิมพ์ค้างไว้ใน HTML หลัก
       finalHtml = finalHtml
         .replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong>$1</strong>')
         .replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>')
@@ -398,10 +402,7 @@ export default function CodeDetail() {
         .replace(/\[url=(.*?)\]([\s\S]*?)\[\/url\]/gi, '<a href="$1" target="_blank" style="color: #a855f7; text-decoration: underline;">$2</a>')
         .replace(/\[hr\]/gi, '<hr style="border: 0; border-top: 1px solid currentColor; opacity: 0.3; margin: 16px 0;" />');
 
-      // 2. แปลงการเคาะบรรทัด (\n) เป็น <br/> 
       finalHtml = finalHtml.replace(/\n/g, '<br/>');
-      
-      // 3. ป้องกัน Layout ของ HTML พัง โดยการลบ <br/> ที่อยู่แทรกระหว่างแท็ก div ทิ้งไป (เพื่อรักษาช่องว่างให้พอดี)
       finalHtml = finalHtml.replace(/>\s*<br\/>\s*</g, '>\n<');
     }
 

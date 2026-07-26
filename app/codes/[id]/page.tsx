@@ -26,6 +26,8 @@ export default function CodeDetail() {
   const [fieldValues, setFieldValues] = useState<{ [key: string]: any }>({});
   const [activeBlocks, setActiveBlocks] = useState<any[]>([]);
   
+  const [customDropdowns, setCustomDropdowns] = useState<{ [key: string]: boolean }>({});
+  
   const [drafts, setDrafts] = useState<{ name: string; values: any; blocks: any[] }[]>([]);
   const [draftName, setDraftName] = useState("");
   const [selectedDraftIndex, setSelectedDraftIndex] = useState<number>(-1);
@@ -58,13 +60,12 @@ export default function CodeDetail() {
 
             setCode(foundCode);
 
-            // 🌟 ตรวจสอบโหมดการล็อก
             if (!foundCode.isLocked) {
-              setIsUnlocked(true); // โค้ดปกติ เปิดหมด
+              setIsUnlocked(true);
             } else if (foundCode.isCommission) {
-              setIsUnlocked(false); // โค้ดคอมมิชชั่น ให้เห็นแค่พรีวิว ไม่บังคับล็อกทั้งหน้า
+              setIsUnlocked(false); 
             } else {
-              setIsUnlocked(false); // โค้ดไพรเวท (isLocked = true, isCommission = false) ล็อกทั้งหน้าแต่แรก
+              setIsUnlocked(false);
             }
 
             initFieldValues(foundCode);
@@ -163,7 +164,6 @@ export default function CodeDetail() {
   };
 
   const handleModeSwitch = (mode: 'original' | 'customize', vMode: 'preview' | 'code') => {
-    // 🌟 ดักการเข้าถึงฟีเจอร์สงวนสิทธิ์ (Customize หรือดู HTML Code) ถ้ายังไม่ได้ปลดล็อก
     if (code?.isLocked && !isUnlocked && (mode === 'customize' || vMode === 'code')) {
       setPendingAction({ mode, vMode });
       setShowUnlockModal(true);
@@ -230,6 +230,7 @@ export default function CodeDetail() {
     if (isForPreview) parsed = parsed.replace(/\n/g, '<br/>');
     return parsed;
   };
+
   const countWords = (text: string) => {
     if (!text || text.trim() === '') return 0;
     const clean = text.replace(/<[^>]*>?/gm, '').replace(/\[.*?\]/g, '').trim();
@@ -260,6 +261,13 @@ export default function CodeDetail() {
       if (code.customFields && Array.isArray(code.customFields)) {
         code.customFields.forEach((field: any) => {
           const val = fieldValues[field.variableName] || "";
+          
+          // ไม่เอาค่าที่ถูกซ่อน (ไม่ได้แสดงผล) มาเรนเดอร์ทับโค้ด
+          if (field.conditionVar && field.conditionVar.trim() !== "") {
+             const parentVal = fieldValues[field.conditionVar] || "";
+             if (parentVal !== field.conditionVal) return;
+          }
+
           if (field.type === 'image') {
             const imgData = fieldValues[field.variableName] || { url: "", x: 50, y: 50, zoom: 100 };
             if (imgData.url && imgData.url.trim() !== '') {
@@ -292,6 +300,12 @@ export default function CodeDetail() {
           if (block.fields && Array.isArray(block.fields)) {
             block.fields.forEach((field: any) => {
               const val = block.values[field.variableName] || "";
+              
+              if (field.conditionVar && field.conditionVar.trim() !== "") {
+                 const parentVal = block.values[field.conditionVar] || "";
+                 if (parentVal !== field.conditionVal) return;
+              }
+
               if (field.type === 'image') {
                 const imgData = val || { url: "", x: 50, y: 50, zoom: 100 };
                 if (imgData.url && imgData.url.trim() !== '') {
@@ -372,7 +386,55 @@ export default function CodeDetail() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const renderFieldUI = (field: any, val: any, onChange: (v: any) => void, refKey: string) => {
+  // 🌟 ฟังก์ชันเรนเดอร์ที่มีการเช็กเงื่อนไข (รับ allValues เพื่อใช้เปรียบเทียบ)
+  const renderFieldUI = (field: any, val: any, onChange: (v: any) => void, refKey: string, allValues: any) => {
+    
+    // 🌟 ดักเงื่อนไขการซ่อน/โชว์ ถ้าตั้งไว้แล้วค่าไม่ตรง ให้คืนค่าว่างเปล่าไปเลย (ไม่สร้างกล่อง)
+    if (field.conditionVar && field.conditionVar.trim() !== "") {
+      const parentVal = allValues[field.conditionVar] || "";
+      if (parentVal !== field.conditionVal) {
+        return null;
+      }
+    }
+
+    if (field.type === 'dropdown') {
+      const optionsArray = field.options ? field.options.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+      const isValueCustom = val && val !== "" && !optionsArray.includes(val);
+      const isCustom = customDropdowns[refKey] || isValueCustom;
+
+      return (
+        <div key={refKey} className="field-group">
+          <label className="field-label">{field.label}</label>
+          {isCustom ? (
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input type="text" className="glass-input" placeholder={`พิมพ์${field.label}ด้วยตัวเอง...`} value={val || ""} onChange={e => onChange(e.target.value)} />
+              <button type="button" className="tool-btn" style={{ padding: '0 12px' }} onClick={() => {
+                setCustomDropdowns(prev => ({ ...prev, [refKey]: false }));
+                onChange(optionsArray[0] || "");
+              }} title="กลับไปเลือกจากรายการ">
+                ↩️
+              </button>
+            </div>
+          ) : (
+            <select className="glass-input" value={val || ""} onChange={e => {
+              if (e.target.value === '__CUSTOM__') {
+                setCustomDropdowns(prev => ({ ...prev, [refKey]: true }));
+                onChange("");
+              } else {
+                onChange(e.target.value);
+              }
+            }}>
+              <option value="" disabled>-- เลือก{field.label} --</option>
+              {optionsArray.map((opt: string) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+              <option value="__CUSTOM__">✨ พิมพ์กำหนดค่าเอง...</option>
+            </select>
+          )}
+        </div>
+      );
+    }
+
     if (field.type === 'color') {
       const fallbackCol = getFallbackColor(field.variableName);
       return (
@@ -484,7 +546,6 @@ export default function CodeDetail() {
     '--danger-border': '#fca5a5'
   } as React.CSSProperties;
 
-  // 🌟 เงื่อนไขล็อกแบบ Full Lock (ไม่ใช่ Commission และยังไม่ได้ปลดล็อก)
   const isFullLocked = code.isLocked && !code.isCommission && !isUnlocked;
 
   return (
@@ -688,8 +749,9 @@ export default function CodeDetail() {
               {editMode === 'customize' && isUnlocked && (
                 <div className="customizer-box">
                   <h3 style={{ margin: 0, color: 'var(--color-primary)', fontSize: '1.1rem' }}>✨ ปรับแต่งฟิลด์หลัก</h3>
+                  {/* 🌟 Pass fieldValues เข้าไปเป็น allValues ด้วย เพื่อใช้เช็กเงื่อนไข */}
                   {code.customFields && code.customFields.map((field: any) => 
-                    renderFieldUI(field, fieldValues[field.variableName], (newVal) => setFieldValues({ ...fieldValues, [field.variableName]: newVal }), field.variableName)
+                    renderFieldUI(field, fieldValues[field.variableName], (newVal) => setFieldValues({ ...fieldValues, [field.variableName]: newVal }), field.variableName, fieldValues)
                   )}
 
                   {(code.blocks?.length > 0 || activeBlocks.length > 0) && (
@@ -708,7 +770,8 @@ export default function CodeDetail() {
                               </div>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                              {block.fields && Array.isArray(block.fields) && block.fields.map((field: any) => renderFieldUI(field, block.values[field.variableName], (newVal) => updateBlockValue(block.instanceId, field.variableName, newVal), `${block.instanceId}_${field.variableName}`))}
+                              {/* 🌟 Pass block.values เข้าไปเป็น allValues เพื่อใช้เช็กเงื่อนไขภายในบล็อก */}
+                              {block.fields && Array.isArray(block.fields) && block.fields.map((field: any) => renderFieldUI(field, block.values[field.variableName], (newVal) => updateBlockValue(block.instanceId, field.variableName, newVal), `${block.instanceId}_${field.variableName}`, block.values))}
                             </div>
                           </div>
                         )
@@ -730,7 +793,6 @@ export default function CodeDetail() {
               <div className="controls-row-right">
                 <div className="view-toggles">
                   <button className={`toggle-btn ${viewMode === 'preview' ? 'active' : ''}`} onClick={() => handleModeSwitch(editMode, 'preview')}>✨ Live Preview</button>
-                  {/* 🌟 ซ่อนปุ่ม HTML Code ในโหมด Original */}
                   {editMode === 'customize' && (
                     <button className={`toggle-btn ${viewMode === 'code' ? 'active' : ''}`} onClick={() => handleModeSwitch(editMode, 'code')}>
                       {code.isLocked && !isUnlocked ? "🔒 HTML Code" : "💻 HTML Code"}
@@ -740,7 +802,6 @@ export default function CodeDetail() {
               </div>
 
               <div className="display-area">
-                {/* 🌟 ซ่อนปุ่ม Copy ในโหมด Original */}
                 {editMode === 'customize' && (
                   <button className="btn-copy" onClick={handleCopy}>
                     {copied ? "✅ Copied!" : "📋 Copy HTML"}

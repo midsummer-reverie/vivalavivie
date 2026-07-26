@@ -9,15 +9,15 @@ export default function ManageCodes() {
   const [isSaving, setIsSaving] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: "", codeType: "", activityTags: [] as string[], // 🌟 เปลี่ยนเป็น Array
+    name: "", codeType: "", activityTags: [] as string[], 
     previewUrl: "", htmlCode: "", description: "",
-    isLocked: false, lockPassword: "", isCommission: false, // 🌟 เพิ่ม isCommission
+    isLocked: false, lockPassword: "", isCommission: false, 
     variations: [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", type: "replace", replacements: "**สีหลัก**=#d8b4fe", fullHtml: "" }],
-    customFields: [] as { id: string, label: string, variableName: string, type: string }[],
+    customFields: [] as any[], // เปลี่ยนเป็น any[] เพื่อความยืดหยุ่น
     blocks: [] as any[]
   });
 
-  const [tagInput, setTagInput] = useState(""); // 🌟 State สำหรับพิมพ์ Tag
+  const [tagInput, setTagInput] = useState(""); 
 
   const fetchCodes = async () => {
     try {
@@ -48,7 +48,6 @@ export default function ManageCodes() {
     }
   };
 
-  // 🌟 ฟังก์ชันจัดการ UI Tag
   const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
@@ -84,7 +83,7 @@ export default function ManageCodes() {
   };
   const handleAddFieldToBlock = (blockIndex: number) => {
     const newBlocks = [...formData.blocks];
-    newBlocks[blockIndex].fields.push({ id: `field_${Date.now()}`, variableName: "", label: "", type: "text" });
+    newBlocks[blockIndex].fields.push({ id: `field_${Date.now()}`, variableName: "", label: "", type: "text", options: "", conditionVar: "", conditionVal: "" });
     setFormData({ ...formData, blocks: newBlocks });
   };
   const handleUpdateBlockField = (blockIndex: number, fieldIndex: number, key: string, value: any) => {
@@ -121,14 +120,14 @@ export default function ManageCodes() {
 
         setFormData({
           name: code.name || "",
-          description: code.description || "", // 🌟 โหลด description เดิม
+          description: code.description || "", 
           codeType: code.codeType || "",
-          activityTags: code.activityTags || [], // 🌟 ดึงข้อมูลแท็กเป็น Array ตรงๆ
+          activityTags: code.activityTags || [], 
           previewUrl: code.previewUrl || "",
           htmlCode: code.htmlCode || "",
           isLocked: code.isLocked || false,
           lockPassword: code.lockPassword || "",
-          isCommission: code.isCommission || false, // 🌟 โหลดค่า isCommission
+          isCommission: code.isCommission || false, 
           variations: parsedVariations,
           customFields: parsedCustomFields,
           blocks: parsedBlocks
@@ -145,12 +144,12 @@ export default function ManageCodes() {
   const addVariation = () => setFormData({ ...formData, variations: [...formData.variations, { id: Date.now().toString(), label: "New Theme", color: "#bae6fd", type: "replace", replacements: "", fullHtml: "" }] });
   const removeVariation = (index: number) => setFormData({ ...formData, variations: formData.variations.filter((_, i) => i !== index) });
 
-  const handleCustomFieldChange = (index: number, field: string, value: string) => {
+  const handleCustomFieldChange = (index: number, field: string, value: any) => {
     const newFields = [...formData.customFields];
     newFields[index] = { ...newFields[index], [field]: value };
     setFormData({ ...formData, customFields: newFields });
   };
-  const addCustomField = () => setFormData({ ...formData, customFields: [...formData.customFields, { id: Date.now().toString(), label: "ชื่อตัวละคร", variableName: "**ชื่อตัวละคร**", type: "text" }] });
+  const addCustomField = () => setFormData({ ...formData, customFields: [...formData.customFields, { id: Date.now().toString(), label: "ชื่อตัวละคร", variableName: "**ชื่อตัวละคร**", type: "text", options: "", conditionVar: "", conditionVal: "" }] });
   const removeCustomField = (index: number) => setFormData({ ...formData, customFields: formData.customFields.filter((_, i) => i !== index) });
 
   const handleSave = async (e: React.FormEvent) => {
@@ -162,12 +161,13 @@ export default function ManageCodes() {
       id: isNew ? Math.floor(10000 + Math.random() * 90000).toString() : selectedCodeId,
       name: formData.name,
       codeType: formData.codeType,
-      activityTags: formData.activityTags, // 🌟 ส่ง Array ตรงๆ ไปเลย
+      activityTags: formData.activityTags, 
       previewUrl: formData.previewUrl,
       htmlCode: formData.htmlCode,
+      description: formData.description,
       isLocked: formData.isLocked,
       lockPassword: formData.isLocked ? formData.lockPassword : "",
-      isCommission: formData.isLocked ? formData.isCommission : false, // 🌟 บันทึกสถานะคอมมิชชั่น
+      isCommission: formData.isLocked ? formData.isCommission : false, 
       variations: JSON.stringify(formData.variations),
       customFields: JSON.stringify(formData.customFields),
       blocks: JSON.stringify(formData.blocks)
@@ -227,7 +227,6 @@ export default function ManageCodes() {
         .tag-remove { cursor: pointer; font-weight: bold; opacity: 0.8; transition: 0.2s; }
         .tag-remove:hover { opacity: 1; color: #fca5a5; }
         
-        /* 🌟 CSS สำหรับกล่อง Privacy */
         .privacy-box { background: rgba(255, 255, 255, 0.8); border-radius: 12px; padding: 20px; border: 1px solid rgba(216, 180, 254, 0.8); }
         .checkbox-label { display: flex; align-items: center; gap: 10px; font-weight: 600; color: #4c1d95; cursor: pointer; margin-bottom: 12px; }
         .custom-checkbox { width: 18px; height: 18px; accent-color: #a855f7; cursor: pointer; }
@@ -258,7 +257,6 @@ export default function ManageCodes() {
           <div className="form-grid-2">
             <div className="form-group"><label className="form-label">ประเภทโค้ด *</label><input type="text" required className="glass-input" value={formData.codeType} onChange={e => setFormData({...formData, codeType: e.target.value})} /></div>
             
-            {/* 🌟 จุดที่อัปเดต UI ใส่แท็ก */}
             <div className="form-group">
               <label className="form-label"><span>แท็กเสริม (Enter เพื่อเพิ่ม)</span></label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
@@ -281,7 +279,6 @@ export default function ManageCodes() {
           
           <div className="form-group"><label className="form-label">URL ภาพพรีวิว</label><input type="url" className="glass-input" value={formData.previewUrl} onChange={e => setFormData({...formData, previewUrl: e.target.value})} /></div>
 
-          {/* 🌟 ส่วน Privacy ปรับ UI ให้เลือกโหมดชัดเจน */}
           <h3 className="section-title">🔒 การตั้งค่าความเป็นส่วนตัว</h3>
           <div className="privacy-box">
             <div className="form-group" style={{ marginBottom: formData.isLocked ? '16px' : '0' }}>
@@ -382,15 +379,49 @@ export default function ManageCodes() {
                 <div className="form-group"><label className="form-label">ชื่อป้ายกำกับ</label><input type="text" required className="glass-input" value={field.label} onChange={e => handleCustomFieldChange(index, 'label', e.target.value)} /></div>
                 <div className="form-group"><label className="form-label">ชื่อตัวแปรในโค้ด (เช่น **ลิงก์ภาพเมจ**)</label><input type="text" required className="glass-input" style={{ fontFamily: 'monospace' }} value={field.variableName} onChange={e => handleCustomFieldChange(index, 'variableName', e.target.value)} /></div>
               </div>
+              
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">ประเภท</label>
                 <select className="glass-input" value={field.type} onChange={e => handleCustomFieldChange(index, 'type', e.target.value)}>
                   <option value="text">✏️ ข้อความสั้น (Input)</option>
                   <option value="richtext">📝 ข้อความยาว / Text Editor</option>
-                  <option value="roleplay">🎭 กล่อง Roleplay (นับคำ MS Word + Text Editor)</option>
+                  <option value="roleplay">🎭 กล่อง Roleplay (นับคำ)</option>
                   <option value="color">🎨 สี (Color Picker)</option>
-                  <option value="image">🖼️ รูปภาพ (ปรับซูม/เลื่อนตำแหน่ง หรือรองรับโค้ดเก่า center/cover)</option>
+                  <option value="image">🖼️ รูปภาพ (เลื่อนตำแหน่ง/ซูม)</option>
+                  <option value="dropdown">📋 ตัวเลือก (Dropdown + พิมพ์เอง)</option>
                 </select>
+              </div>
+
+              {field.type === 'dropdown' && (
+                <div className="form-group" style={{ marginTop: '16px', marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.85rem' }}>ระบุตัวเลือก (คั่นด้วยลูกน้ำ เช่น home, about, profile)</label>
+                  <input type="text" className="glass-input" placeholder="ใส่ตัวเลือกที่นี่..." value={field.options || ""} onChange={e => handleCustomFieldChange(index, 'options', e.target.value)} />
+                </div>
+              )}
+
+              {/* 🌟 ฟีเจอร์ตั้งเงื่อนไข (ซ่อน/โชว์) */}
+              <div style={{ padding: '12px', background: 'rgba(255,255,255,0.4)', borderRadius: '8px', marginTop: '16px' }}>
+                <label className="checkbox-label" style={{ fontSize: '0.85rem', marginBottom: field.conditionVar ? '8px' : '0' }}>
+                  <input type="checkbox" className="custom-checkbox" style={{ width: '14px', height: '14px' }} checked={!!field.conditionVar} onChange={e => {
+                    if (e.target.checked) {
+                      handleCustomFieldChange(index, 'conditionVar', "VAR_NAME");
+                    } else {
+                      const newFields = [...formData.customFields];
+                      delete newFields[index].conditionVar;
+                      delete newFields[index].conditionVal;
+                      setFormData({ ...formData, customFields: newFields });
+                    }
+                  }} />
+                  👁️ ซ่อนฟิลด์นี้ และจะโชว์ก็ต่อเมื่อ...
+                </label>
+                
+                {field.conditionVar !== undefined && (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input type="text" className="glass-input" style={{ padding: '6px 10px', fontSize: '0.85rem', flex: 1 }} placeholder="ตัวแปรที่ใช้เช็ก (เช่น **ชนิด**)" value={field.conditionVar === "VAR_NAME" ? "" : field.conditionVar} onChange={e => handleCustomFieldChange(index, 'conditionVar', e.target.value)} />
+                    <span style={{ fontWeight: 'bold', color: '#4c1d95' }}>=</span>
+                    <input type="text" className="glass-input" style={{ padding: '6px 10px', fontSize: '0.85rem', flex: 1 }} placeholder="ค่าที่ต้องตรงกัน (เช่น รูปภาพ)" value={field.conditionVal || ""} onChange={e => handleCustomFieldChange(index, 'conditionVal', e.target.value)} />
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -439,21 +470,38 @@ export default function ManageCodes() {
                       <button type="button" onClick={() => handleAddFieldToBlock(bIndex)} style={{ background: '#fff', color: '#6b21a8', border: '1px solid #c084fc', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>+ เพิ่มจุดแก้ไขย่อย</button>
                     </div>
                     {block.fields.map((field: any, fIndex: number) => (
-                      <div key={field.id} style={{ display: 'flex', gap: '12px', background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #e9d5ff', marginBottom: '8px', flexWrap: 'wrap' }}>
-                        <div style={{ flex: '1 1 200px' }}>
-                          <input type="text" value={field.label} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'label', e.target.value)} placeholder="ชื่อป้ายกำกับ (Label)" className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', marginBottom: '8px' }} />
-                          <input type="text" value={field.variableName} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'variableName', e.target.value)} placeholder="ตัวแปร (เช่น TEXT_1)" className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', fontFamily: 'monospace' }} />
+                      <div key={field.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #e9d5ff', marginBottom: '8px' }}>
+                        
+                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                          <div style={{ flex: '1 1 200px' }}>
+                            <input type="text" value={field.label} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'label', e.target.value)} placeholder="ชื่อป้ายกำกับ" className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', marginBottom: '8px' }} />
+                            <input type="text" value={field.variableName} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'variableName', e.target.value)} placeholder="ตัวแปร (เช่น TEXT_1)" className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', fontFamily: 'monospace' }} />
+                          </div>
+                          <div style={{ flex: '0 0 160px' }}>
+                            <select value={field.type} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'type', e.target.value)} className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', width: '100%' }}>
+                              <option value="text">ข้อความสั้น</option>
+                              <option value="richtext">กล่องข้อความ</option>
+                              <option value="roleplay">โรลเพลย์</option>
+                              <option value="image">รูปภาพ</option>
+                              <option value="color">เลือกสี</option>
+                              <option value="dropdown">ตัวเลือก</option>
+                            </select>
+                            
+                            {field.type === 'dropdown' && (
+                              <input type="text" value={field.options || ""} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'options', e.target.value)} placeholder="คั่นด้วยลูกน้ำ (,)" className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', marginTop: '8px', width: '100%' }} />
+                            )}
+                          </div>
+                          <button type="button" onClick={() => handleRemoveBlockField(bIndex, fIndex)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '4px' }} title="ลบ Field">✕</button>
                         </div>
-                        <div style={{ flex: '0 0 160px' }}>
-                          <select value={field.type} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'type', e.target.value)} className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', width: '100%' }}>
-                            <option value="text">ข้อความสั้น</option>
-                            <option value="richtext">กล่องข้อความ (BBCode)</option>
-                            <option value="roleplay">โรลเพลย์ (นับคำ)</option>
-                            <option value="image">รูปภาพ</option>
-                            <option value="color">เลือกสี</option>
-                          </select>
+
+                        {/* 🌟 ฟีเจอร์ตั้งเงื่อนไข สำหรับใน Block */}
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(216, 180, 254, 0.2)', padding: '8px', borderRadius: '6px' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#6b21a8' }}>👁️ โชว์เมื่อ:</span>
+                          <input type="text" className="glass-input" style={{ padding: '4px 8px', fontSize: '0.75rem', flex: 1 }} placeholder="ตัวแปรหลัก (ปล่อยว่างถ้าโชว์ตลอด)" value={field.conditionVar || ""} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'conditionVar', e.target.value)} />
+                          <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#6b21a8' }}>=</span>
+                          <input type="text" className="glass-input" style={{ padding: '4px 8px', fontSize: '0.75rem', flex: 1 }} placeholder="ค่าที่กำหนด" value={field.conditionVal || ""} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'conditionVal', e.target.value)} />
                         </div>
-                        <button type="button" onClick={() => handleRemoveBlockField(bIndex, fIndex)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '4px' }} title="ลบ Field">✕</button>
+
                       </div>
                     ))}
                   </div>

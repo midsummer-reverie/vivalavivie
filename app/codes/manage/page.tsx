@@ -9,18 +9,15 @@ export default function ManageCodes() {
   const [isSaving, setIsSaving] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: "", 
-    codeType: "", 
-    activityTags: "",
-    previewUrl: "", 
-    htmlCode: "", 
-    isLocked: false, 
-    lockPassword: "",
-    // 🌟 อัปเดตโครงสร้าง Variations ให้รองรับ type และ fullHtml
+    name: "", codeType: "", activityTags: [] as string[], // 🌟 เปลี่ยนเป็น Array
+    previewUrl: "", htmlCode: "", description: "",
+    isLocked: false, lockPassword: "", isCommission: false, // 🌟 เพิ่ม isCommission
     variations: [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", type: "replace", replacements: "**สีหลัก**=#d8b4fe", fullHtml: "" }],
     customFields: [] as { id: string, label: string, variableName: string, type: string }[],
     blocks: [] as any[]
   });
+
+  const [tagInput, setTagInput] = useState(""); // 🌟 State สำหรับพิมพ์ Tag
 
   const fetchCodes = async () => {
     try {
@@ -46,24 +43,28 @@ export default function ManageCodes() {
       const end = target.selectionEnd;
       const value = target.value;
       const newValue = value.substring(0, start) + "  " + value.substring(end);
-      
       onChangeCallback(newValue);
-      
-      setTimeout(() => {
-        target.selectionStart = target.selectionEnd = start + 2;
-      }, 0);
+      setTimeout(() => { target.selectionStart = target.selectionEnd = start + 2; }, 0);
     }
   };
 
-  const handleAddBlock = (type: string) => {
-    let newBlock = { 
-      id: `block_${Date.now()}`, 
-      name: "", 
-      placeholder: "", 
-      html: "", 
-      fields: [] as any[] 
-    };
+  // 🌟 ฟังก์ชันจัดการ UI Tag
+  const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const t = tagInput.trim().replace(/,/g, '');
+      if (t && !formData.activityTags.includes(t)) {
+        setFormData({ ...formData, activityTags: [...formData.activityTags, t] });
+      }
+      setTagInput("");
+    }
+  };
+  const handleRemoveTag = (tagToRemove: string) => {
+    setFormData({ ...formData, activityTags: formData.activityTags.filter(t => t !== tagToRemove) });
+  };
 
+  const handleAddBlock = (type: string) => {
+    let newBlock = { id: `block_${Date.now()}`, name: "", placeholder: "", html: "", fields: [] as any[] };
     if (type === "gallery") {
       newBlock = { ...newBlock, name: "แกลลอรี่ภาพ", placeholder: "[[GALLERY_HERE]]", html: "<div class=\"gallery\">\n  <img src=\"**IMG_1**\" />\n</div>", fields: [{ id: `field_${Date.now()}_1`, variableName: "**IMG_1**", label: "รูปที่ 1", type: "image" }] };
     } else if (type === "textbox") {
@@ -71,42 +72,26 @@ export default function ManageCodes() {
     } else {
       newBlock = { ...newBlock, name: "บล็อกเปล่า", placeholder: "[[PLACEHOLDER]]" };
     }
-
-    setFormData({
-      ...formData,
-      blocks: [...formData.blocks, newBlock]
-    });
+    setFormData({ ...formData, blocks: [...formData.blocks, newBlock] });
   };
-
   const handleUpdateBlock = (index: number, key: string, value: any) => {
     const newBlocks = [...formData.blocks];
     newBlocks[index] = { ...newBlocks[index], [key]: value };
     setFormData({ ...formData, blocks: newBlocks });
   };
-
   const handleRemoveBlock = (index: number) => {
-    if (confirm("ลบบล็อกนี้ทิ้งใช่หรือไม่?")) {
-      setFormData({ ...formData, blocks: formData.blocks.filter((_, i) => i !== index) });
-    }
+    if (confirm("ลบบล็อกนี้ทิ้งใช่หรือไม่?")) setFormData({ ...formData, blocks: formData.blocks.filter((_, i) => i !== index) });
   };
-
   const handleAddFieldToBlock = (blockIndex: number) => {
     const newBlocks = [...formData.blocks];
-    newBlocks[blockIndex].fields.push({
-      id: `field_${Date.now()}`,
-      variableName: "",
-      label: "",
-      type: "text"
-    });
+    newBlocks[blockIndex].fields.push({ id: `field_${Date.now()}`, variableName: "", label: "", type: "text" });
     setFormData({ ...formData, blocks: newBlocks });
   };
-
   const handleUpdateBlockField = (blockIndex: number, fieldIndex: number, key: string, value: any) => {
     const newBlocks = [...formData.blocks];
     newBlocks[blockIndex].fields[fieldIndex] = { ...newBlocks[blockIndex].fields[fieldIndex], [key]: value };
     setFormData({ ...formData, blocks: newBlocks });
   };
-
   const handleRemoveBlockField = (blockIndex: number, fieldIndex: number) => {
     const newBlocks = [...formData.blocks];
     newBlocks[blockIndex].fields = newBlocks[blockIndex].fields.filter((_: any, i: number) => i !== fieldIndex);
@@ -118,19 +103,15 @@ export default function ManageCodes() {
   useEffect(() => {
     if (selectedCodeId === "new") {
       setFormData({
-        name: "", codeType: "", activityTags: "", previewUrl: "", htmlCode: "", 
-        isLocked: false, lockPassword: "",
+        name: "", codeType: "", activityTags: [], previewUrl: "", htmlCode: "", description: "",
+        isLocked: false, lockPassword: "", isCommission: false,
         variations: [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", type: "replace", replacements: "", fullHtml: "" }],
-        customFields: [],
-        blocks: []
+        customFields: [], blocks: []
       });
     } else {
       const code = codes.find(c => c.id === selectedCodeId);
       if (code) {
-        let parsedVariations = [];
-        let parsedCustomFields = [];
-        let parsedBlocks = []; 
-        
+        let parsedVariations = []; let parsedCustomFields = []; let parsedBlocks = []; 
         try { parsedVariations = code.variations ? JSON.parse(code.variations) : []; } catch { parsedVariations = []; }
         try { parsedCustomFields = code.customFields ? JSON.parse(code.customFields) : []; } catch { parsedCustomFields = []; }
         try { parsedBlocks = code.blocks ? (typeof code.blocks === 'string' ? JSON.parse(code.blocks) : code.blocks) : []; } catch { parsedBlocks = []; }
@@ -140,12 +121,14 @@ export default function ManageCodes() {
 
         setFormData({
           name: code.name || "",
+          description: code.description || "", // 🌟 โหลด description เดิม
           codeType: code.codeType || "",
-          activityTags: code.activityTags ? code.activityTags.join(", ") : "",
+          activityTags: code.activityTags || [], // 🌟 ดึงข้อมูลแท็กเป็น Array ตรงๆ
           previewUrl: code.previewUrl || "",
           htmlCode: code.htmlCode || "",
           isLocked: code.isLocked || false,
           lockPassword: code.lockPassword || "",
+          isCommission: code.isCommission || false, // 🌟 โหลดค่า isCommission
           variations: parsedVariations,
           customFields: parsedCustomFields,
           blocks: parsedBlocks
@@ -175,17 +158,16 @@ export default function ManageCodes() {
     setIsSaving(true);
     
     const isNew = selectedCodeId === "new";
-    const tagsArray = formData.activityTags.split(',').map(tag => tag.trim()).filter(tag => tag !== "");
-
     const payload = {
       id: isNew ? Math.floor(10000 + Math.random() * 90000).toString() : selectedCodeId,
       name: formData.name,
       codeType: formData.codeType,
-      activityTags: tagsArray,
+      activityTags: formData.activityTags, // 🌟 ส่ง Array ตรงๆ ไปเลย
       previewUrl: formData.previewUrl,
       htmlCode: formData.htmlCode,
       isLocked: formData.isLocked,
       lockPassword: formData.isLocked ? formData.lockPassword : "",
+      isCommission: formData.isLocked ? formData.isCommission : false, // 🌟 บันทึกสถานะคอมมิชชั่น
       variations: JSON.stringify(formData.variations),
       customFields: JSON.stringify(formData.customFields),
       blocks: JSON.stringify(formData.blocks)
@@ -241,6 +223,14 @@ export default function ManageCodes() {
         .back-btn { display: inline-block; margin-bottom: 20px; text-decoration: none; font-weight: 600; color: #4c1d95; background: rgba(255,255,255,0.5); padding: 8px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.6); }
         .variation-box { background: rgba(255,255,255,0.4); border: 1px solid rgba(216, 180, 254, 0.5); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
         .color-picker { padding: 2px; height: 42px; width: 60px; cursor: pointer; border-radius: 8px; border: 1px solid rgba(216, 180, 254, 0.6); }
+        .tag-chip { background: #a855f7; color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(168, 85, 247, 0.3); }
+        .tag-remove { cursor: pointer; font-weight: bold; opacity: 0.8; transition: 0.2s; }
+        .tag-remove:hover { opacity: 1; color: #fca5a5; }
+        
+        /* 🌟 CSS สำหรับกล่อง Privacy */
+        .privacy-box { background: rgba(255, 255, 255, 0.8); border-radius: 12px; padding: 20px; border: 1px solid rgba(216, 180, 254, 0.8); }
+        .checkbox-label { display: flex; align-items: center; gap: 10px; font-weight: 600; color: #4c1d95; cursor: pointer; margin-bottom: 12px; }
+        .custom-checkbox { width: 18px; height: 18px; accent-color: #a855f7; cursor: pointer; }
       `}} />
 
       <Link href="/codes" className="back-btn">← กลับไปหน้า Showcase</Link>
@@ -261,11 +251,65 @@ export default function ManageCodes() {
         <form onSubmit={handleSave}>
           <h3 className="section-title">📌 ข้อมูลทั่วไป</h3>
           <div className="form-group"><label className="form-label">ชื่อชุดโค้ด *</label><input type="text" required className="glass-input" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
+          <div className="form-group">
+            <label className="form-label">คำอธิบายสั้น ๆ (ไม่บังคับ)</label>
+            <input type="text" className="glass-input" placeholder="เช่น ใช้ได้เฉพาะหน้าเทศกาลเท่านั้น..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+          </div>
           <div className="form-grid-2">
             <div className="form-group"><label className="form-label">ประเภทโค้ด *</label><input type="text" required className="glass-input" value={formData.codeType} onChange={e => setFormData({...formData, codeType: e.target.value})} /></div>
-            <div className="form-group"><label className="form-label"><span>แท็กเสริม</span></label><input type="text" className="glass-input" value={formData.activityTags} onChange={e => setFormData({...formData, activityTags: e.target.value})} /></div>
+            
+            {/* 🌟 จุดที่อัปเดต UI ใส่แท็ก */}
+            <div className="form-group">
+              <label className="form-label"><span>แท็กเสริม (Enter เพื่อเพิ่ม)</span></label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                {formData.activityTags.map(tag => (
+                  <span key={tag} className="tag-chip">
+                    {tag} <span className="tag-remove" onClick={() => handleRemoveTag(tag)}>✕</span>
+                  </span>
+                ))}
+              </div>
+              <input 
+                type="text" 
+                className="glass-input" 
+                placeholder="พิมพ์แล้วกด Enter..." 
+                value={tagInput} 
+                onChange={e => setTagInput(e.target.value)} 
+                onKeyDown={handleAddTag} 
+              />
+            </div>
           </div>
+          
           <div className="form-group"><label className="form-label">URL ภาพพรีวิว</label><input type="url" className="glass-input" value={formData.previewUrl} onChange={e => setFormData({...formData, previewUrl: e.target.value})} /></div>
+
+          {/* 🌟 ส่วน Privacy ปรับ UI ให้เลือกโหมดชัดเจน */}
+          <h3 className="section-title">🔒 การตั้งค่าความเป็นส่วนตัว</h3>
+          <div className="privacy-box">
+            <div className="form-group" style={{ marginBottom: formData.isLocked ? '16px' : '0' }}>
+              <label className="form-label">โหมดการแสดงผล</label>
+              <select 
+                className="glass-input" 
+                style={{ fontWeight: 'bold' }}
+                value={formData.isLocked ? (formData.isCommission ? 'commission' : 'private') : 'public'}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === 'public') setFormData({...formData, isLocked: false, isCommission: false, lockPassword: ""});
+                  if (val === 'commission') setFormData({...formData, isLocked: true, isCommission: true});
+                  if (val === 'private') setFormData({...formData, isLocked: true, isCommission: false});
+                }}
+              >
+                <option value="public">🌍 โค้ดสาธารณะ (ค้นหาเจอ, โชว์พรีวิว, ก๊อปปี้และปรับแต่งได้อิสระ)</option>
+                <option value="commission">💎 โค้ดคอมมิชชั่น (ค้นหาเจอ, โชว์พรีวิวได้, แต่ล็อกการคัดลอก/ปรับแต่ง)</option>
+                <option value="private">🔒 โค้ดส่วนตัว (เบลอภาพ, ซ่อนชื่อ, ค้นหาแท็กไม่เจอ, ล็อก 100%)</option>
+              </select>
+            </div>
+            
+            {formData.isLocked && (
+              <div style={{ padding: '16px', background: 'rgba(216, 180, 254, 0.2)', borderRadius: '12px', border: '1px solid rgba(216, 180, 254, 0.5)' }}>
+                <label className="form-label" style={{ color: '#4c1d95', fontSize: '0.9rem' }}>🔑 ตั้งรหัสผ่านสำหรับโค้ดนี้</label>
+                <input type="text" required className="glass-input" placeholder="พิมพ์รหัสผ่าน..." value={formData.lockPassword} onChange={e => setFormData({...formData, lockPassword: e.target.value})} />
+              </div>
+            )}
+          </div>
 
           <h3 className="section-title">💻 โค้ด HTML (Template หลัก)</h3>
           <div className="form-group">
@@ -292,7 +336,6 @@ export default function ManageCodes() {
                 <div className="form-group"><label className="form-label">สีปุ่มพรีวิว</label><input type="color" className="color-picker" value={v.color} onChange={e => handleVariationChange(index, 'color', e.target.value)} /></div>
               </div>
               
-              {/* 🌟 เลือกรูปแบบของ Preset */}
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label className="form-label">รูปแบบพรีเซ็ต</label>
                 <select className="glass-input" value={v.type || "replace"} onChange={e => handleVariationChange(index, 'type', e.target.value)}>
@@ -328,9 +371,6 @@ export default function ManageCodes() {
           ))}
           <button type="button" className="btn-add" onClick={addVariation}>+ เพิ่มพรีเซ็ต</button>
 
-          {/* ซ่อนส่วน Custom Fields และ Dynamic Blocks ในโค้ดตัวอย่างเพื่อให้สั้นลง แต่มันยังเหมือนเดิมทุกประการ */}
-          {/* ... โค้ด Custom Fields และ Dynamic Blocks ส่วนล่างยังเหมือนเดิมที่ส่งไปก่อนหน้าเลยครับ ... */}
-
           <h3 className="section-title">🛠️ กำหนดจุดที่ให้ผู้ใช้ปรับแต่ง (Custom Fields)</h3>
           {formData.customFields.map((field, index) => (
             <div key={field.id} className="variation-box" style={{ borderColor: '#60a5fa', background: 'rgba(239, 246, 255, 0.4)' }}>
@@ -361,18 +401,12 @@ export default function ManageCodes() {
               <h3 style={{ margin: 0, color: '#4c1d95', fontSize: '1.15rem', fontWeight: 700 }}>🧱 จัดการส่วนเสริม (Dynamic Blocks)</h3>
               
               <div style={{ display: 'flex', gap: '8px' }}>
-                <select 
-                  id="add-block-select" 
-                  className="glass-input" 
-                  style={{ width: 'auto', padding: '8px 12px', fontWeight: 'bold' }}
-                >
+                <select id="add-block-select" className="glass-input" style={{ width: 'auto', padding: '8px 12px', fontWeight: 'bold' }}>
                   <option value="blank">📦 บล็อกเปล่า</option>
                   <option value="gallery">🖼️ บล็อก: แกลลอรี่ภาพ</option>
                   <option value="textbox">📝 บล็อก: กล่องข้อความ</option>
                 </select>
-                <button type="button" onClick={() => handleAddBlock((document.getElementById('add-block-select') as HTMLSelectElement).value)} style={{ background: '#a855f7', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                  ➕ เพิ่ม
-                </button>
+                <button type="button" onClick={() => handleAddBlock((document.getElementById('add-block-select') as HTMLSelectElement).value)} style={{ background: '#a855f7', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', whiteSpace: 'nowrap' }}>➕ เพิ่ม</button>
               </div>
             </div>
 
@@ -381,14 +415,10 @@ export default function ManageCodes() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {formData.blocks.map((block, bIndex) => (
                 <div key={block.id} style={{ background: '#fff', border: '1px solid #d8b4fe', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 12px rgba(139, 92, 246, 0.05)' }}>
-                  
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
                     <h4 style={{ margin: 0, color: '#6b21a8' }}>บล็อกที่ {bIndex + 1}</h4>
-                    <button type="button" onClick={() => handleRemoveBlock(bIndex)} style={{ background: '#fee2e2', color: '#ef4444', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                      🗑️ ลบบล็อก
-                    </button>
+                    <button type="button" onClick={() => handleRemoveBlock(bIndex)} style={{ background: '#fee2e2', color: '#ef4444', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>🗑️ ลบบล็อก</button>
                   </div>
-
                   <div className="form-grid-2">
                     <div className="form-group" style={{ marginBottom: '16px' }}>
                       <label className="form-label" style={{ fontSize: '0.85rem' }}>ชื่อบล็อก (ให้ผู้ใช้เห็น)</label>
@@ -397,30 +427,17 @@ export default function ManageCodes() {
                     <div className="form-group" style={{ marginBottom: '16px' }}>
                       <label className="form-label" style={{ fontSize: '0.85rem' }}>ตัวแทนตำแหน่ง (Placeholder)</label>
                       <input type="text" value={block.placeholder} onChange={(e) => handleUpdateBlock(bIndex, 'placeholder', e.target.value)} placeholder="เช่น [[GALLERY_HERE]]" className="glass-input" style={{ fontFamily: 'monospace' }} />
-                      <div className="form-hint" style={{ marginTop: '4px' }}>*ต้องเอาคำนี้ไปแทรกไว้ใน "โค้ด HTML หลัก" ด้านบนด้วยนะ</div>
                     </div>
                   </div>
-
                   <div className="form-group" style={{ marginBottom: '16px' }}>
                     <label className="form-label" style={{ fontSize: '0.85rem' }}>โค้ด HTML เฉพาะส่วนของบล็อกนี้</label>
-                    <textarea 
-                      value={block.html} 
-                      onChange={(e) => handleUpdateBlock(bIndex, 'html', e.target.value)} 
-                      onKeyDown={e => handleCodeKeyDown(e, (val) => handleUpdateBlock(bIndex, 'html', val))}
-                      placeholder="<div class='song-box'>...</div>" 
-                      className="glass-input code-textarea custom-scrollbar" 
-                      rows={4} 
-                    />
+                    <textarea value={block.html} onChange={(e) => handleUpdateBlock(bIndex, 'html', e.target.value)} onKeyDown={e => handleCodeKeyDown(e, (val) => handleUpdateBlock(bIndex, 'html', val))} placeholder="<div class='song-box'>...</div>" className="glass-input code-textarea custom-scrollbar" rows={4} />
                   </div>
-
                   <div style={{ background: 'rgba(243, 232, 255, 0.5)', padding: '16px', borderRadius: '12px', marginTop: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                       <strong style={{ color: '#4c1d95', fontSize: '0.9rem' }}>🛠️ จุดแก้ไข (Fields) ภายในบล็อกนี้</strong>
-                      <button type="button" onClick={() => handleAddFieldToBlock(bIndex)} style={{ background: '#fff', color: '#6b21a8', border: '1px solid #c084fc', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                        + เพิ่มจุดแก้ไขย่อย
-                      </button>
+                      <button type="button" onClick={() => handleAddFieldToBlock(bIndex)} style={{ background: '#fff', color: '#6b21a8', border: '1px solid #c084fc', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>+ เพิ่มจุดแก้ไขย่อย</button>
                     </div>
-
                     {block.fields.map((field: any, fIndex: number) => (
                       <div key={field.id} style={{ display: 'flex', gap: '12px', background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #e9d5ff', marginBottom: '8px', flexWrap: 'wrap' }}>
                         <div style={{ flex: '1 1 200px' }}>
@@ -436,14 +453,10 @@ export default function ManageCodes() {
                             <option value="color">เลือกสี</option>
                           </select>
                         </div>
-                        <button type="button" onClick={() => handleRemoveBlockField(bIndex, fIndex)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '4px' }} title="ลบ Field">
-                          ✕
-                        </button>
+                        <button type="button" onClick={() => handleRemoveBlockField(bIndex, fIndex)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '4px' }} title="ลบ Field">✕</button>
                       </div>
                     ))}
-                    {block.fields.length === 0 && <p style={{ fontSize: '0.85rem', color: '#a78bfa', margin: '4px 0', textAlign: 'center' }}>ยังไม่มีจุดแก้ไขในบล็อกนี้</p>}
                   </div>
-
                 </div>
               ))}
             </div>

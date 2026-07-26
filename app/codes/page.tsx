@@ -11,6 +11,7 @@ type CodeType = {
   activityTags?: string[];
   previewUrl?: string;
   isLocked: boolean;
+  isCommission?: boolean; // 🌟 เพิ่มฟิลด์แยกประเภทคอมมิชชั่น
 };
 
 export default function CodesShowcase() {
@@ -39,14 +40,20 @@ export default function CodesShowcase() {
     fetchCodes();
   }, []);
 
-  const uniqueTypes = Array.from(new Set(codes.filter(c => !c.isLocked).map(c => c.codeType))).sort();
-  const uniqueActivities = Array.from(new Set(codes.filter(c => !c.isLocked).flatMap(c => c.activityTags || []))).sort();
+  // 🌟 กรองเฉพาะโค้ดที่ไม่ใช่ Private (ให้แสดง Type และ Activity เฉพาะ Public กับ Commission)
+  const nonPrivateCodes = codes.filter(c => !c.isLocked || c.isCommission);
+  const uniqueTypes = Array.from(new Set(nonPrivateCodes.map(c => c.codeType))).sort();
+  const uniqueActivities = Array.from(new Set(nonPrivateCodes.flatMap(c => c.activityTags || []))).sort();
 
   const filteredCodes = codes.filter((code) => {
-    if (code.isLocked) {
+    const isPrivate = code.isLocked && !code.isCommission;
+
+    // 🌟 ถ้าเป็น Private และมีการพิมพ์ค้นหา/ฟิลเตอร์ ให้ซ่อนออกไปเลย (ห้ามให้เสิร์ชเจอ)
+    if (isPrivate) {
       if (searchTerm !== "" || filterType !== "All" || filterActivity !== "All") return false;
-      return true;
+      return true; // ถ้าไม่ได้เสิร์ช ให้โชว์เป็นการ์ดลับไว้ด้านหลังสุดตามเดิม
     }
+
     const matchName = code.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchType = filterType === "All" || code.codeType === filterType;
     const matchActivity = filterActivity === "All" || (code.activityTags && code.activityTags.includes(filterActivity));
@@ -71,9 +78,9 @@ export default function CodesShowcase() {
       style={{
         '--glass-bg': 'rgba(255, 255, 255, 0.35)',
         '--glass-border': 'rgba(255, 255, 255, 0.5)',
-        '--text-dark': '#2e1065', /* สีม่วงเข้ม */
-        '--theme-primary': '#d8b4fe', /* ม่วงพาสเทล */
-        '--theme-secondary': '#bae6fd', /* ฟ้าพาสเทล */
+        '--text-dark': '#2e1065',
+        '--theme-primary': '#d8b4fe',
+        '--theme-secondary': '#bae6fd',
         '--radius-lg': '20px',
         '--radius-md': '12px',
       } as React.CSSProperties}
@@ -84,7 +91,6 @@ export default function CodesShowcase() {
         .code-page-wrapper {
           min-height: 100vh; margin: 0; padding: 4vw;
           font-family: 'Google Sans', sans-serif; color: var(--text-dark);
-          /* 🌟 ปรับพื้นหลัง ม่วง-ฟ้า หวานแต่แอบลึกลับ */
           background: radial-gradient(circle at 15% 20%, #e9d5ff 0%, transparent 50%),
                       radial-gradient(circle at 85% 80%, #bae6fd 0%, transparent 50%),
                       linear-gradient(135deg, #f3e8ff 0%, #e0f2fe 100%);
@@ -99,7 +105,6 @@ export default function CodesShowcase() {
         .main-title { font-size: 2.5rem; font-weight: 700; margin: 0; letter-spacing: -0.02em; position: relative; z-index: 10; }
         .ios-highlight { background-color: var(--theme-primary); color: #2e1065; padding: 0 6px; display: inline-block; line-height: 1.1; border-radius: 4px; }
 
-        /* 🌟 PNG ลอยๆ พร้อมเอฟเฟกต์เรืองแสงเบาๆ ให้ดูลึกลับ */
         .img-float { position: absolute; background-size: contain; background-repeat: no-repeat; background-position: center; pointer-events: none; z-index: 1; }
         .img-1 { width: 50px; height: 50px; top: -20px; left: 22%; background-image: url('https://iili.io/COFNW1p.md.png'); animation: floatFade 5s ease-in-out infinite; }
         .img-2 { width: 60px; height: 60px; bottom: -30px; left: 28%; background-image: url('https://iili.io/COFNj2I.md.png'); animation: floatFade 6s ease-in-out infinite 1s; }
@@ -118,7 +123,6 @@ export default function CodesShowcase() {
           .img-3 { right: 5%; } .img-4 { right: 12%; }
         }
 
-        /* Toolbar (Search & Filters) */
         .toolbar {
           display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: center;
           margin-bottom: 30px; background: rgba(255,255,255,0.3); padding: 16px;
@@ -140,7 +144,6 @@ export default function CodesShowcase() {
         }
         .glass-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(216, 180, 254, 0.5); }
 
-        /* Grid & Cards */
         .code-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 24px; padding-bottom: 40px; }
 
         @keyframes cardEnter { 0% { opacity: 0; transform: translateY(25px); } 100% { opacity: 1; transform: translateY(0); } }
@@ -159,8 +162,9 @@ export default function CodesShowcase() {
         .card-preview img { width: 100%; height: 100%; object-fit: cover; transition: 0.4s; }
         .code-card:hover .card-preview img { transform: scale(1.05); }
         
-        .is-locked .card-preview img { filter: blur(12px) brightness(0.7); transform: scale(1.1); }
-        .is-locked:hover .card-preview img { transform: scale(1.1); }
+        /* 🌟 เบลอภาพเฉพาะ Private เท่านั้น */
+        .is-private .card-preview img { filter: blur(12px) brightness(0.7); transform: scale(1.1); }
+        .is-private:hover .card-preview img { transform: scale(1.1); }
         .lock-icon-overlay {
           position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
           font-size: 3rem; color: rgba(255,255,255,0.9); text-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 2;
@@ -173,6 +177,7 @@ export default function CodesShowcase() {
         .tags-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
         .tag-type { background: rgba(216, 180, 254, 0.5); color: #4c1d95; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 12px; }
         .tag-activity { background: rgba(255, 255, 255, 0.6); color: #4c1d95; font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 12px; border: 1px solid rgba(216, 180, 254, 0.4); }
+        .tag-commission { background: #fef08a; color: #854d0e; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 12px; }
 
         .back-btn {
           display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; text-decoration: none; color: var(--text-dark);
@@ -182,7 +187,6 @@ export default function CodesShowcase() {
         .back-btn:hover { background: rgba(255,255,255,0.8); transform: translateX(-4px); }
         .empty-state { text-align: center; padding: 40px; color: #6b21a8; font-weight: 500; grid-column: 1 / -1; }
 
-        /* Modal Auth */
         .modal-overlay { position: fixed; inset: 0; background: rgba(46, 16, 101, 0.3); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 100; animation: fadeIn 0.3s; }
         .modal-content { background: rgba(255, 255, 255, 0.85); padding: 32px; border-radius: var(--radius-lg); width: 90%; max-width: 400px; text-align: center; border: 1px solid var(--glass-border); box-shadow: 0 20px 40px rgba(46, 16, 101, 0.2); }
         .modal-title { margin: 0 0 16px; font-weight: 700; font-size: 1.5rem; color: var(--text-dark); }
@@ -193,7 +197,6 @@ export default function CodesShowcase() {
         @keyframes fadeIn { to { opacity: 1; } }
       `}} />
 
-      {/* Auth Modal */}
       {showAuthModal && (
         <div className="modal-overlay" onClick={() => setShowAuthModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -215,7 +218,6 @@ export default function CodesShowcase() {
         <Link href="/" className="back-btn">← back to home</Link>
 
         <div className="header-section">
-          {/* 🌟 PNG ลอยๆ */}
           <div className="img-float img-1" />
           <div className="img-float img-2" />
           <div className="img-float img-3" />
@@ -249,30 +251,34 @@ export default function CodesShowcase() {
           {filteredCodes.length > 0 ? (
             filteredCodes.map((code, index) => {
               const bgImageUrl = code.previewUrl || "https://iili.io/CNQcH1j.md.png";
-              const isLocked = code.isLocked;
+              
+              // 🌟 แยกประเภทการล็อกอย่างเด็ดขาด
+              const isPrivate = code.isLocked && !code.isCommission;
+              const isCommission = code.isLocked && code.isCommission;
 
               return (
                 <Link 
                   href={`/codes/${code.id}`}
-                  className={`code-card ${isLocked ? 'is-locked' : ''}`} 
+                  className={`code-card ${isPrivate ? 'is-private' : ''}`} 
                   key={code.id}
                   style={{ animationDelay: `${index * 0.08}s` }}
                 >
                   <div className="card-preview">
-                    {isLocked && <div className="lock-icon-overlay">🔒</div>}
-                    <img src={bgImageUrl} alt={isLocked ? 'Locked Preview' : code.name} loading="lazy" />
+                    {isPrivate && <div className="lock-icon-overlay">🔒</div>}
+                    <img src={bgImageUrl} alt={isPrivate ? 'Private Preview' : code.name} loading="lazy" />
                   </div>
                   
                   <div className="card-info">
-                    {isLocked ? (
+                    {isPrivate ? (
                       <h3 className="code-name censored-name">████████</h3>
                     ) : (
                       <h3 className="code-name">{code.name}</h3>
                     )}
                     
-                    {!isLocked && (
+                    {!isPrivate && (
                       <div className="tags-container">
                         <span className="tag-type">{code.codeType}</span>
+                        {isCommission && <span className="tag-commission">💎 Commission</span>}
                         {code.activityTags && code.activityTags.map((tag, i) => (
                           <span key={i} className="tag-activity">{tag}</span>
                         ))}

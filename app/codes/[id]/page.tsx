@@ -11,9 +11,12 @@ export default function CodeDetail() {
   const [code, setCode] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(false); 
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState(false);
+  
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{mode: 'original'|'customize', vMode: 'preview'|'code'} | null>(null);
 
   const [editMode, setEditMode] = useState<'original' | 'customize'>('original');
   const [activeVariation, setActiveVariation] = useState<number>(0);
@@ -54,18 +57,22 @@ export default function CodeDetail() {
             if (!Array.isArray(foundCode.blocks)) foundCode.blocks = [];
 
             setCode(foundCode);
-            if (!foundCode.isLocked) setIsUnlocked(true);
+
+            // 🌟 ตรวจสอบโหมดการล็อก
+            if (!foundCode.isLocked) {
+              setIsUnlocked(true); // โค้ดปกติ เปิดหมด
+            } else if (foundCode.isCommission) {
+              setIsUnlocked(false); // โค้ดคอมมิชชั่น ให้เห็นแค่พรีวิว ไม่บังคับล็อกทั้งหน้า
+            } else {
+              setIsUnlocked(false); // โค้ดไพรเวท (isLocked = true, isCommission = false) ล็อกทั้งหน้าแต่แรก
+            }
 
             initFieldValues(foundCode);
             loadDraftsFromStorage(codeId);
           }
         }
-      } catch (error) { 
-        console.error(error); 
-      } 
-      finally { 
-        setLoading(false); 
-      }
+      } catch (error) { console.error(error); } 
+      finally { setLoading(false); }
     };
     fetchCode();
   }, [codeId]);
@@ -138,63 +145,56 @@ export default function CodeDetail() {
     }
   };
 
-  const handleUnlock = (e: React.FormEvent) => {
+  const handleUnlockSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordInput === code.lockPassword) {
+    if (passwordInput === code?.lockPassword) {
       setIsUnlocked(true);
+      setShowUnlockModal(false);
       setPasswordError(false);
-    } else setPasswordError(true);
+      
+      if (pendingAction) {
+        setEditMode(pendingAction.mode);
+        setViewMode(pendingAction.vMode);
+        setPendingAction(null);
+      }
+    } else {
+      setPasswordError(true);
+    }
+  };
+
+  const handleModeSwitch = (mode: 'original' | 'customize', vMode: 'preview' | 'code') => {
+    // 🌟 ดักการเข้าถึงฟีเจอร์สงวนสิทธิ์ (Customize หรือดู HTML Code) ถ้ายังไม่ได้ปลดล็อก
+    if (code?.isLocked && !isUnlocked && (mode === 'customize' || vMode === 'code')) {
+      setPendingAction({ mode, vMode });
+      setShowUnlockModal(true);
+    } else {
+      setEditMode(mode);
+      setViewMode(vMode);
+    }
   };
 
   const addBlock = (blockDef: any) => {
-    const newBlock = {
-      instanceId: `block_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      blockId: blockDef.id,
-      placeholder: blockDef.placeholder,
-      htmlTemplate: blockDef.html,
-      fields: blockDef.fields,
-      values: {} as any
-    };
-    
+    const newBlock = { instanceId: `block_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`, blockId: blockDef.id, placeholder: blockDef.placeholder, htmlTemplate: blockDef.html, fields: blockDef.fields, values: {} as any };
     if (blockDef.fields && Array.isArray(blockDef.fields)) {
       blockDef.fields.forEach((f: any) => {
         if (f.type === 'image') newBlock.values[f.variableName] = { url: "", x: 50, y: 50, zoom: 100 };
         else newBlock.values[f.variableName] = "";
       });
     }
-    
     setActiveBlocks([...activeBlocks, newBlock]);
   };
-
-  const removeBlock = (instanceId: string) => {
-    if(confirm("ลบส่วนเสริมนี้ทิ้งใช่หรือไม่?")) {
-      setActiveBlocks(activeBlocks.filter(b => b.instanceId !== instanceId));
-    }
-  };
-
+  const removeBlock = (instanceId: string) => { if(confirm("ลบส่วนเสริมนี้ทิ้งใช่หรือไม่?")) setActiveBlocks(activeBlocks.filter(b => b.instanceId !== instanceId)); };
   const moveBlock = (index: number, direction: 'up' | 'down') => {
     const newArr = [...activeBlocks];
-    if (direction === 'up' && index > 0) {
-      [newArr[index - 1], newArr[index]] = [newArr[index], newArr[index - 1]];
-    } else if (direction === 'down' && index < newArr.length - 1) {
-      [newArr[index + 1], newArr[index]] = [newArr[index], newArr[index + 1]];
-    }
+    if (direction === 'up' && index > 0) [newArr[index - 1], newArr[index]] = [newArr[index], newArr[index - 1]];
+    else if (direction === 'down' && index < newArr.length - 1) [newArr[index + 1], newArr[index]] = [newArr[index], newArr[index + 1]];
     setActiveBlocks(newArr);
   };
-
-  const updateBlockValue = (instanceId: string, varName: string, val: any) => {
-    setActiveBlocks(activeBlocks.map(b => 
-      b.instanceId === instanceId ? { ...b, values: { ...b.values, [varName]: val } } : b
-    ));
-  };
-
+  const updateBlockValue = (instanceId: string, varName: string, val: any) => setActiveBlocks(activeBlocks.map(b => b.instanceId === instanceId ? { ...b, values: { ...b.values, [varName]: val } } : b));
   const updateSelection = (refKey: string) => {
     const el = textareaRefs.current[refKey];
-    if (el && document.activeElement === el) {
-      setSelections(prev => ({ ...prev, [refKey]: { start: el.selectionStart, end: el.selectionEnd } }));
-    }
+    if (el && document.activeElement === el) setSelections(prev => ({ ...prev, [refKey]: { start: el.selectionStart, end: el.selectionEnd } }));
   };
-
   const autoResize = (el: HTMLTextAreaElement | null) => {
     if (!el) return;
     el.style.height = 'auto';
@@ -204,22 +204,13 @@ export default function CodeDetail() {
   const insertTag = (refKey: string, currentValue: string, onUpdate: (val: string) => void, openTag: string, closeTag: string = '') => {
     const el = textareaRefs.current[refKey];
     if (!el) return;
-    
     const sel = selections[refKey] || { start: el.selectionStart, end: el.selectionEnd };
-    const start = sel.start;
-    const end = sel.end;
-    
-    const before = currentValue.substring(0, start);
-    const selected = currentValue.substring(start, end);
-    const after = currentValue.substring(end);
-
-    const updated = before + openTag + selected + closeTag + after;
-    onUpdate(updated);
-
+    const start = sel.start; const end = sel.end;
+    const before = currentValue.substring(0, start); const selected = currentValue.substring(start, end); const after = currentValue.substring(end);
+    onUpdate(before + openTag + selected + closeTag + after);
     setTimeout(() => {
       el.focus();
-      const newCursorStart = start + openTag.length;
-      const newCursorEnd = newCursorStart + selected.length;
+      const newCursorStart = start + openTag.length; const newCursorEnd = newCursorStart + selected.length;
       el.setSelectionRange(newCursorStart, newCursorEnd);
       setSelections(prev => ({ ...prev, [refKey]: { start: newCursorStart, end: newCursorEnd } }));
       autoResize(el);
@@ -229,34 +220,24 @@ export default function CodeDetail() {
   const parseContent = (text: string, isForPreview: boolean) => {
     if (!text) return "";
     let parsed = text
-      .replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong>$1</strong>')
-      .replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>')
-      .replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<u>$1</u>')
+      .replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong>$1</strong>').replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>').replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<u>$1</u>')
       .replace(/\[align=(left|center|right|justify)\]([\s\S]*?)\[\/align\]/gi, '<div style="text-align: $1;">$2</div>')
       .replace(/\[size=(.*?)\]([\s\S]*?)\[\/size\]/gi, '<span style="font-size: $1;">$2</span>')
       .replace(/\[color=(.*?)\]([\s\S]*?)\[\/color\]/gi, '<span style="color: $1;">$2</span>')
       .replace(/\[bg=(.*?)\]([\s\S]*?)\[\/bg\]/gi, '<span style="background-color: $1;">$2</span>')
       .replace(/\[url=(.*?)\]([\s\S]*?)\[\/url\]/gi, '<a href="$1" target="_blank" style="color: #a855f7; text-decoration: underline;">$2</a>')
       .replace(/\[hr\]/gi, '<hr style="border: 0; border-top: 1px solid currentColor; opacity: 0.3; margin: 16px 0;" />');
-      
-    if (isForPreview) {
-      parsed = parsed.replace(/\n/g, '<br/>');
-    }
-    
+    if (isForPreview) parsed = parsed.replace(/\n/g, '<br/>');
     return parsed;
   };
-
   const countWords = (text: string) => {
     if (!text || text.trim() === '') return 0;
     const clean = text.replace(/<[^>]*>?/gm, '').replace(/\[.*?\]/g, '').trim();
     if (!clean) return 0;
-
     if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
       const segmenter = new Intl.Segmenter('th', { granularity: 'word' });
       let count = 0;
-      for (const segment of segmenter.segment(clean)) {
-        if (segment.isWordLike) count++;
-      }
+      for (const segment of segmenter.segment(clean)) if (segment.isWordLike) count++;
       return count;
     }
     return clean.split(/\s+/).filter(Boolean).length;
@@ -279,16 +260,13 @@ export default function CodeDetail() {
       if (code.customFields && Array.isArray(code.customFields)) {
         code.customFields.forEach((field: any) => {
           const val = fieldValues[field.variableName] || "";
-          
           if (field.type === 'image') {
             const imgData = fieldValues[field.variableName] || { url: "", x: 50, y: 50, zoom: 100 };
             if (imgData.url && imgData.url.trim() !== '') {
               const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
               const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
-
-              if (legacyRegex.test(finalHtml)) {
-                finalHtml = finalHtml.replace(legacyRegex, `${imgData.url}) ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`);
-              } else {
+              if (legacyRegex.test(finalHtml)) finalHtml = finalHtml.replace(legacyRegex, `${imgData.url}) ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`);
+              else {
                 finalHtml = finalHtml.split(field.variableName).join(imgData.url);
                 finalHtml = finalHtml.split(`${field.variableName}_URL`).join(imgData.url);
                 finalHtml = finalHtml.split(`${field.variableName}_X`).join(imgData.x);
@@ -300,23 +278,17 @@ export default function CodeDetail() {
             const colorVal = val !== "" ? val : getFallbackColor(field.variableName);
             finalHtml = finalHtml.split(field.variableName).join(colorVal);
           } else if (field.type === 'richtext' || field.type === 'roleplay') {
-            if (val !== "") {
-              finalHtml = finalHtml.split(field.variableName).join(parseContent(val, isForPreview));
-            }
+            if (val !== "") finalHtml = finalHtml.split(field.variableName).join(parseContent(val, isForPreview));
           } else {
-            if (val !== "") {
-              finalHtml = finalHtml.split(field.variableName).join(val);
-            }
+            if (val !== "") finalHtml = finalHtml.split(field.variableName).join(val);
           }
         });
       }
 
       if (activeBlocks.length > 0) {
         const blocksByPlaceholder: { [key: string]: string[] } = {};
-        
         activeBlocks.forEach(block => {
           let blockHtml = block.htmlTemplate;
-          
           if (block.fields && Array.isArray(block.fields)) {
             block.fields.forEach((field: any) => {
               const val = block.values[field.variableName] || "";
@@ -325,9 +297,8 @@ export default function CodeDetail() {
                 if (imgData.url && imgData.url.trim() !== '') {
                   const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
                   const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
-                  if (legacyRegex.test(blockHtml)) {
-                    blockHtml = blockHtml.replace(legacyRegex, `${imgData.url}) ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`);
-                  } else {
+                  if (legacyRegex.test(blockHtml)) blockHtml = blockHtml.replace(legacyRegex, `${imgData.url}) ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`);
+                  else {
                     blockHtml = blockHtml.split(field.variableName).join(imgData.url);
                     blockHtml = blockHtml.split(`${field.variableName}_URL`).join(imgData.url);
                     blockHtml = blockHtml.split(`${field.variableName}_X`).join(imgData.x);
@@ -345,32 +316,22 @@ export default function CodeDetail() {
               }
             });
           }
-          
           if (!blocksByPlaceholder[block.placeholder]) blocksByPlaceholder[block.placeholder] = [];
           blocksByPlaceholder[block.placeholder].push(blockHtml);
         });
-
-        Object.keys(blocksByPlaceholder).forEach(ph => {
-          finalHtml = finalHtml.split(ph).join(blocksByPlaceholder[ph].join('\n'));
-        });
+        Object.keys(blocksByPlaceholder).forEach(ph => finalHtml = finalHtml.split(ph).join(blocksByPlaceholder[ph].join('\n')));
       }
 
       if (code.blocks && Array.isArray(code.blocks)) {
-        code.blocks.forEach((b: any) => {
-          if (b.placeholder) finalHtml = finalHtml.split(b.placeholder).join("");
-        });
+        code.blocks.forEach((b: any) => { if (b.placeholder) finalHtml = finalHtml.split(b.placeholder).join(""); });
       }
 
     } else {
-      // 🌟 โหมดดูตัวอย่างต้นฉบับ (Original)
       const variation = code.variations?.[activeVariation];
       if (variation) {
-        // หากตั้งค่าพรีเซ็ตเป็น "full_html" ให้ใช้โค้ดเต็มแทนที่ไปเลย
         if (variation.type === 'full_html' && variation.fullHtml) {
           finalHtml = variation.fullHtml;
-        } 
-        // ถ้าเป็นแบบ "replace" ก็ใช้โค้ดหลักมาไล่แทนที่ตามเดิม
-        else if (variation.replacements) {
+        } else if (variation.replacements) {
           const lines = variation.replacements.split('\n');
           lines.forEach((line: string) => {
             const idx = line.indexOf('=');
@@ -384,17 +345,13 @@ export default function CodeDetail() {
       }
       
       if (code.blocks && Array.isArray(code.blocks)) {
-        code.blocks.forEach((b: any) => {
-          if (b.placeholder) finalHtml = finalHtml.split(b.placeholder).join("");
-        });
+        code.blocks.forEach((b: any) => { if (b.placeholder) finalHtml = finalHtml.split(b.placeholder).join(""); });
       }
     }
 
     if (isForPreview) {
       finalHtml = finalHtml
-        .replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong>$1</strong>')
-        .replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>')
-        .replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<u>$1</u>')
+        .replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong>$1</strong>').replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>').replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<u>$1</u>')
         .replace(/\[align=(left|center|right|justify)\]([\s\S]*?)\[\/align\]/gi, '<div style="text-align: $1;">$2</div>')
         .replace(/\[size=(.*?)\]([\s\S]*?)\[\/size\]/gi, '<span style="font-size: $1;">$2</span>')
         .replace(/\[color=(.*?)\]([\s\S]*?)\[\/color\]/gi, '<span style="color: $1;">$2</span>')
@@ -435,18 +392,9 @@ export default function CodeDetail() {
           <label className="field-label" style={{ marginBottom: '8px', display: 'block' }}>{field.label}</label>
           <input type="url" className="glass-input" placeholder={`วางลิงก์รูปภาพ ${field.label}...`} value={imgData.url} onChange={e => onChange({ ...imgData, url: e.target.value })} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
-            <div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>แกน X ({imgData.x}%)</span>
-              <input type="range" min="0" max="100" value={imgData.x} onChange={e => onChange({ ...imgData, x: Number(e.target.value) })} style={{ width: '100%' }} />
-            </div>
-            <div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>แกน Y ({imgData.y}%)</span>
-              <input type="range" min="0" max="100" value={imgData.y} onChange={e => onChange({ ...imgData, y: Number(e.target.value) })} style={{ width: '100%' }} />
-            </div>
-            <div style={{ gridColumn: 'span 2' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>ขนาดซูม ({imgData.zoom}%)</span>
-              <input type="range" min="50" max="300" value={imgData.zoom} onChange={e => onChange({ ...imgData, zoom: Number(e.target.value) })} style={{ width: '100%' }} />
-            </div>
+            <div><span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>แกน X ({imgData.x}%)</span><input type="range" min="0" max="100" value={imgData.x} onChange={e => onChange({ ...imgData, x: Number(e.target.value) })} style={{ width: '100%' }} /></div>
+            <div><span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>แกน Y ({imgData.y}%)</span><input type="range" min="0" max="100" value={imgData.y} onChange={e => onChange({ ...imgData, y: Number(e.target.value) })} style={{ width: '100%' }} /></div>
+            <div style={{ gridColumn: 'span 2' }}><span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>ขนาดซูม ({imgData.zoom}%)</span><input type="range" min="50" max="300" value={imgData.zoom} onChange={e => onChange({ ...imgData, zoom: Number(e.target.value) })} style={{ width: '100%' }} /></div>
           </div>
         </div>
       );
@@ -463,53 +411,30 @@ export default function CodeDetail() {
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, textVal, onChange, '[b]', '[/b]')} title="ตัวหนา"><b>B</b></button>
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, textVal, onChange, '[i]', '[/i]')} title="ตัวเอียง"><i>I</i></button>
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, textVal, onChange, '[u]', '[/u]')} title="ขีดเส้นใต้"><u>U</u></button>
-                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => {
-                  const url = prompt("ระบุลิงก์ (URL):", "https://");
-                  if(url) insertTag(refKey, textVal, onChange, `[url=${url}]`, '[/url]');
-                }} title="แทรกลิงก์">🔗</button>
+                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const url = prompt("ระบุลิงก์ (URL):", "https://"); if(url) insertTag(refKey, textVal, onChange, `[url=${url}]`, '[/url]'); }} title="แทรกลิงก์">🔗</button>
               </div>
               <div className="tb-divider"></div>
               <div className="tb-group">
-                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, textVal, onChange, '[align=left]', '[/align]')} title="ชิดซ้าย">
-                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2zm0 4h8v2H2zm0 4h12v2H2z"/></svg>
-                </button>
-                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, textVal, onChange, '[align=center]', '[/align]')} title="กึ่งกลาง">
-                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2zm2 4h8v2H4zm-2 4h12v2H2z"/></svg>
-                </button>
-                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, textVal, onChange, '[align=right]', '[/align]')} title="ชิดขวา">
-                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2zm4 4h8v2H6zm-4 4h12v2H2z"/></svg>
-                </button>
+                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, textVal, onChange, '[align=left]', '[/align]')}> <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2zm0 4h8v2H2zm0 4h12v2H2z"/></svg> </button>
+                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, textVal, onChange, '[align=center]', '[/align]')}> <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2zm2 4h8v2H4zm-2 4h12v2H2z"/></svg> </button>
+                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, textVal, onChange, '[align=right]', '[/align]')}> <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2zm4 4h8v2H6zm-4 4h12v2H2z"/></svg> </button>
               </div>
               <div className="tb-divider"></div>
               <div className="tb-group">
                 <select id={`size_${refKey}`} className="tb-select">
-                  <option value="12px">12px</option>
-                  <option value="14px">14px</option>
-                  <option value="16px">16px</option>
-                  <option value="18px">18px</option>
-                  <option value="20px">20px</option>
-                  <option value="24px">24px</option>
+                  <option value="12px">12px</option><option value="14px">14px</option><option value="16px">16px</option><option value="18px">18px</option><option value="20px">20px</option><option value="24px">24px</option>
                 </select>
-                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => {
-                  const size = (document.getElementById(`size_${refKey}`) as HTMLSelectElement).value;
-                  insertTag(refKey, textVal, onChange, `[size=${size}]`, '[/size]');
-                }} style={{ padding: '4px' }}>A📏</button>
+                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const size = (document.getElementById(`size_${refKey}`) as HTMLSelectElement).value; insertTag(refKey, textVal, onChange, `[size=${size}]`, '[/size]'); }} style={{ padding: '4px' }}>A📏</button>
               </div>
               <div className="tb-divider"></div>
               <div className="tb-group">
                 <div className="color-picker-group">
                   <input type="color" id={`bg_${refKey}`} defaultValue="#fef08a" className="cp-input" title="สีไฮไลต์" />
-                  <button className="tool-btn cp-btn" onMouseDown={e => e.preventDefault()} onClick={() => {
-                    const bg = (document.getElementById(`bg_${refKey}`) as HTMLInputElement).value;
-                    insertTag(refKey, textVal, onChange, `[bg=${bg}]`, '[/bg]');
-                  }}>🖍️</button>
+                  <button className="tool-btn cp-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const bg = (document.getElementById(`bg_${refKey}`) as HTMLInputElement).value; insertTag(refKey, textVal, onChange, `[bg=${bg}]`, '[/bg]'); }}>🖍️</button>
                 </div>
                 <div className="color-picker-group">
                   <input type="color" id={`color_${refKey}`} defaultValue="#4c1d95" className="cp-input" title="สีข้อความ" />
-                  <button className="tool-btn cp-btn" onMouseDown={e => e.preventDefault()} onClick={() => {
-                    const color = (document.getElementById(`color_${refKey}`) as HTMLInputElement).value;
-                    insertTag(refKey, textVal, onChange, `[color=${color}]`, '[/color]');
-                  }}>🎨</button>
+                  <button className="tool-btn cp-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const color = (document.getElementById(`color_${refKey}`) as HTMLInputElement).value; insertTag(refKey, textVal, onChange, `[color=${color}]`, '[/color]'); }}>🎨</button>
                 </div>
               </div>
               <div className="tb-divider"></div>
@@ -520,20 +445,7 @@ export default function CodeDetail() {
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, textVal, onChange, '[hide]', '[/hide]')} style={{ fontSize: '0.75rem', padding: '4px' }}>Hide</button>
               </div>
             </div>
-            
-            <textarea 
-              ref={el => { textareaRefs.current[refKey] = el; }}
-              className="editor-textarea custom-scrollbar"
-              placeholder={`พิมพ์${field.label}ที่นี่...`}
-              value={textVal} 
-              onChange={e => {
-                onChange(e.target.value);
-                autoResize(e.target);
-              }}
-              onSelect={() => updateSelection(refKey)}
-              onKeyUp={() => updateSelection(refKey)}
-              onMouseUp={() => updateSelection(refKey)}
-            />
+            <textarea ref={el => { textareaRefs.current[refKey] = el; }} className="editor-textarea custom-scrollbar" placeholder={`พิมพ์${field.label}ที่นี่...`} value={textVal} onChange={e => { onChange(e.target.value); autoResize(e.target); }} onSelect={() => updateSelection(refKey)} onKeyUp={() => updateSelection(refKey)} onMouseUp={() => updateSelection(refKey)} />
           </div>
           {isRp && <div className="word-count">📊 จำนวนคำ: {countWords(textVal)} คำ</div>}
         </div>
@@ -571,6 +483,9 @@ export default function CodeDetail() {
     '--danger': '#ef4444',
     '--danger-border': '#fca5a5'
   } as React.CSSProperties;
+
+  // 🌟 เงื่อนไขล็อกแบบ Full Lock (ไม่ใช่ Commission และยังไม่ได้ปลดล็อก)
+  const isFullLocked = code.isLocked && !code.isCommission && !isUnlocked;
 
   return (
     <div className="code-detail-wrapper" style={themeVars}>
@@ -659,6 +574,10 @@ export default function CodeDetail() {
         .btn-add-block { background: var(--color-accent); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 6px; }
         .btn-add-block:hover { background: #9333ea; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4); }
 
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; z-index: 999; }
+        .modal-content { background: var(--glass-bg); padding: 40px; border-radius: 24px; border: 1px solid var(--glass-border); box-shadow: 0 20px 40px rgba(0,0,0,0.2); text-align: center; max-width: 400px; width: 90%; position: relative; }
+        .btn-close-modal { position: absolute; top: 16px; right: 16px; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--color-primary); }
+
         @media (max-width: 1024px) {
           .split-layout { grid-template-columns: 1fr; }
           .left-panel { position: static; max-height: none; overflow-y: visible; }
@@ -666,13 +585,30 @@ export default function CodeDetail() {
         }
       `}} />
 
+      {showUnlockModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <button className="btn-close-modal" onClick={() => setShowUnlockModal(false)}>✕</button>
+            <h2 style={{ marginTop: 0, color: 'var(--color-primary)' }}>🔒 ล็อกลิขสิทธิ์</h2>
+            <p style={{ fontSize: '0.9rem', color: 'var(--color-secondary)', marginBottom: '20px' }}>
+              นี่คือโค้ดคอมมิชชั่น สามารถดูตัวอย่างได้ฟรี<br/>แต่ต้องใช้รหัสผ่านเพื่อคัดลอกหรือปรับแต่ง
+            </p>
+            <form onSubmit={handleUnlockSubmit}>
+              <input type="password" className="glass-input" style={{ textAlign: 'center', marginBottom: '16px' }} placeholder="ใส่รหัสผ่านที่นี่..." value={passwordInput} onChange={e => setPasswordInput(e.target.value)} autoFocus />
+              {passwordError && <div style={{ color: 'var(--danger)', marginBottom: '10px', fontSize: '0.85rem' }}>รหัสผ่านไม่ถูกต้อง</div>}
+              <button type="submit" className="tool-btn" style={{ padding: '10px 24px', margin: '0 auto', width: '100%', background: 'var(--color-primary)', color: '#fff' }}>ปลดล็อกเลย</button>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="wide-w">
         <Link className="back-btn" href="/codes">← กลับไปหน้าหลัก</Link>
 
-        {!isUnlocked ? (
+        {isFullLocked ? (
           <div className="glass-panel" style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center', padding: '60px' }}>
-            <h2>🔒 โค้ดนี้ถูกล็อก</h2>
-            <form onSubmit={handleUnlock} style={{ marginTop: '20px' }}>
+            <h2>🔒 โค้ดนี้ถูกล็อกเป็นส่วนตัว</h2>
+            <form onSubmit={handleUnlockSubmit} style={{ marginTop: '20px' }}>
               <input type="password" className="glass-input" style={{ maxWidth: '300px', textAlign: 'center', marginBottom: '16px' }} placeholder="ใส่รหัสผ่าน..." value={passwordInput} onChange={e => setPasswordInput(e.target.value)} autoFocus />
               {passwordError && <div style={{ color: 'var(--danger)', marginBottom: '10px' }}>รหัสผ่านไม่ถูกต้อง</div>}
               <div><button type="submit" className="tool-btn" style={{ padding: '10px 24px', margin: '0 auto' }}>ปลดล็อก</button></div>
@@ -684,39 +620,48 @@ export default function CodeDetail() {
             <div className="glass-panel left-panel custom-scrollbar">
               <div className="header-box">
                 <h1 className="code-title">{code.name}</h1>
-                <span className="tag-type">{code.codeType}</span>
+                <div style={{ marginBottom: code.description ? '12px' : '0' }}>
+                  <span className="tag-type">{code.codeType}</span>
+                  {code.isCommission && <span style={{ marginLeft: '10px', fontSize: '0.8rem', background: '#fef08a', color: '#854d0e', padding: '4px 8px', borderRadius: '8px', fontWeight: 'bold' }}>💎 Commission</span>}
+                </div>
+                
+                {code.description && (
+                  <div style={{ 
+                    marginTop: '12px',
+                    fontSize: '0.9rem', 
+                    color: 'var(--color-secondary)', 
+                    background: 'rgba(255,255,255,0.5)', 
+                    padding: '10px 14px', 
+                    borderRadius: '8px', 
+                    borderLeft: '4px solid var(--color-accent)' 
+                  }}>
+                    {code.description}
+                  </div>
+                )}
               </div>
 
               <div className="mode-toggles">
-                <button className={`m-toggle-btn ${editMode === 'original' ? 'active' : ''}`} onClick={() => setEditMode('original')}>
+                <button className={`m-toggle-btn ${editMode === 'original' ? 'active' : ''}`} onClick={() => handleModeSwitch('original', viewMode)}>
                   👀 ดูตัวอย่างต้นฉบับ
                 </button>
-                <button className={`m-toggle-btn ${editMode === 'customize' ? 'active' : ''}`} onClick={() => setEditMode('customize')}>
-                  ✍️ ปรับแต่งเอง
+                <button className={`m-toggle-btn ${editMode === 'customize' ? 'active' : ''}`} onClick={() => handleModeSwitch('customize', viewMode)}>
+                  {code.isLocked && !isUnlocked ? "🔒 ปรับแต่ง (ล็อก)" : "✍️ ปรับแต่งเอง"}
                 </button>
               </div>
 
-              {editMode === 'customize' && (
+              {editMode === 'customize' && isUnlocked && (
                 <div className="draft-row">
                   <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-primary)' }}>💾 ระบบ Draft (เซฟงานในเครื่อง)</span>
-                  
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <input type="text" className="glass-input" style={{ padding: '6px 10px', fontSize: '0.9rem' }} placeholder="ตั้งชื่อดราฟต์ใหม่..." value={draftName} onChange={e => setDraftName(e.target.value)} />
                     <button className="tool-btn" onClick={handleSaveDraft} style={{ minWidth: '70px', padding: '0 12px' }}>บันทึก</button>
                   </div>
-
                   {drafts.length > 0 && (
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <select 
-                        className="glass-input tb-select" 
-                        style={{ flex: 1, minWidth: '150px', height: '32px', padding: '0 10px', fontSize: '0.9rem' }} 
-                        value={selectedDraftIndex} 
-                        onChange={e => setSelectedDraftIndex(Number(e.target.value))}
-                      >
+                      <select className="glass-input tb-select" style={{ flex: 1, minWidth: '150px', height: '32px', padding: '0 10px', fontSize: '0.9rem' }} value={selectedDraftIndex} onChange={e => setSelectedDraftIndex(Number(e.target.value))}>
                         <option value={-1}>-- เลือกดราฟต์ที่เซฟไว้ --</option>
                         {drafts.map((d, i) => <option key={i} value={i}>📁 {d.name}</option>)}
                       </select>
-                      
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button className="tool-btn" onClick={handleLoadDraft} disabled={selectedDraftIndex === -1} style={{ height: '32px', padding: '0 12px' }}>โหลด</button>
                         <button className="tool-btn" onClick={handleUpdateDraft} disabled={selectedDraftIndex === -1} style={{ height: '32px', padding: '0 12px', background: '#dcfce7', borderColor: '#86efac', color: '#166534' }}>อัปเดต</button>
@@ -740,65 +685,43 @@ export default function CodeDetail() {
                 </div>
               )}
 
-              {editMode === 'customize' && (
+              {editMode === 'customize' && isUnlocked && (
                 <div className="customizer-box">
                   <h3 style={{ margin: 0, color: 'var(--color-primary)', fontSize: '1.1rem' }}>✨ ปรับแต่งฟิลด์หลัก</h3>
-                  
                   {code.customFields && code.customFields.map((field: any) => 
-                    renderFieldUI(
-                      field, 
-                      fieldValues[field.variableName], 
-                      (newVal) => setFieldValues({ ...fieldValues, [field.variableName]: newVal }), 
-                      field.variableName
-                    )
+                    renderFieldUI(field, fieldValues[field.variableName], (newVal) => setFieldValues({ ...fieldValues, [field.variableName]: newVal }), field.variableName)
                   )}
 
                   {(code.blocks?.length > 0 || activeBlocks.length > 0) && (
                     <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '2px dashed var(--color-accent-light)' }}>
                       <h3 style={{ margin: '0 0 16px 0', color: 'var(--color-primary)', fontSize: '1.1rem' }}>🧱 เพิ่มส่วนเสริม (Blocks)</h3>
-                      
                       {activeBlocks.map((block, index) => {
                         const blockDef = code.blocks?.find((b: any) => b.id === block.blockId);
                         return (
                           <div key={block.instanceId} className="block-card">
                             <div className="block-header">
-                              <div className="block-title">
-                                <span style={{ background: 'var(--color-accent-light)', color: 'var(--color-primary)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem' }}>#{index + 1}</span>
-                                {blockDef?.name || "ส่วนเสริม"}
-                              </div>
+                              <div className="block-title"><span style={{ background: 'var(--color-accent-light)', color: 'var(--color-primary)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem' }}>#{index + 1}</span>{blockDef?.name || "ส่วนเสริม"}</div>
                               <div className="block-actions">
                                 <button className="tool-btn" onClick={() => moveBlock(index, 'up')} disabled={index === 0} title="เลื่อนขึ้น">⬆️</button>
                                 <button className="tool-btn" onClick={() => moveBlock(index, 'down')} disabled={index === activeBlocks.length - 1} title="เลื่อนลง">⬇️</button>
                                 <button className="tool-btn" onClick={() => removeBlock(block.instanceId)} style={{ color: 'var(--danger)', borderColor: 'var(--danger-border)' }} title="ลบส่วนนี้">🗑️</button>
                               </div>
                             </div>
-                            
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                              {block.fields && Array.isArray(block.fields) && block.fields.map((field: any) => 
-                                renderFieldUI(
-                                  field, 
-                                  block.values[field.variableName], 
-                                  (newVal) => updateBlockValue(block.instanceId, field.variableName, newVal), 
-                                  `${block.instanceId}_${field.variableName}`
-                                )
-                              )}
+                              {block.fields && Array.isArray(block.fields) && block.fields.map((field: any) => renderFieldUI(field, block.values[field.variableName], (newVal) => updateBlockValue(block.instanceId, field.variableName, newVal), `${block.instanceId}_${field.variableName}`))}
                             </div>
                           </div>
                         )
                       })}
-
                       {code.blocks && code.blocks.length > 0 && (
                         <div className="add-block-row">
                           {code.blocks.map((blockDef: any) => (
-                            <button key={blockDef.id} className="btn-add-block" onClick={() => addBlock(blockDef)}>
-                              <span>➕ เพิ่ม {blockDef.name}</span>
-                            </button>
+                            <button key={blockDef.id} className="btn-add-block" onClick={() => addBlock(blockDef)}><span>➕ เพิ่ม {blockDef.name}</span></button>
                           ))}
                         </div>
                       )}
                     </div>
                   )}
-
                 </div>
               )}
             </div>
@@ -806,13 +729,24 @@ export default function CodeDetail() {
             <div className="glass-panel right-panel">
               <div className="controls-row-right">
                 <div className="view-toggles">
-                  <button className={`toggle-btn ${viewMode === 'preview' ? 'active' : ''}`} onClick={() => setViewMode('preview')}>✨ Live Preview</button>
-                  <button className={`toggle-btn ${viewMode === 'code' ? 'active' : ''}`} onClick={() => setViewMode('code')}>💻 HTML Code</button>
+                  <button className={`toggle-btn ${viewMode === 'preview' ? 'active' : ''}`} onClick={() => handleModeSwitch(editMode, 'preview')}>✨ Live Preview</button>
+                  {/* 🌟 ซ่อนปุ่ม HTML Code ในโหมด Original */}
+                  {editMode === 'customize' && (
+                    <button className={`toggle-btn ${viewMode === 'code' ? 'active' : ''}`} onClick={() => handleModeSwitch(editMode, 'code')}>
+                      {code.isLocked && !isUnlocked ? "🔒 HTML Code" : "💻 HTML Code"}
+                    </button>
+                  )}
                 </div>
               </div>
 
               <div className="display-area">
-                <button className="btn-copy" onClick={handleCopy}>{copied ? "✅ Copied!" : "📋 Copy HTML"}</button>
+                {/* 🌟 ซ่อนปุ่ม Copy ในโหมด Original */}
+                {editMode === 'customize' && (
+                  <button className="btn-copy" onClick={handleCopy}>
+                    {copied ? "✅ Copied!" : "📋 Copy HTML"}
+                  </button>
+                )}
+                
                 {viewMode === 'preview' ? (
                   <div className="preview-container custom-scrollbar">
                     <div className="preview-inner" dangerouslySetInnerHTML={{ __html: previewHtml }} />

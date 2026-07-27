@@ -253,7 +253,20 @@ export default function CodeDetail() {
     return '#8b5cf6';
   };
 
-  // 🌟 ส่วนที่ 1: อัปเดตตอน Render HTML (เอาไปทับ getRenderedHtml เดิม)
+  // 🌟 ฟังก์ชันกรองโค้ดสี ป้องกัน Input Color พังเวลาสลับโหมดมาเจอข้อความแปลกๆ
+  const safeHex = (colorStr: string, defaultHex: string = '#000000') => {
+    if (!colorStr) return defaultHex;
+    const match = colorStr.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/i);
+    if (match) {
+      let hex = match[0];
+      if (hex.length === 4) { // แปลง #FFF เป็น #FFFFFF ให้ถูกต้อง
+         hex = '#' + hex[1]+hex[1] + hex[2]+hex[2] + hex[3]+hex[3];
+      }
+      return hex;
+    }
+    return defaultHex;
+  };
+
   const getRenderedHtml = (isForPreview: boolean = false) => {
     if (!code || !code.htmlCode) return "";
     let finalHtml = code.htmlCode;
@@ -282,7 +295,6 @@ export default function CodeDetail() {
                 finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom);
               }
             }
-          // 🌟 แก้บรรทัดล่างนี้ ให้ควบรวม color กับ gradient เข้าด้วยกัน
           } else if (field.type === 'color' || field.type === 'gradient') {
             const colorVal = val !== "" ? val : getFallbackColor(field.variableName);
             finalHtml = finalHtml.split(field.variableName).join(colorVal);
@@ -321,7 +333,6 @@ export default function CodeDetail() {
                     blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom);
                   }
                 }
-              // 🌟 แก้บรรทัดล่างนี้เหมือนกัน
               } else if (field.type === 'color' || field.type === 'gradient') {
                 const colorVal = val !== "" ? val : getFallbackColor(field.variableName);
                 blockHtml = blockHtml.split(field.variableName).join(colorVal);
@@ -388,10 +399,8 @@ export default function CodeDetail() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // 🌟 ฟังก์ชันเรนเดอร์ที่มีการเช็กเงื่อนไข (รับ allValues เพื่อใช้เปรียบเทียบ)
   const renderFieldUI = (field: any, val: any, onChange: (v: any) => void, refKey: string, allValues: any) => {
     
-    // 🌟 ดักเงื่อนไขการซ่อน/โชว์ ถ้าตั้งไว้แล้วค่าไม่ตรง ให้คืนค่าว่างเปล่าไปเลย (ไม่สร้างกล่อง)
     if (field.conditionVar && field.conditionVar.trim() !== "") {
       const parentVal = allValues[field.conditionVar] || "";
       if (parentVal !== field.conditionVal) {
@@ -437,19 +446,18 @@ export default function CodeDetail() {
       );
     }
     
-    // 🌟 ส่วนที่ 2: วางแทรกเหนือบล็อก if (field.type === 'color') ในฟังก์ชัน renderFieldUI
+    // 🌟 ระบบ Gradient ที่กรองการ Error แล้ว
     if (field.type === 'gradient') {
       const fallbackCol = getFallbackColor(field.variableName);
       const currentVal = val || fallbackCol || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
       
-      // ดึงค่าสีเก่าในช่องข้อความออกมาเพื่อให้ picker แสดงผลตรงกัน
       const getC1 = () => {
-        const match = currentVal.match(/#([0-9a-fA-F]{3,6})/g);
-        return match && match[0] ? match[0] : '#d8b4fe';
+        const matches = currentVal.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/gi);
+        return safeHex(matches ? matches[0] : '#d8b4fe', '#d8b4fe');
       }
       const getC2 = () => {
-        const match = currentVal.match(/#([0-9a-fA-F]{3,6})/g);
-        return match && match.length > 1 ? match[1] : (match && match[0] ? match[0] : '#bae6fd');
+        const matches = currentVal.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/gi);
+        return safeHex(matches && matches.length > 1 ? matches[1] : (matches ? matches[0] : '#bae6fd'), '#bae6fd');
       }
       const getAngle = () => {
         const match = currentVal.match(/(\d+)deg/);
@@ -462,7 +470,8 @@ export default function CodeDetail() {
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <div style={{ 
               width: '40px', height: '36px', borderRadius: '6px', 
-              background: currentVal, border: '1px solid var(--color-accent-mute)', flexShrink: 0
+              background: currentVal.includes('gradient') ? currentVal : safeHex(currentVal), 
+              border: '1px solid var(--color-accent-mute)', flexShrink: 0
             }} />
             <input 
               type="text" 
@@ -485,18 +494,23 @@ export default function CodeDetail() {
       );
     }
 
+    // 🌟 ระบบสีเดียว ที่กรองการ Error เรียบร้อย
     if (field.type === 'color') {
       const fallbackCol = getFallbackColor(field.variableName);
+      const currentVal = val || fallbackCol;
+      const pickerVal = safeHex(currentVal, '#8b5cf6'); // ดึงมาเฉพาะสี Hex เท่านั้น
+
       return (
         <div key={refKey} className="field-group">
           <label className="field-label">{field.label}</label>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <input type="color" style={{ width: '40px', height: '36px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} value={val || fallbackCol} onChange={e => onChange(e.target.value)} />
+            <input type="color" style={{ width: '40px', height: '36px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} value={pickerVal} onChange={e => onChange(e.target.value)} />
             <input type="text" className="glass-input" placeholder={`เช่น ${fallbackCol}`} value={val || ''} onChange={e => onChange(e.target.value)} />
           </div>
         </div>
       );
     }
+    
     if (field.type === 'image') {
       const imgData = val || { url: "", x: 50, y: 50, zoom: 100 };
       return (
@@ -799,9 +813,9 @@ export default function CodeDetail() {
               {editMode === 'customize' && isUnlocked && (
                 <div className="customizer-box">
                   <h3 style={{ margin: 0, color: 'var(--color-primary)', fontSize: '1.1rem' }}>✨ ปรับแต่งฟิลด์หลัก</h3>
-                  {/* 🌟 Pass fieldValues เข้าไปเป็น allValues ด้วย เพื่อใช้เช็กเงื่อนไข */}
-                  {code.customFields && code.customFields.map((field: any) => 
-                    renderFieldUI(field, fieldValues[field.variableName], (newVal) => setFieldValues({ ...fieldValues, [field.variableName]: newVal }), field.variableName, fieldValues)
+                  {/* 🌟 จุดแก้ไขที่ 2: ใช้คีย์ cf_ตามด้วย index เพื่อล็อคกล่องให้เสถียรที่สุด กันคีย์ซ้ำเวลาสร้างฟิลด์ใหม่รัวๆ */}
+                  {code.customFields && code.customFields.map((field: any, index: number) => 
+                    renderFieldUI(field, fieldValues[field.variableName], (newVal) => setFieldValues({ ...fieldValues, [field.variableName]: newVal }), `cf_${index}`, fieldValues)
                   )}
 
                   {(code.blocks?.length > 0 || activeBlocks.length > 0) && (
@@ -820,8 +834,7 @@ export default function CodeDetail() {
                               </div>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                              {/* 🌟 Pass block.values เข้าไปเป็น allValues เพื่อใช้เช็กเงื่อนไขภายในบล็อก */}
-                              {block.fields && Array.isArray(block.fields) && block.fields.map((field: any) => renderFieldUI(field, block.values[field.variableName], (newVal) => updateBlockValue(block.instanceId, field.variableName, newVal), `${block.instanceId}_${field.variableName}`, block.values))}
+                              {block.fields && Array.isArray(block.fields) && block.fields.map((field: any, fIndex: number) => renderFieldUI(field, block.values[field.variableName], (newVal) => updateBlockValue(block.instanceId, field.variableName, newVal), `${block.instanceId}_f_${fIndex}`, block.values))}
                             </div>
                           </div>
                         )

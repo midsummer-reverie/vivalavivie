@@ -174,7 +174,7 @@ export default function CodesShowcase() {
         .code-name { font-size: 1.2rem; font-weight: 700; margin: 0 0 10px 0; color: var(--text-dark); line-height: 1.3; }
         .censored-name { color: #6b21a8; font-family: monospace; letter-spacing: 2px; }
         
-        .tags-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+        .tags-container { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; }
         .tag-type { background: rgba(216, 180, 254, 0.5); color: #4c1d95; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 12px; }
         .tag-activity { background: rgba(255, 255, 255, 0.6); color: #4c1d95; font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 12px; border: 1px solid rgba(216, 180, 254, 0.4); }
         .tag-commission { background: #fef08a; color: #854d0e; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 12px; }

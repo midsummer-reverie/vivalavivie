@@ -39,9 +39,13 @@ export default function CodeDetail() {
     if (!codeId) return;
     const fetchCode = async () => {
       try {
-        const res = await fetch(`/api/codes/${codeId}`);
+        // 🌟 เปลี่ยนกลับมายิงไปที่ /api/codes ธรรมดา
+        const res = await fetch('/api/codes');
         if (res.ok) {
-          const foundCode = await res.json();
+          const data = await res.json();
+          // 🌟 ใช้ .find() ค้นหาจากก้อนข้อมูลทั้งหมดเหมือนเดิมครับ
+          const foundCode = data.find((c: any) => c.id === codeId);
+          
           if (foundCode) {
             if (typeof foundCode.variations === 'string') {
               try { foundCode.variations = JSON.parse(foundCode.variations); } catch { foundCode.variations = []; }

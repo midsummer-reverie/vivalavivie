@@ -747,7 +747,7 @@ export default function CodeDetail() {
                 <h1 className="code-title">{code.name}</h1>
                 <div style={{ marginBottom: code.description ? '12px' : '0' }}>
                   <span className="tag-type">{code.codeType}</span>
-                  {code.isCommission && <span style={{ marginLeft: '10px', fontSize: '0.8rem', background: '#fef08a', color: '#854d0e', padding: '4px 8px', borderRadius: '8px', fontWeight: 'bold' }}>💎 Commission</span>}
+                  {code.isCommission && <span style={{ marginLeft: '10px', fontSize: '0.8rem', background: '#fef08a', color: '#854d0e', padding: '4px 8px', borderRadius: '8px', fontWeight: 'bold' }}>💎 Private</span>}
                 </div>
                 
                 {code.description && (

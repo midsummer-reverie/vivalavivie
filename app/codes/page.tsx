@@ -240,7 +240,7 @@ export default function CodesShowcase() {
               {uniqueTypes.map(type => <option key={type} value={type}>{type}</option>)}
             </select>
             <select className="glass-select" value={filterActivity} onChange={(e) => setFilterActivity(e.target.value)}>
-              <option value="All">All Activities</option>
+              <option value="All">All Tags</option>
               {uniqueActivities.map(act => <option key={act} value={act}>{act}</option>)}
             </select>
           </div>

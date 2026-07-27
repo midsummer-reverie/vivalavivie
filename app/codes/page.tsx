@@ -278,7 +278,7 @@ export default function CodesShowcase() {
                     {!isPrivate && (
                       <div className="tags-container">
                         <span className="tag-type">{code.codeType}</span>
-                        {isCommission && <span className="tag-commission">💎 Commission</span>}
+                        {isCommission && <span className="tag-commission">💎 Private</span>}
                         {code.activityTags && code.activityTags.map((tag, i) => (
                           <span key={i} className="tag-activity">{tag}</span>
                         ))}

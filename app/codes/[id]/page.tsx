@@ -617,8 +617,8 @@ export default function CodeDetail() {
         .toggle-btn { background: transparent; border: none; padding: 6px 16px; border-radius: 12px; font-weight: 600; color: var(--color-secondary); cursor: pointer; font-size: 0.9rem; }
         .toggle-btn.active { background: #fff; color: var(--color-text-main); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
-        .display-area { background: #131313; border-radius: 12px; border: 1px solid var(--glass-border); min-height: 500px; height: 100%; overflow: hidden; position: relative; display: flex; flex-direction: column; }
-        .preview-container { padding: 40px; display: flex; justify-content: center; align-items: flex-start; background: #131313; flex: 1; overflow-y: auto; }
+        .display-area { background: #131313; border-radius: 12px; border: 1px solid var(--glass-border); min-height: 500px; position: relative; display: flex; flex-direction: column; }
+        .preview-container { padding: 40px; display: flex; justify-content: center; align-items: flex-start; background: #131313; flex: 1; overflow: visible; }
         .preview-inner { box-shadow: 0 20px 40px rgba(0,0,0,0.5); border-radius: 8px; overflow: hidden; width: 100%; max-width: 100%; background: transparent; }
         
         .code-container { padding: 24px; background: #131313; color: #e2e8f0; font-family: monospace !important; font-size: 0.95rem; line-height: 1.6; overflow: auto; margin: 0; flex: 1; white-space: pre-wrap; }

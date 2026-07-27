@@ -217,16 +217,37 @@ export default function CodeDetail() {
     }, 0);
   };
 
+  // 🌟 อัปเกรด parseContent ให้รองรับ YouTube และ รูปภาพแบบจัดเต็ม
   const parseContent = (text: string, isForPreview: boolean) => {
     if (!text) return "";
     let parsed = text
-      .replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong>$1</strong>').replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>').replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<u>$1</u>')
+      .replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong>$1</strong>')
+      .replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>')
+      .replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<u>$1</u>')
       .replace(/\[align=(left|center|right|justify)\]([\s\S]*?)\[\/align\]/gi, '<div style="text-align: $1;">$2</div>')
       .replace(/\[size=(.*?)\]([\s\S]*?)\[\/size\]/gi, '<span style="font-size: $1;">$2</span>')
       .replace(/\[color=(.*?)\]([\s\S]*?)\[\/color\]/gi, '<span style="color: $1;">$2</span>')
       .replace(/\[bg=(.*?)\]([\s\S]*?)\[\/bg\]/gi, '<span style="background-color: $1;">$2</span>')
       .replace(/\[url=(.*?)\]([\s\S]*?)\[\/url\]/gi, '<a href="$1" target="_blank" style="color: #a855f7; text-decoration: underline;">$2</a>')
+      
+      // ฟีเจอร์รูปภาพ
+      .replace(/\[img\](.*?)\[\/img\]/gi, '<img src="$1" style="max-width: 100%; height: auto; border-radius: 8px;" />')
+      .replace(/\[img=(.*?)\][\s\S]*?\[\/img\]/gi, '<img src="$1" style="max-width: 100%; height: auto; border-radius: 8px;" />')
+      
+      // ฟีเจอร์ YouTube ปกติ
+      .replace(/\[yt\](.*?)\[\/yt\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen></iframe></div>')
+      .replace(/\[yt=(.*?)\][\s\S]*?\[\/yt\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen></iframe></div>')
+      
+      // ฟีเจอร์ YouTube Autoplay
+      .replace(/\[ytauto\](.*?)\[\/ytauto\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allow="autoplay" allowfullscreen></iframe></div>')
+      .replace(/\[ytauto=(.*?)\][\s\S]*?\[\/ytauto\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allow="autoplay" allowfullscreen></iframe></div>')
+      
+      // ฟีเจอร์ YouTube ซ่อนกล่อง
+      .replace(/\[hideyt\](.*?)\[\/hideyt\]/gi, '<iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="width:0; height:0; border:0; display:none;" allow="autoplay"></iframe>')
+      .replace(/\[hideyt=(.*?)\][\s\S]*?\[\/hideyt\]/gi, '<iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="width:0; height:0; border:0; display:none;" allow="autoplay"></iframe>')
+      
       .replace(/\[hr\]/gi, '<hr style="border: 0; border-top: 1px solid currentColor; opacity: 0.3; margin: 16px 0;" />');
+      
     if (isForPreview) parsed = parsed.replace(/\n/g, '<br/>');
     return parsed;
   };
@@ -253,13 +274,12 @@ export default function CodeDetail() {
     return '#8b5cf6';
   };
 
-  // 🌟 ฟังก์ชันกรองโค้ดสี ป้องกัน Input Color พังเวลาสลับโหมดมาเจอข้อความแปลกๆ
   const safeHex = (colorStr: string, defaultHex: string = '#000000') => {
     if (!colorStr) return defaultHex;
     const match = colorStr.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/i);
     if (match) {
       let hex = match[0];
-      if (hex.length === 4) { // แปลง #FFF เป็น #FFFFFF ให้ถูกต้อง
+      if (hex.length === 4) { 
          hex = '#' + hex[1]+hex[1] + hex[2]+hex[2] + hex[3]+hex[3];
       }
       return hex;
@@ -384,6 +404,17 @@ export default function CodeDetail() {
         .replace(/\[color=(.*?)\]([\s\S]*?)\[\/color\]/gi, '<span style="color: $1;">$2</span>')
         .replace(/\[bg=(.*?)\]([\s\S]*?)\[\/bg\]/gi, '<span style="background-color: $1;">$2</span>')
         .replace(/\[url=(.*?)\]([\s\S]*?)\[\/url\]/gi, '<a href="$1" target="_blank" style="color: #a855f7; text-decoration: underline;">$2</a>')
+        
+        // Render ผลลัพธ์ตอน Live Preview
+        .replace(/\[img\](.*?)\[\/img\]/gi, '<img src="$1" style="max-width: 100%; height: auto; border-radius: 8px;" />')
+        .replace(/\[img=(.*?)\][\s\S]*?\[\/img\]/gi, '<img src="$1" style="max-width: 100%; height: auto; border-radius: 8px;" />')
+        .replace(/\[yt\](.*?)\[\/yt\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen></iframe></div>')
+        .replace(/\[yt=(.*?)\][\s\S]*?\[\/yt\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen></iframe></div>')
+        .replace(/\[ytauto\](.*?)\[\/ytauto\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allow="autoplay" allowfullscreen></iframe></div>')
+        .replace(/\[ytauto=(.*?)\][\s\S]*?\[\/ytauto\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allow="autoplay" allowfullscreen></iframe></div>')
+        .replace(/\[hideyt\](.*?)\[\/hideyt\]/gi, '<iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="width:0; height:0; border:0; display:none;" allow="autoplay"></iframe>')
+        .replace(/\[hideyt=(.*?)\][\s\S]*?\[\/hideyt\]/gi, '<iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="width:0; height:0; border:0; display:none;" allow="autoplay"></iframe>')
+        
         .replace(/\[hr\]/gi, '<hr style="border: 0; border-top: 1px solid currentColor; opacity: 0.3; margin: 16px 0;" />');
 
       finalHtml = finalHtml.replace(/\n/g, '<br/>');
@@ -446,7 +477,6 @@ export default function CodeDetail() {
       );
     }
     
-    // 🌟 ระบบ Gradient ที่กรองการ Error แล้ว
     if (field.type === 'gradient') {
       const fallbackCol = getFallbackColor(field.variableName);
       const currentVal = val || fallbackCol || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
@@ -494,11 +524,10 @@ export default function CodeDetail() {
       );
     }
 
-    // 🌟 ระบบสีเดียว ที่กรองการ Error เรียบร้อย
     if (field.type === 'color') {
       const fallbackCol = getFallbackColor(field.variableName);
       const currentVal = val || fallbackCol;
-      const pickerVal = safeHex(currentVal, '#8b5cf6'); // ดึงมาเฉพาะสี Hex เท่านั้น
+      const pickerVal = safeHex(currentVal, '#8b5cf6');
 
       return (
         <div key={refKey} className="field-group">
@@ -538,6 +567,14 @@ export default function CodeDetail() {
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, textVal, onChange, '[i]', '[/i]')} title="ตัวเอียง"><i>I</i></button>
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, textVal, onChange, '[u]', '[/u]')} title="ขีดเส้นใต้"><u>U</u></button>
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const url = prompt("ระบุลิงก์ (URL):", "https://"); if(url) insertTag(refKey, textVal, onChange, `[url=${url}]`, '[/url]'); }} title="แทรกลิงก์">🔗</button>
+              </div>
+              <div className="tb-divider"></div>
+              {/* 🌟 กลุ่มปุ่มรูปภาพและ YouTube ที่เพิ่มใหม่ */}
+              <div className="tb-group">
+                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const url = prompt("ระบุลิงก์รูปภาพ:"); if(url) insertTag(refKey, textVal, onChange, `[img=${url}]`, '[/img]'); }} title="แทรกรูปภาพ">🖼️</button>
+                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const yt = prompt("รหัสวิดีโอ YouTube (เช่น dQw4w9WgXcQ):"); if(yt) insertTag(refKey, textVal, onChange, `[yt=${yt}]`, '[/yt]'); }} title="YouTube (ปกติ)">📺</button>
+                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const yt = prompt("รหัสวิดีโอ YouTube (เล่นอัตโนมัติ):"); if(yt) insertTag(refKey, textVal, onChange, `[ytauto=${yt}]`, '[/ytauto]'); }} title="YouTube (Auto)">▶️</button>
+                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const yt = prompt("รหัสวิดีโอ YouTube (ซ่อนกล่อง + เล่นอัตโนมัติ):"); if(yt) insertTag(refKey, textVal, onChange, `[hideyt=${yt}]`, '[/hideyt]'); }} title="YouTube (ซ่อนกล่อง)">🎵</button>
               </div>
               <div className="tb-divider"></div>
               <div className="tb-group">
@@ -627,7 +664,9 @@ export default function CodeDetail() {
         
         .glass-panel { background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.7); border-radius: 20px; padding: 24px; backdrop-filter: blur(16px); box-shadow: 0 10px 40px rgba(139, 92, 246, 0.08); }
         .left-panel { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
-        .right-panel { display: flex; flex-direction: column; gap: 20px; }
+        
+        /* 🌟 ป้องกัน Right Panel ดันจน Layout พัง ทำให้จอกว้างเกินไป */
+        .right-panel { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -681,8 +720,9 @@ export default function CodeDetail() {
         .toggle-btn { background: transparent; border: none; padding: 6px 16px; border-radius: 12px; font-weight: 600; color: var(--color-secondary); cursor: pointer; font-size: 0.9rem; }
         .toggle-btn.active { background: #fff; color: var(--color-text-main); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
-        .display-area { background: #131313; border-radius: 12px; border: 1px solid var(--glass-border); min-height: 500px; position: relative; display: flex; flex-direction: column; }
-        .preview-container { padding: 40px; display: flex; justify-content: center; align-items: flex-start; background: #131313; flex: 1; overflow: visible; }
+        /* 🌟 บังคับซ่อน Scroll แนวนอน ไม่ให้จอทะลุ */
+        .display-area { background: #131313; border-radius: 12px; border: 1px solid var(--glass-border); min-height: 500px; position: relative; display: flex; flex-direction: column; overflow-x: hidden; }
+        .preview-container { padding: 40px; display: flex; justify-content: center; align-items: flex-start; background: #131313; flex: 1; overflow-x: hidden; overflow-y: visible; max-width: 100%; }
         .preview-inner { box-shadow: 0 20px 40px rgba(0,0,0,0.5); border-radius: 8px; overflow: hidden; width: 100%; max-width: 100%; background: transparent; }
         
         .code-container { padding: 24px; background: #131313; color: #e2e8f0; font-family: monospace !important; font-size: 0.95rem; line-height: 1.6; overflow: auto; margin: 0; flex: 1; white-space: pre-wrap; }
@@ -703,6 +743,11 @@ export default function CodeDetail() {
         .modal-content { background: var(--glass-bg); padding: 40px; border-radius: 24px; border: 1px solid var(--glass-border); box-shadow: 0 20px 40px rgba(0,0,0,0.2); text-align: center; max-width: 400px; width: 90%; position: relative; }
         .btn-close-modal { position: absolute; top: 16px; right: 16px; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--color-primary); }
 
+        .preview-inner img, 
+        .preview-container img,
+        .preview-inner iframe,
+        .preview-inner video {max-width: 100% !important; height: auto !important; }
+
         @media (max-width: 1024px) {
           .split-layout { grid-template-columns: 1fr; }
           .left-panel { position: static; max-height: none; overflow-y: visible; }
@@ -714,9 +759,9 @@ export default function CodeDetail() {
         <div className="modal-overlay">
           <div className="modal-content">
             <button className="btn-close-modal" onClick={() => setShowUnlockModal(false)}>✕</button>
-            <h2 style={{ marginTop: 0, color: 'var(--color-primary)' }}>🔒 ล็อกลิขสิทธิ์</h2>
+            <h2 style={{ marginTop: 0, color: 'var(--color-primary)' }}>🔒 โค้ดจำกัดสิทธิ์การใช้งาน</h2>
             <p style={{ fontSize: '0.9rem', color: 'var(--color-secondary)', marginBottom: '20px' }}>
-              นี่คือโค้ดคอมมิชชั่น สามารถดูตัวอย่างได้ฟรี<br/>แต่ต้องใช้รหัสผ่านเพื่อคัดลอกหรือปรับแต่ง
+              ต้องใส่รหัสผ่านเพื่อคัดลอกหรือปรับแต่ง
             </p>
             <form onSubmit={handleUnlockSubmit}>
               <input type="password" className="glass-input" style={{ textAlign: 'center', marginBottom: '16px' }} placeholder="ใส่รหัสผ่านที่นี่..." value={passwordInput} onChange={e => setPasswordInput(e.target.value)} autoFocus />
@@ -813,7 +858,6 @@ export default function CodeDetail() {
               {editMode === 'customize' && isUnlocked && (
                 <div className="customizer-box">
                   <h3 style={{ margin: 0, color: 'var(--color-primary)', fontSize: '1.1rem' }}>✨ ปรับแต่งฟิลด์หลัก</h3>
-                  {/* 🌟 จุดแก้ไขที่ 2: ใช้คีย์ cf_ตามด้วย index เพื่อล็อคกล่องให้เสถียรที่สุด กันคีย์ซ้ำเวลาสร้างฟิลด์ใหม่รัวๆ */}
                   {code.customFields && code.customFields.map((field: any, index: number) => 
                     renderFieldUI(field, fieldValues[field.variableName], (newVal) => setFieldValues({ ...fieldValues, [field.variableName]: newVal }), `cf_${index}`, fieldValues)
                   )}

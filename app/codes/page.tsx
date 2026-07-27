@@ -9,9 +9,10 @@ type CodeType = {
   name: string;
   codeType: string;
   activityTags?: string[];
+  eventTags?: string[];
   previewUrl?: string;
   isLocked: boolean;
-  isCommission?: boolean; // 🌟 เพิ่มฟิลด์แยกประเภทคอมมิชชั่น
+  isCommission?: boolean; 
 };
 
 export default function CodesShowcase() {
@@ -19,6 +20,7 @@ export default function CodesShowcase() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("All");
   const [filterActivity, setFilterActivity] = useState("All");
+  const [filterEvent, setFilterEvent] = useState("All"); // 🌟 1. เพิ่ม State สำหรับเก็บค่าแท็กกิจกรรมที่เลือก
   
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [password, setPassword] = useState("");
@@ -40,24 +42,30 @@ export default function CodesShowcase() {
     fetchCodes();
   }, []);
 
-  // 🌟 กรองเฉพาะโค้ดที่ไม่ใช่ Private (ให้แสดง Type และ Activity เฉพาะ Public กับ Commission)
   const nonPrivateCodes = codes.filter(c => !c.isLocked || c.isCommission);
+  
+  // 🌟 2. แยกดึงตัวเลือกของ Type, แท็กทั่วไป และ แท็กกิจกรรม ออกจากกัน
   const uniqueTypes = Array.from(new Set(nonPrivateCodes.map(c => c.codeType))).sort();
   const uniqueActivities = Array.from(new Set(nonPrivateCodes.flatMap(c => c.activityTags || []))).sort();
+  const uniqueEvents = Array.from(new Set(nonPrivateCodes.flatMap(c => c.eventTags || []))).sort(); 
 
   const filteredCodes = codes.filter((code) => {
     const isPrivate = code.isLocked && !code.isCommission;
 
-    // 🌟 ถ้าเป็น Private และมีการพิมพ์ค้นหา/ฟิลเตอร์ ให้ซ่อนออกไปเลย (ห้ามให้เสิร์ชเจอ)
     if (isPrivate) {
-      if (searchTerm !== "" || filterType !== "All" || filterActivity !== "All") return false;
-      return true; // ถ้าไม่ได้เสิร์ช ให้โชว์เป็นการ์ดลับไว้ด้านหลังสุดตามเดิม
+      // ซ่อนจากผลการค้นหาถ้ามีการพิมพ์หรือเปลี่ยนตัวกรองใดๆ
+      if (searchTerm !== "" || filterType !== "All" || filterActivity !== "All" || filterEvent !== "All") return false;
+      return true; 
     }
 
     const matchName = code.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchType = filterType === "All" || code.codeType === filterType;
     const matchActivity = filterActivity === "All" || (code.activityTags && code.activityTags.includes(filterActivity));
-    return matchName && matchType && matchActivity;
+    
+    // 🌟 3. เพิ่มเงื่อนไขการกรองแท็กกิจกรรม
+    const matchEvent = filterEvent === "All" || (code.eventTags && code.eventTags.includes(filterEvent));
+                          
+    return matchName && matchType && matchActivity && matchEvent;
   });
 
   const handleAuthSubmit = (e: React.FormEvent) => {
@@ -162,7 +170,6 @@ export default function CodesShowcase() {
         .card-preview img { width: 100%; height: 100%; object-fit: cover; transition: 0.4s; }
         .code-card:hover .card-preview img { transform: scale(1.05); }
         
-        /* 🌟 เบลอภาพเฉพาะ Private เท่านั้น */
         .is-private .card-preview img { filter: blur(12px) brightness(0.7); transform: scale(1.1); }
         .is-private:hover .card-preview img { transform: scale(1.1); }
         .lock-icon-overlay {
@@ -175,9 +182,10 @@ export default function CodesShowcase() {
         .censored-name { color: #6b21a8; font-family: monospace; letter-spacing: 2px; }
         
         .tags-container { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; }
-        .tag-type { background: rgba(216, 180, 254, 0.5); color: #4c1d95; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 12px; }
-        .tag-activity { background: rgba(255, 255, 255, 0.6); color: #4c1d95; font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 12px; border: 1px solid rgba(216, 180, 254, 0.4); }
-        .tag-commission { background: #fef08a; color: #854d0e; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 12px; }
+        .tag-type { background: rgba(216, 180, 254, 0.5); color: #4c1d95; font-size: 0.7rem; font-weight: 700; padding: 4px 10px; border-radius: 12px; }
+        .tag-activity { background: rgba(255, 255, 255, 0.6); color: #4c1d95; font-size: 0.7rem; font-weight: 600; padding: 4px 10px; border-radius: 12px; border: 1px solid rgba(216, 180, 254, 0.4); }
+        .tag-event { background: #f59e0b; color: #fff; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 12px; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3); } 
+        .tag-commission { background: #fef08a; color: #854d0e; font-size: 0.7rem; font-weight: 700; padding: 4px 10px; border-radius: 12px; }
 
         .back-btn {
           display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; text-decoration: none; color: var(--text-dark);
@@ -240,8 +248,13 @@ export default function CodesShowcase() {
               {uniqueTypes.map(type => <option key={type} value={type}>{type}</option>)}
             </select>
             <select className="glass-select" value={filterActivity} onChange={(e) => setFilterActivity(e.target.value)}>
-              <option value="All">All Tags</option>
+              <option value="All">🏷️ All Tags</option>
               {uniqueActivities.map(act => <option key={act} value={act}>{act}</option>)}
+            </select>
+            {/* 🌟 4. เพิ่ม Dropdown สำหรับกรอง แท็กกิจกรรม โดยเฉพาะ */}
+            <select className="glass-select" value={filterEvent} onChange={(e) => setFilterEvent(e.target.value)}>
+              <option value="All">🌻 All Events</option>
+              {uniqueEvents.map(evt => <option key={evt} value={evt}>{evt}</option>)}
             </select>
           </div>
           <button onClick={() => setShowAuthModal(true)} className="glass-btn-primary">+ Manage</button>
@@ -252,7 +265,6 @@ export default function CodesShowcase() {
             filteredCodes.map((code, index) => {
               const bgImageUrl = code.previewUrl || "https://iili.io/CNQcH1j.md.png";
               
-              // 🌟 แยกประเภทการล็อกอย่างเด็ดขาด
               const isPrivate = code.isLocked && !code.isCommission;
               const isCommission = code.isLocked && code.isCommission;
 
@@ -279,8 +291,11 @@ export default function CodesShowcase() {
                       <div className="tags-container">
                         <span className="tag-type">{code.codeType}</span>
                         {isCommission && <span className="tag-commission">💎 Private</span>}
+                        {code.eventTags && code.eventTags.map((tag, i) => (
+                          <span key={`evt_${i}`} className="tag-event">🌻 {tag}</span>
+                        ))}
                         {code.activityTags && code.activityTags.map((tag, i) => (
-                          <span key={i} className="tag-activity">{tag}</span>
+                          <span key={`act_${i}`} className="tag-activity">🏷️ {tag}</span>
                         ))}
                       </div>
                     )}

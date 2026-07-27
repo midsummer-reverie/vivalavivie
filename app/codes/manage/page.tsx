@@ -9,15 +9,16 @@ export default function ManageCodes() {
   const [isSaving, setIsSaving] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: "", codeType: "", activityTags: [] as string[], 
+    name: "", codeType: "", activityTags: [] as string[], eventTags: [] as string[], 
     previewUrl: "", htmlCode: "", description: "",
     isLocked: false, lockPassword: "", isCommission: false, 
     variations: [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", type: "replace", replacements: "**สีหลัก**=#d8b4fe", fullHtml: "" }],
-    customFields: [] as any[], // เปลี่ยนเป็น any[] เพื่อความยืดหยุ่น
+    customFields: [] as any[],
     blocks: [] as any[]
   });
 
   const [tagInput, setTagInput] = useState(""); 
+  const [eventTagInput, setEventTagInput] = useState(""); // 🌟 ตัวแปรใหม่สำหรับช่องแท็กกิจกรรม
 
   const fetchCodes = async () => {
     try {
@@ -62,6 +63,21 @@ export default function ManageCodes() {
     setFormData({ ...formData, activityTags: formData.activityTags.filter(t => t !== tagToRemove) });
   };
 
+  // 🌟 ฟังก์ชันจัดการแท็กกิจกรรม
+  const handleAddEventTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const t = eventTagInput.trim().replace(/,/g, '');
+      if (t && !formData.eventTags.includes(t)) {
+        setFormData({ ...formData, eventTags: [...formData.eventTags, t] });
+      }
+      setEventTagInput("");
+    }
+  };
+  const handleRemoveEventTag = (tagToRemove: string) => {
+    setFormData({ ...formData, eventTags: formData.eventTags.filter(t => t !== tagToRemove) });
+  };
+
   const handleAddBlock = (type: string) => {
     let newBlock = { id: `block_${Date.now()}`, name: "", placeholder: "", html: "", fields: [] as any[] };
     if (type === "gallery") {
@@ -102,7 +118,7 @@ export default function ManageCodes() {
   useEffect(() => {
     if (selectedCodeId === "new") {
       setFormData({
-        name: "", codeType: "", activityTags: [], previewUrl: "", htmlCode: "", description: "",
+        name: "", codeType: "", activityTags: [], eventTags: [], previewUrl: "", htmlCode: "", description: "",
         isLocked: false, lockPassword: "", isCommission: false,
         variations: [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", type: "replace", replacements: "", fullHtml: "" }],
         customFields: [], blocks: []
@@ -123,6 +139,7 @@ export default function ManageCodes() {
           description: code.description || "", 
           codeType: code.codeType || "",
           activityTags: code.activityTags || [], 
+          eventTags: code.eventTags || [], // 🌟 โหลดแท็กกิจกรรมจากฐานข้อมูล
           previewUrl: code.previewUrl || "",
           htmlCode: code.htmlCode || "",
           isLocked: code.isLocked || false,
@@ -162,6 +179,7 @@ export default function ManageCodes() {
       name: formData.name,
       codeType: formData.codeType,
       activityTags: formData.activityTags, 
+      eventTags: formData.eventTags, // 🌟 ส่งข้อมูลไปยัง API สำหรับเซฟ
       previewUrl: formData.previewUrl,
       htmlCode: formData.htmlCode,
       description: formData.description,
@@ -254,11 +272,15 @@ export default function ManageCodes() {
             <label className="form-label">คำอธิบายสั้น ๆ (ไม่บังคับ)</label>
             <input type="text" className="glass-input" placeholder="เช่น ใช้ได้เฉพาะหน้าเทศกาลเท่านั้น..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
           </div>
+          
           <div className="form-grid-2">
             <div className="form-group"><label className="form-label">ประเภทโค้ด *</label><input type="text" required className="glass-input" value={formData.codeType} onChange={e => setFormData({...formData, codeType: e.target.value})} /></div>
-            
+            <div className="form-group"><label className="form-label">URL ภาพพรีวิว</label><input type="url" className="glass-input" value={formData.previewUrl} onChange={e => setFormData({...formData, previewUrl: e.target.value})} /></div>
+          </div>
+          
+          <div className="form-grid-2">
             <div className="form-group">
-              <label className="form-label"><span>แท็กเสริม (Enter เพื่อเพิ่ม)</span></label>
+              <label className="form-label"><span>🏷️ แท็กทั่วไป (Enter เพื่อเพิ่ม)</span></label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
                 {formData.activityTags.map(tag => (
                   <span key={tag} className="tag-chip">
@@ -269,15 +291,32 @@ export default function ManageCodes() {
               <input 
                 type="text" 
                 className="glass-input" 
-                placeholder="พิมพ์แล้วกด Enter..." 
+                placeholder="พิมพ์แท็กทั่วไปแล้วกด Enter..." 
                 value={tagInput} 
                 onChange={e => setTagInput(e.target.value)} 
                 onKeyDown={handleAddTag} 
               />
             </div>
+
+            <div className="form-group">
+              <label className="form-label"><span>🎯 แท็กกิจกรรม (Enter เพื่อเพิ่ม)</span></label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                {formData.eventTags.map(tag => (
+                  <span key={tag} className="tag-chip" style={{ background: '#f59e0b', boxShadow: '0 2px 6px rgba(245, 158, 11, 0.3)' }}>
+                    {tag} <span className="tag-remove" onClick={() => handleRemoveEventTag(tag)}>✕</span>
+                  </span>
+                ))}
+              </div>
+              <input 
+                type="text" 
+                className="glass-input" 
+                placeholder="พิมพ์แท็กกิจกรรมแล้วกด Enter..." 
+                value={eventTagInput} 
+                onChange={e => setEventTagInput(e.target.value)} 
+                onKeyDown={handleAddEventTag} 
+              />
+            </div>
           </div>
-          
-          <div className="form-group"><label className="form-label">URL ภาพพรีวิว</label><input type="url" className="glass-input" value={formData.previewUrl} onChange={e => setFormData({...formData, previewUrl: e.target.value})} /></div>
 
           <h3 className="section-title">🔒 การตั้งค่าความเป็นส่วนตัว</h3>
           <div className="privacy-box">
@@ -400,7 +439,6 @@ export default function ManageCodes() {
                 </div>
               )}
 
-              {/* 🌟 ฟีเจอร์ตั้งเงื่อนไข (ซ่อน/โชว์) */}
               <div style={{ padding: '12px', background: 'rgba(255,255,255,0.4)', borderRadius: '8px', marginTop: '16px' }}>
                 <label className="checkbox-label" style={{ fontSize: '0.85rem', marginBottom: field.conditionVar ? '8px' : '0' }}>
                   <input type="checkbox" className="custom-checkbox" style={{ width: '14px', height: '14px' }} checked={!!field.conditionVar} onChange={e => {
@@ -496,7 +534,6 @@ export default function ManageCodes() {
                           <button type="button" onClick={() => handleRemoveBlockField(bIndex, fIndex)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '4px' }} title="ลบ Field">✕</button>
                         </div>
 
-                        {/* 🌟 ฟีเจอร์ตั้งเงื่อนไข สำหรับใน Block */}
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(216, 180, 254, 0.2)', padding: '8px', borderRadius: '6px' }}>
                           <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#6b21a8' }}>👁️ โชว์เมื่อ:</span>
                           <input type="text" className="glass-input" style={{ padding: '4px 8px', fontSize: '0.75rem', flex: 1 }} placeholder="ตัวแปรหลัก (ปล่อยว่างถ้าโชว์ตลอด)" value={field.conditionVar || ""} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'conditionVar', e.target.value)} />

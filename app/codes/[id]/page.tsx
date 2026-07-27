@@ -39,10 +39,9 @@ export default function CodeDetail() {
     if (!codeId) return;
     const fetchCode = async () => {
       try {
-        const res = await fetch('/api/codes');
+        const res = await fetch(`/api/codes/${codeId}`);
         if (res.ok) {
-          const data = await res.json();
-          const foundCode = data.find((c: any) => c.id === codeId);
+          const foundCode = await res.json();
           if (foundCode) {
             if (typeof foundCode.variations === 'string') {
               try { foundCode.variations = JSON.parse(foundCode.variations); } catch { foundCode.variations = []; }
@@ -78,7 +77,6 @@ export default function CodeDetail() {
     fetchCode();
   }, [codeId]);
 
-  // 🌟 อัปเกรดให้ดึงค่า Auto-save กลับมาตอนโหลดหน้าเว็บ
   const initFieldValues = (codeData: any, forceReset: boolean = false) => {
     const initial: { [key: string]: any } = {};
     if (codeData.customFields && Array.isArray(codeData.customFields)) {
@@ -108,18 +106,16 @@ export default function CodeDetail() {
     setActiveBlocks([]);
   };
 
-  // 🌟 ระบบ Auto-save: บันทึกข้อมูลค้างไว้ทุกครั้งที่หยุดพิมพ์ 1 วินาที
   useEffect(() => {
     if (!code || !codeId) return;
-    
-    // ตั้งเวลา (Debounce) เพื่อไม่ให้เซฟรัวเกินไปจนเครื่องค้าง
     const timer = setTimeout(() => {
-      localStorage.setItem(`code_autosave_${codeId}`, JSON.stringify({
-        values: fieldValues,
-        blocks: activeBlocks
-      }));
+      try {
+        localStorage.setItem(`code_autosave_${codeId}`, JSON.stringify({
+          values: fieldValues,
+          blocks: activeBlocks
+        }));
+      } catch (e) { console.warn("Autosave skipped", e); }
     }, 1000); 
-    
     return () => clearTimeout(timer);
   }, [fieldValues, activeBlocks, codeId, code]);
 
@@ -426,7 +422,9 @@ export default function CodeDetail() {
 
     if (isForPreview) {
       finalHtml = finalHtml
-        .replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong>$1</strong>').replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>').replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<u>$1</u>')
+        .replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong>$1</strong>')
+        .replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>')
+        .replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<u>$1</u>')
         .replace(/\[align=(left|center|right|justify)\]([\s\S]*?)\[\/align\]/gi, '<div style="text-align: $1;">$2</div>')
         .replace(/\[size=(.*?)\]([\s\S]*?)\[\/size\]/gi, '<span style="font-size: $1;">$2</span>')
         .replace(/\[color=(.*?)\]([\s\S]*?)\[\/color\]/gi, '<span style="color: $1;">$2</span>')
@@ -820,6 +818,18 @@ export default function CodeDetail() {
                   <span className="tag-type">{code.codeType}</span>
                   {code.isCommission && <span style={{ marginLeft: '10px', fontSize: '0.8rem', background: '#fef08a', color: '#854d0e', padding: '4px 8px', borderRadius: '8px', fontWeight: 'bold' }}>💎 Private</span>}
                 </div>
+
+                {/* 🌟 แสดงแท็กและกิจกรรมใต้ป้ายกำกับเทมเพลต */}
+                {(code.activityTags?.length > 0 || code.eventTags?.length > 0) && (
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' }}>
+                    {code.eventTags?.map((tag: string) => (
+                      <span key={`event_${tag}`} style={{ background: '#f59e0b', color: '#fff', padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(245, 158, 11, 0.3)' }}>🎯 {tag}</span>
+                    ))}
+                    {code.activityTags?.map((tag: string) => (
+                      <span key={`tag_${tag}`} style={{ background: 'rgba(216, 180, 254, 0.4)', color: '#6b21a8', padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold', border: '1px solid rgba(216, 180, 254, 0.8)' }}>🏷️ {tag}</span>
+                    ))}
+                  </div>
+                )}
                 
                 {code.description && (
                   <div style={{ 
@@ -849,7 +859,6 @@ export default function CodeDetail() {
                 <div className="draft-row">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-primary)' }}>💾 ระบบ Draft & Auto-save</span>
-                    {/* 🌟 ปุ่มใหม่สำหรับกดล้างข้อมูลเวลาที่ระบบแอบเซฟให้ */}
                     <button className="tool-btn" onClick={() => {
                       if(confirm("ล้างข้อมูลที่พิมพ์ค้างไว้ทั้งหมดและกลับไปเริ่มใหม่?")) {
                          localStorage.removeItem(`code_autosave_${codeId}`);

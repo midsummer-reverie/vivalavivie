@@ -78,7 +78,8 @@ export default function CodeDetail() {
     fetchCode();
   }, [codeId]);
 
-  const initFieldValues = (codeData: any) => {
+  // 🌟 อัปเกรดให้ดึงค่า Auto-save กลับมาตอนโหลดหน้าเว็บ
+  const initFieldValues = (codeData: any, forceReset: boolean = false) => {
     const initial: { [key: string]: any } = {};
     if (codeData.customFields && Array.isArray(codeData.customFields)) {
       codeData.customFields.forEach((field: any) => {
@@ -86,9 +87,41 @@ export default function CodeDetail() {
         else initial[field.variableName] = ""; 
       });
     }
+
+    if (!forceReset) {
+      try {
+        const autosave = localStorage.getItem(`code_autosave_${codeData.id}`);
+        if (autosave) {
+          const parsed = JSON.parse(autosave);
+          setFieldValues({ ...initial, ...(parsed.values || {}) });
+          setActiveBlocks(parsed.blocks || []);
+          
+          setTimeout(() => {
+            Object.values(textareaRefs.current).forEach(el => autoResize(el));
+          }, 100);
+          return;
+        }
+      } catch (e) { console.error("Autosave load error:", e); }
+    }
+
     setFieldValues(initial);
     setActiveBlocks([]);
   };
+
+  // 🌟 ระบบ Auto-save: บันทึกข้อมูลค้างไว้ทุกครั้งที่หยุดพิมพ์ 1 วินาที
+  useEffect(() => {
+    if (!code || !codeId) return;
+    
+    // ตั้งเวลา (Debounce) เพื่อไม่ให้เซฟรัวเกินไปจนเครื่องค้าง
+    const timer = setTimeout(() => {
+      localStorage.setItem(`code_autosave_${codeId}`, JSON.stringify({
+        values: fieldValues,
+        blocks: activeBlocks
+      }));
+    }, 1000); 
+    
+    return () => clearTimeout(timer);
+  }, [fieldValues, activeBlocks, codeId, code]);
 
   const loadDraftsFromStorage = (id: string) => {
     try {
@@ -217,7 +250,6 @@ export default function CodeDetail() {
     }, 0);
   };
 
-  // 🌟 อัปเกรด parseContent ให้รองรับ YouTube และ รูปภาพแบบจัดเต็ม
   const parseContent = (text: string, isForPreview: boolean) => {
     if (!text) return "";
     let parsed = text
@@ -230,19 +262,15 @@ export default function CodeDetail() {
       .replace(/\[bg=(.*?)\]([\s\S]*?)\[\/bg\]/gi, '<span style="background-color: $1;">$2</span>')
       .replace(/\[url=(.*?)\]([\s\S]*?)\[\/url\]/gi, '<a href="$1" target="_blank" style="color: #a855f7; text-decoration: underline;">$2</a>')
       
-      // ฟีเจอร์รูปภาพ
       .replace(/\[img\](.*?)\[\/img\]/gi, '<img src="$1" style="max-width: 100%; height: auto; border-radius: 8px;" />')
       .replace(/\[img=(.*?)\][\s\S]*?\[\/img\]/gi, '<img src="$1" style="max-width: 100%; height: auto; border-radius: 8px;" />')
       
-      // ฟีเจอร์ YouTube ปกติ
       .replace(/\[yt\](.*?)\[\/yt\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen></iframe></div>')
       .replace(/\[yt=(.*?)\][\s\S]*?\[\/yt\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen></iframe></div>')
       
-      // ฟีเจอร์ YouTube Autoplay
       .replace(/\[ytauto\](.*?)\[\/ytauto\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allow="autoplay" allowfullscreen></iframe></div>')
       .replace(/\[ytauto=(.*?)\][\s\S]*?\[\/ytauto\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allow="autoplay" allowfullscreen></iframe></div>')
       
-      // ฟีเจอร์ YouTube ซ่อนกล่อง
       .replace(/\[hideyt\](.*?)\[\/hideyt\]/gi, '<iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="width:0; height:0; border:0; display:none;" allow="autoplay"></iframe>')
       .replace(/\[hideyt=(.*?)\][\s\S]*?\[\/hideyt\]/gi, '<iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="width:0; height:0; border:0; display:none;" allow="autoplay"></iframe>')
       
@@ -405,7 +433,6 @@ export default function CodeDetail() {
         .replace(/\[bg=(.*?)\]([\s\S]*?)\[\/bg\]/gi, '<span style="background-color: $1;">$2</span>')
         .replace(/\[url=(.*?)\]([\s\S]*?)\[\/url\]/gi, '<a href="$1" target="_blank" style="color: #a855f7; text-decoration: underline;">$2</a>')
         
-        // Render ผลลัพธ์ตอน Live Preview
         .replace(/\[img\](.*?)\[\/img\]/gi, '<img src="$1" style="max-width: 100%; height: auto; border-radius: 8px;" />')
         .replace(/\[img=(.*?)\][\s\S]*?\[\/img\]/gi, '<img src="$1" style="max-width: 100%; height: auto; border-radius: 8px;" />')
         .replace(/\[yt\](.*?)\[\/yt\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen></iframe></div>')
@@ -569,7 +596,6 @@ export default function CodeDetail() {
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const url = prompt("ระบุลิงก์ (URL):", "https://"); if(url) insertTag(refKey, textVal, onChange, `[url=${url}]`, '[/url]'); }} title="แทรกลิงก์">🔗</button>
               </div>
               <div className="tb-divider"></div>
-              {/* 🌟 กลุ่มปุ่มรูปภาพและ YouTube ที่เพิ่มใหม่ */}
               <div className="tb-group">
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const url = prompt("ระบุลิงก์รูปภาพ:"); if(url) insertTag(refKey, textVal, onChange, `[img=${url}]`, '[/img]'); }} title="แทรกรูปภาพ">🖼️</button>
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const yt = prompt("รหัสวิดีโอ YouTube (เช่น dQw4w9WgXcQ):"); if(yt) insertTag(refKey, textVal, onChange, `[yt=${yt}]`, '[/yt]'); }} title="YouTube (ปกติ)">📺</button>
@@ -664,8 +690,6 @@ export default function CodeDetail() {
         
         .glass-panel { background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.7); border-radius: 20px; padding: 24px; backdrop-filter: blur(16px); box-shadow: 0 10px 40px rgba(139, 92, 246, 0.08); }
         .left-panel { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
-        
-        /* 🌟 ป้องกัน Right Panel ดันจน Layout พัง ทำให้จอกว้างเกินไป */
         .right-panel { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
@@ -720,11 +744,18 @@ export default function CodeDetail() {
         .toggle-btn { background: transparent; border: none; padding: 6px 16px; border-radius: 12px; font-weight: 600; color: var(--color-secondary); cursor: pointer; font-size: 0.9rem; }
         .toggle-btn.active { background: #fff; color: var(--color-text-main); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
-        /* 🌟 บังคับซ่อน Scroll แนวนอน ไม่ให้จอทะลุ */
         .display-area { background: #131313; border-radius: 12px; border: 1px solid var(--glass-border); min-height: 500px; position: relative; display: flex; flex-direction: column; overflow-x: hidden; }
         .preview-container { padding: 40px; display: flex; justify-content: center; align-items: flex-start; background: #131313; flex: 1; overflow-x: hidden; overflow-y: visible; max-width: 100%; }
         .preview-inner { box-shadow: 0 20px 40px rgba(0,0,0,0.5); border-radius: 8px; overflow: hidden; width: 100%; max-width: 100%; background: transparent; }
         
+        .preview-inner img, 
+        .preview-container img,
+        .preview-inner iframe,
+        .preview-inner video {
+          max-width: 100% !important;
+          height: auto !important;
+        }
+
         .code-container { padding: 24px; background: #131313; color: #e2e8f0; font-family: monospace !important; font-size: 0.95rem; line-height: 1.6; overflow: auto; margin: 0; flex: 1; white-space: pre-wrap; }
         
         .btn-copy { position: absolute; top: 16px; right: 16px; background: var(--glass-input); border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; color: var(--color-text-main); cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10; transition: 0.2s; }
@@ -742,11 +773,6 @@ export default function CodeDetail() {
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; z-index: 999; }
         .modal-content { background: var(--glass-bg); padding: 40px; border-radius: 24px; border: 1px solid var(--glass-border); box-shadow: 0 20px 40px rgba(0,0,0,0.2); text-align: center; max-width: 400px; width: 90%; position: relative; }
         .btn-close-modal { position: absolute; top: 16px; right: 16px; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--color-primary); }
-
-        .preview-inner img, 
-        .preview-container img,
-        .preview-inner iframe,
-        .preview-inner video {max-width: 100% !important; height: auto !important; }
 
         @media (max-width: 1024px) {
           .split-layout { grid-template-columns: 1fr; }
@@ -821,13 +847,25 @@ export default function CodeDetail() {
 
               {editMode === 'customize' && isUnlocked && (
                 <div className="draft-row">
-                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-primary)' }}>💾 ระบบ Draft (เซฟงานในเครื่อง)</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-primary)' }}>💾 ระบบ Draft & Auto-save</span>
+                    {/* 🌟 ปุ่มใหม่สำหรับกดล้างข้อมูลเวลาที่ระบบแอบเซฟให้ */}
+                    <button className="tool-btn" onClick={() => {
+                      if(confirm("ล้างข้อมูลที่พิมพ์ค้างไว้ทั้งหมดและกลับไปเริ่มใหม่?")) {
+                         localStorage.removeItem(`code_autosave_${codeId}`);
+                         initFieldValues(code, true);
+                      }
+                    }} style={{ padding: '2px 8px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>
+                      🔄 เริ่มใหม่ทั้งหมด
+                    </button>
+                  </div>
+                  
                   <div style={{ display: 'flex', gap: '6px' }}>
-                    <input type="text" className="glass-input" style={{ padding: '6px 10px', fontSize: '0.9rem' }} placeholder="ตั้งชื่อดราฟต์ใหม่..." value={draftName} onChange={e => setDraftName(e.target.value)} />
+                    <input type="text" className="glass-input" style={{ padding: '6px 10px', fontSize: '0.9rem' }} placeholder="ตั้งชื่อดราฟต์เพื่อเซฟถาวร..." value={draftName} onChange={e => setDraftName(e.target.value)} />
                     <button className="tool-btn" onClick={handleSaveDraft} style={{ minWidth: '70px', padding: '0 12px' }}>บันทึก</button>
                   </div>
                   {drafts.length > 0 && (
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginTop: '4px' }}>
                       <select className="glass-input tb-select" style={{ flex: 1, minWidth: '150px', height: '32px', padding: '0 10px', fontSize: '0.9rem' }} value={selectedDraftIndex} onChange={e => setSelectedDraftIndex(Number(e.target.value))}>
                         <option value={-1}>-- เลือกดราฟต์ที่เซฟไว้ --</option>
                         {drafts.map((d, i) => <option key={i} value={i}>📁 {d.name}</option>)}

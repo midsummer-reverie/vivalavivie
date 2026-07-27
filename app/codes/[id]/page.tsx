@@ -253,6 +253,7 @@ export default function CodeDetail() {
     return '#8b5cf6';
   };
 
+  // 🌟 ส่วนที่ 1: อัปเดตตอน Render HTML (เอาไปทับ getRenderedHtml เดิม)
   const getRenderedHtml = (isForPreview: boolean = false) => {
     if (!code || !code.htmlCode) return "";
     let finalHtml = code.htmlCode;
@@ -262,7 +263,6 @@ export default function CodeDetail() {
         code.customFields.forEach((field: any) => {
           const val = fieldValues[field.variableName] || "";
           
-          // ไม่เอาค่าที่ถูกซ่อน (ไม่ได้แสดงผล) มาเรนเดอร์ทับโค้ด
           if (field.conditionVar && field.conditionVar.trim() !== "") {
              const parentVal = fieldValues[field.conditionVar] || "";
              if (parentVal !== field.conditionVal) return;
@@ -282,7 +282,8 @@ export default function CodeDetail() {
                 finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom);
               }
             }
-          } else if (field.type === 'color') {
+          // 🌟 แก้บรรทัดล่างนี้ ให้ควบรวม color กับ gradient เข้าด้วยกัน
+          } else if (field.type === 'color' || field.type === 'gradient') {
             const colorVal = val !== "" ? val : getFallbackColor(field.variableName);
             finalHtml = finalHtml.split(field.variableName).join(colorVal);
           } else if (field.type === 'richtext' || field.type === 'roleplay') {
@@ -320,7 +321,8 @@ export default function CodeDetail() {
                     blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom);
                   }
                 }
-              } else if (field.type === 'color') {
+              // 🌟 แก้บรรทัดล่างนี้เหมือนกัน
+              } else if (field.type === 'color' || field.type === 'gradient') {
                 const colorVal = val !== "" ? val : getFallbackColor(field.variableName);
                 blockHtml = blockHtml.split(field.variableName).join(colorVal);
               } else if (field.type === 'richtext' || field.type === 'roleplay') {
@@ -431,6 +433,54 @@ export default function CodeDetail() {
               <option value="__CUSTOM__">✨ พิมพ์กำหนดค่าเอง...</option>
             </select>
           )}
+        </div>
+      );
+    }
+    
+    // 🌟 ส่วนที่ 2: วางแทรกเหนือบล็อก if (field.type === 'color') ในฟังก์ชัน renderFieldUI
+    if (field.type === 'gradient') {
+      const fallbackCol = getFallbackColor(field.variableName);
+      const currentVal = val || fallbackCol || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
+      
+      // ดึงค่าสีเก่าในช่องข้อความออกมาเพื่อให้ picker แสดงผลตรงกัน
+      const getC1 = () => {
+        const match = currentVal.match(/#([0-9a-fA-F]{3,6})/g);
+        return match && match[0] ? match[0] : '#d8b4fe';
+      }
+      const getC2 = () => {
+        const match = currentVal.match(/#([0-9a-fA-F]{3,6})/g);
+        return match && match.length > 1 ? match[1] : (match && match[0] ? match[0] : '#bae6fd');
+      }
+      const getAngle = () => {
+        const match = currentVal.match(/(\d+)deg/);
+        return match && match[1] ? match[1] : '90';
+      }
+
+      return (
+        <div key={refKey} className="field-group">
+          <label className="field-label">{field.label}</label>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <div style={{ 
+              width: '40px', height: '36px', borderRadius: '6px', 
+              background: currentVal, border: '1px solid var(--color-accent-mute)', flexShrink: 0
+            }} />
+            <input 
+              type="text" 
+              className="glass-input" 
+              placeholder={`เช่น linear-gradient(90deg, #000, #fff)`} 
+              value={val || ''} 
+              onChange={e => onChange(e.target.value)} 
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px', background: 'rgba(255,255,255,0.4)', padding: '6px 12px', borderRadius: '8px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>เครื่องมือ:</span>
+            <input type="color" value={getC1()} onChange={e => onChange(`linear-gradient(${getAngle()}deg, ${e.target.value}, ${getC2()})`)} style={{ width: '24px', height: '24px', border: 'none', cursor: 'pointer', padding: 0, background: 'transparent' }} title="สีเริ่มต้น" />
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-secondary)' }}>→</span>
+            <input type="color" value={getC2()} onChange={e => onChange(`linear-gradient(${getAngle()}deg, ${getC1()}, ${e.target.value})`)} style={{ width: '24px', height: '24px', border: 'none', cursor: 'pointer', padding: 0, background: 'transparent' }} title="สีสิ้นสุด" />
+            <div style={{ width: '1px', height: '16px', background: 'var(--color-accent-mute)', margin: '0 4px' }} />
+            <input type="number" min="0" max="360" value={getAngle()} onChange={e => onChange(`linear-gradient(${e.target.value}deg, ${getC1()}, ${getC2()})`)} className="glass-input" style={{ width: '60px', padding: '2px 6px', height: '24px', fontSize: '0.8rem' }} />
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-secondary)' }}>deg</span>
+          </div>
         </div>
       );
     }

@@ -387,6 +387,7 @@ export default function ManageCodes() {
                   <option value="richtext">📝 ข้อความยาว / Text Editor</option>
                   <option value="roleplay">🎭 กล่อง Roleplay (นับคำ)</option>
                   <option value="color">🎨 สี (Color Picker)</option>
+                  <option value="gradient">🌈 ไล่ระดับสี (Gradient)</option>
                   <option value="image">🖼️ รูปภาพ (เลื่อนตำแหน่ง/ซูม)</option>
                   <option value="dropdown">📋 ตัวเลือก (Dropdown + พิมพ์เอง)</option>
                 </select>
@@ -484,6 +485,7 @@ export default function ManageCodes() {
                               <option value="roleplay">โรลเพลย์</option>
                               <option value="image">รูปภาพ</option>
                               <option value="color">เลือกสี</option>
+                              <option value="gradient">ไล่ระดับสี</option>
                               <option value="dropdown">ตัวเลือก</option>
                             </select>
                             

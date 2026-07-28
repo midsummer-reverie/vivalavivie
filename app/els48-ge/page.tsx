@@ -203,7 +203,7 @@ export default function ELS48GeneralElection() {
           
           {isSignature && formData.signatureType === 'image' && formData.signatureImageUrl ? (
             <div style={{
-              position: 'absolute', bottom: '2px', left: align === 'left' ? '16px' : '0', width: 'calc(100% - 16px)', height: '40px',
+              position: 'absolute', bottom: '2px', left: align === 'left' ? '16px' : '0', width: 'calc(100% - 16px)', height: '60px',
               display: 'flex', justifyContent: align === 'left' ? 'flex-start' : 'center'
             }}>
               <div

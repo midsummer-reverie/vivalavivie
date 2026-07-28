@@ -200,6 +200,10 @@ export default function Home() {
                 <img className="my-menu-icon" src="https://iili.io/CNUAITP.md.png" alt="Tutorials" />
                 <span className="my-menu-label">Tutorials</span>
               </Link>
+              <Link href="/els48-ge" className="my-menu-item">
+                <img className="my-menu-icon" src="https://iili.io/qHof9rF.md.png" alt="ELS48 GE" />
+                <span className="my-menu-label">ELS48 GE</span>
+              </Link>
             </nav>
 
             <div className="my-chat-bubble"></div>

@@ -376,7 +376,7 @@ export default function TemplateDetail() {
         pixelRatio: 2,
         useCORS: true,
         cacheBust: true,
-        backgroundColor: null,
+        backgroundColor: 'transparent',
         // เพิ่ม imagePlaceholder เผื่อรูปโหลดไม่สมบูรณ์จะได้ไม่แครช
         imagePlaceholder: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
       });

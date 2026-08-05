@@ -374,7 +374,6 @@ export default function TemplateDetail() {
       const dataUrl = await htmlToImage.toPng(previewRef.current, { 
         quality: 1, 
         pixelRatio: 2,
-        useCORS: true,
         cacheBust: true,
         backgroundColor: 'transparent',
         // เพิ่ม imagePlaceholder เผื่อรูปโหลดไม่สมบูรณ์จะได้ไม่แครช

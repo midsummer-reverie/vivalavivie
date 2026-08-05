@@ -188,9 +188,9 @@ export default function Home() {
                 <img className="my-menu-icon" src="https://iili.io/CNU5kQ9.png" alt="Characters" />
                 <span className="my-menu-label">Characters</span>
               </Link>
-              <Link href="/covers" className="my-menu-item">
-                <img className="my-menu-icon" src="https://iili.io/CNUARCg.md.png" alt="Song Cover" />
-                <span className="my-menu-label">Song Cover</span>
+              <Link href="/imgeditor" className="my-menu-item">
+                <img className="my-menu-icon" src="https://iili.io/CU2i7af.png" alt="Image Editor" />
+                <span className="my-menu-label">Image Editor</span>
               </Link>
               <Link href="/codes" className="my-menu-item">
                 <img className="my-menu-icon" src="https://iili.io/CNUAuZF.md.png" alt="Code Showcase" />
@@ -199,6 +199,10 @@ export default function Home() {
               <Link href="/tutorials" className="my-menu-item">
                 <img className="my-menu-icon" src="https://iili.io/CNUAITP.md.png" alt="Tutorials" />
                 <span className="my-menu-label">Tutorials</span>
+              </Link>
+              <Link href="/covers" className="my-menu-item">
+                <img className="my-menu-icon" src="https://iili.io/CNUARCg.md.png" alt="Song Cover" />
+                <span className="my-menu-label">Song Cover</span>
               </Link>
               <Link href="/els48-ge" className="my-menu-item">
                 <img className="my-menu-icon" src="https://iili.io/qHof9rF.md.png" alt="ELS48 GE" />

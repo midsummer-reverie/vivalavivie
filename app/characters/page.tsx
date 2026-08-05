@@ -59,7 +59,7 @@ export default function Characters() {
 
   const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === "712viva") {
+    if (password === "712069") {
       setShowAuthModal(false);
       setPassword("");
       setAuthError(false);

@@ -326,17 +326,27 @@ export default function TemplateDetail() {
     if (editMode === 'customize') {
       if (template.customFields && Array.isArray(template.customFields)) {
         template.customFields.forEach((field: any) => {
-          const val = fieldValues[field.variableName] || "";
+          const val = fieldValues[field.variableName];
           if (field.conditionVar && field.conditionVar.trim() !== "") {
              const parentVal = fieldValues[field.conditionVar] || "";
              if (parentVal !== field.conditionVal) return;
           }
           if (field.type === 'richtext' || field.type === 'roleplay') {
             if (val !== "") finalHtml = finalHtml.split(field.variableName).join(parseContent(val, isForPreview));
-          } else if (field.type === 'text' || field.type === 'dropdown') {
-            if (val !== "") finalHtml = finalHtml.split(field.variableName).join(val);
+          } else if (field.type === 'text' || field.type === 'dropdown' || field.type === 'color' || field.type === 'gradient') {
+            if (val) finalHtml = finalHtml.split(field.variableName).join(val);
           } else if (field.type === 'image') {
-            finalHtml = finalHtml.split(field.variableName).join("");
+            // 🌟 แก้ไขจุดนี้: ดึง Base64 หรือ URL ภาพมาแทนที่ตัวแปรใน HTML ได้ทันที
+            const imgData = val || { url: "", x: 50, y: 50, zoom: 100 };
+            let finalUrl = '';
+            if (imgData.url) {
+                if (imgData.url.startsWith('data:')) {
+                    finalUrl = imgData.url;
+                } else if (base64Images[imgData.url]) {
+                    finalUrl = base64Images[imgData.url];
+                }
+            }
+            finalHtml = finalHtml.split(field.variableName).join(finalUrl);
           }
         });
       }

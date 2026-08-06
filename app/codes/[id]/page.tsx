@@ -326,7 +326,7 @@ export default function CodeDetail() {
           
           if (field.conditionVar && field.conditionVar.trim() !== "") {
              const parentVal = fieldValues[field.conditionVar] || "";
-             if (parentVal !== field.conditionVal) return;
+             if (parentVal !== field.conditionVar) return;
           }
 
           if (field.type === 'image') {
@@ -347,7 +347,9 @@ export default function CodeDetail() {
             const colorVal = val !== "" ? val : getFallbackColor(field.variableName);
             finalHtml = finalHtml.split(field.variableName).join(colorVal);
           } else if (field.type === 'richtext' || field.type === 'roleplay') {
-            if (val !== "") finalHtml = finalHtml.split(field.variableName).join(parseContent(val, isForPreview));
+            // 🌟 จุดสำคัญ: ถ้าเรนเดอร์เพื่อก๊อปปี้โค้ด (isForPreview = false) จะคงค่า BBCode เดิมไว้ ไม่แปลงเป็น HTML!
+            const textToInsert = isForPreview ? parseContent(val, true) : val;
+            if (val !== "") finalHtml = finalHtml.split(field.variableName).join(textToInsert);
           } else {
             if (val !== "") finalHtml = finalHtml.split(field.variableName).join(val);
           }
@@ -364,7 +366,7 @@ export default function CodeDetail() {
               
               if (field.conditionVar && field.conditionVar.trim() !== "") {
                  const parentVal = block.values[field.conditionVar] || "";
-                 if (parentVal !== field.conditionVal) return;
+                 if (parentVal !== field.conditionVar) return;
               }
 
               if (field.type === 'image') {
@@ -385,7 +387,8 @@ export default function CodeDetail() {
                 const colorVal = val !== "" ? val : getFallbackColor(field.variableName);
                 blockHtml = blockHtml.split(field.variableName).join(colorVal);
               } else if (field.type === 'richtext' || field.type === 'roleplay') {
-                if (val !== "") blockHtml = blockHtml.split(field.variableName).join(parseContent(val, isForPreview));
+                const textToInsert = isForPreview ? parseContent(val, true) : val;
+                if (val !== "") blockHtml = blockHtml.split(field.variableName).join(textToInsert);
               } else {
                 if (val !== "") blockHtml = blockHtml.split(field.variableName).join(val);
               }
@@ -434,7 +437,6 @@ export default function CodeDetail() {
         .replace(/\[color=(.*?)\]([\s\S]*?)\[\/color\]/gi, '<span style="color: $1;">$2</span>')
         .replace(/\[bg=(.*?)\]([\s\S]*?)\[\/bg\]/gi, '<span style="background-color: $1;">$2</span>')
         .replace(/\[url=(.*?)\]([\s\S]*?)\[\/url\]/gi, '<a href="$1" target="_blank" style="color: #a855f7; text-decoration: underline;">$2</a>')
-        
         .replace(/\[img\](.*?)\[\/img\]/gi, '<img src="$1" style="max-width: 100%; height: auto; border-radius: 8px;" />')
         .replace(/\[img=(.*?)\][\s\S]*?\[\/img\]/gi, '<img src="$1" style="max-width: 100%; height: auto; border-radius: 8px;" />')
         .replace(/\[yt\](.*?)\[\/yt\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen></iframe></div>')
@@ -443,7 +445,6 @@ export default function CodeDetail() {
         .replace(/\[ytauto=(.*?)\][\s\S]*?\[\/ytauto\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allow="autoplay" allowfullscreen></iframe></div>')
         .replace(/\[hideyt\](.*?)\[\/hideyt\]/gi, '<iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="width:0; height:0; border:0; display:none;" allow="autoplay"></iframe>')
         .replace(/\[hideyt=(.*?)\][\s\S]*?\[\/hideyt\]/gi, '<iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="width:0; height:0; border:0; display:none;" allow="autoplay"></iframe>')
-        
         .replace(/\[hr\]/gi, '<hr style="border: 0; border-top: 1px solid currentColor; opacity: 0.3; margin: 16px 0;" />');
 
       finalHtml = finalHtml.replace(/\n/g, '<br/>');

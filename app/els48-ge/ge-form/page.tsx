@@ -4,6 +4,29 @@ import React, { useState, useRef, useEffect } from 'react';
 import * as htmlToImage from 'html-to-image';
 import Link from 'next/link';
 
+const defaultFormData = {
+  nameTh: "", nameEn: "",
+  nickTh: "", nickEn: "",
+  team: "", expectedRank: "",
+  song1: "", ori1: "",
+  song2: "", ori2: "",
+  song3: "", ori3: "",
+  signature: "", date: "",
+  signatureType: "text", 
+  signatureImageUrl: "",
+  sigOffsetX: 0,
+  sigOffsetY: 0,
+  sigScale: 100
+};
+
+const defaultSettings = {
+  fontColor: "#2563eb",
+  fontFamily: "'Mali', cursive",
+  logoUrl: "https://iili.io/qHof9rF.md.png",
+  fontSize: 20,
+  fontOffsetY: -7 
+};
+
 export default function ELS48GeneralElection() {
   const formRef = useRef<HTMLDivElement>(null);
   
@@ -11,29 +34,10 @@ export default function ELS48GeneralElection() {
   const [isMounted, setIsMounted] = useState(false);
 
   // 🌟 ข้อมูลที่กรอกในฟอร์ม (ฝั่งซ้าย)
-  const [formData, setFormData] = useState({
-    nameTh: "", nameEn: "",
-    nickTh: "", nickEn: "",
-    team: "", expectedRank: "",
-    song1: "", ori1: "",
-    song2: "", ori2: "",
-    song3: "", ori3: "",
-    signature: "", date: "",
-    signatureType: "text", 
-    signatureImageUrl: "",
-    sigOffsetX: 0,
-    sigOffsetY: 0,
-    sigScale: 100
-  });
+  const [formData, setFormData] = useState(defaultFormData);
 
   // 🌟 การตั้งค่าฟอร์ม
-  const [settings, setSettings] = useState({
-    fontColor: "#2563eb",
-    fontFamily: "'Mali', cursive",
-    logoUrl: "https://iili.io/qHof9rF.md.png",
-    fontSize: 20,
-    fontOffsetY: -7 
-  });
+  const [settings, setSettings] = useState(defaultSettings);
 
   // 🌟 จัดการฟอนต์ลายมือจากหลังบ้าน
   const [customFonts, setCustomFonts] = useState([
@@ -124,6 +128,16 @@ export default function ELS48GeneralElection() {
       localStorage.setItem('els48-ge-settings', JSON.stringify(settings));
     }
   }, [settings, isMounted]);
+
+  // 🗑️ ฟังก์ชันล้างข้อมูลทั้งหมด
+  const handleResetData = () => {
+    if (window.confirm("คุณต้องการล้างข้อมูลทั้งหมดและเริ่มกรอกข้อมูลใหม่ใช่หรือไม่?")) {
+      setFormData(defaultFormData);
+      setSettings(defaultSettings);
+      localStorage.removeItem('els48-ge-form-data');
+      localStorage.removeItem('els48-ge-settings');
+    }
+  };
 
   // 🛠️ ฟังก์ชันบันทึกฟอนต์ลง Database
   const handleAddCustomFont = async () => {
@@ -254,8 +268,8 @@ export default function ELS48GeneralElection() {
         @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;600;700&display=swap');
         
         /* ============================
-           ✨ แอนิเมชันสำหรับหน้าฟอร์ม
-           ============================ */
+            ✨ แอนิเมชันสำหรับหน้าฟอร์ม
+            ============================ */
         @keyframes pageFadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
@@ -290,10 +304,16 @@ export default function ELS48GeneralElection() {
         .split-layout { display: grid; grid-template-columns: 480px 1fr; gap: 24px; align-items: start; }
         @media (max-width: 1200px) { .split-layout { grid-template-columns: 1fr; } }
         
+        .nav-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+        }
+
         .back-btn { 
           display: inline-flex; 
           align-items: center; 
-          margin-bottom: 20px; 
           text-decoration: none; 
           color: #2e1065; 
           font-weight: 600; 
@@ -308,6 +328,28 @@ export default function ELS48GeneralElection() {
         }
         .back-btn:hover { background: rgba(255,255,255,0.8); transform: translateX(-4px); }
         
+        .reset-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          color: #dc2626;
+          font-weight: 600;
+          padding: 8px 16px;
+          border-radius: 12px;
+          cursor: pointer;
+          backdrop-filter: blur(8px);
+          opacity: 0;
+          animation: pageFadeIn 0.6s ease-out 0.1s forwards;
+          transition: all 0.2s;
+        }
+        .reset-btn:hover {
+          background: rgba(239, 68, 68, 0.2);
+          border-color: rgba(239, 68, 68, 0.5);
+          transform: translateY(-2px);
+        }
+
         .glass-panel { background: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.7); border-radius: 20px; padding: 24px; backdrop-filter: blur(16px); box-shadow: 0 10px 40px rgba(139, 92, 246, 0.08); }
         .left-panel { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
         
@@ -373,7 +415,12 @@ export default function ELS48GeneralElection() {
       `}} />
 
       <div className="wide-w">
-        <Link className="back-btn" href="/els48-ge">← กลับไปหน้าหลัก</Link>
+        <div className="nav-header">
+          <Link className="back-btn" href="/els48-ge">← กลับไปหน้าหลัก</Link>
+          <button className="reset-btn" onClick={handleResetData}>
+            🗑️ ล้างข้อมูลทั้งหมด
+          </button>
+        </div>
 
         <div className="split-layout">
           {/* ================= ซ้าย: ตัวควบคุมฟอร์ม ================= */}

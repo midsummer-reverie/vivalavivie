@@ -636,7 +636,7 @@ export default function ELS48GeneralElection() {
                           {formData.team === team && 
                             <span style={{ 
                               color: settings.fontColor, 
-                              fontFamily: settings.fontFamily, 
+                              fontFamily: "'THSarabun PSK', sans-serif", 
                               fontSize: '30px', 
                               position: 'absolute', 
                               top: '-15px', left: '1px' 

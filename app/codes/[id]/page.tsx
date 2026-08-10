@@ -39,11 +39,9 @@ export default function CodeDetail() {
     if (!codeId) return;
     const fetchCode = async () => {
       try {
-        // 🌟 เปลี่ยนกลับมายิงไปที่ /api/codes ธรรมดา
         const res = await fetch('/api/codes');
         if (res.ok) {
           const data = await res.json();
-          // 🌟 ใช้ .find() ค้นหาจากก้อนข้อมูลทั้งหมดเหมือนเดิมครับ
           const foundCode = data.find((c: any) => c.id === codeId);
           
           if (foundCode) {
@@ -315,18 +313,37 @@ export default function CodeDetail() {
     return defaultHex;
   };
 
+  // 🌟 ฟังก์ชันหลักสำหรับแทนค่าและคอมไพล์โค้ด HTML (อัปเดตระบบ Global Replace) 🌟
   const getRenderedHtml = (isForPreview: boolean = false) => {
     if (!code || !code.htmlCode) return "";
     let finalHtml = code.htmlCode;
     
     if (editMode === 'customize') {
+
+      // 1️⃣ วนลูปเช็คและแทนค่า Dropdown ก่อนเพื่อน (เพราะมันจะไปโผล่ในเงื่อนไขการโชว์สี)
+      if (code.customFields && Array.isArray(code.customFields)) {
+        code.customFields.filter((f: any) => f.type === 'dropdown').forEach((field: any) => {
+          const val = fieldValues[field.variableName] || "";
+          if (val !== "") {
+            // ค้นหาและแทนค่าแบบ Global Replace (เผื่อมันมีแทรกอยู่หลายจุด)
+            finalHtml = finalHtml.split(field.variableName).join(val);
+          }
+        });
+      }
+
+      // 2️⃣ วนลูปตัวแปรทั้งหมด (ที่เหลือ) ลงไปแทนค่า
       if (code.customFields && Array.isArray(code.customFields)) {
         code.customFields.forEach((field: any) => {
+          // ข้าม dropdown เพราะทำไปแล้วข้างบน
+          if (field.type === 'dropdown') return;
+
           const val = fieldValues[field.variableName] || "";
           
+          // ⚠️ ระบบเช็คเงื่อนไข: ข้ามฟิลด์ที่โดนซ่อนอยู่ (เพื่อให้สีหรือค่าที่ไม่ตรงเงื่อนไขไม่ถูกดึงไปใช้มั่ว)
           if (field.conditionVar && field.conditionVar.trim() !== "") {
              const parentVal = fieldValues[field.conditionVar] || "";
-             if (parentVal !== field.conditionVar) return;
+             // ถัาค่าของตัวแปรหลัก (Dropdown) ไม่ตรงกับค่า conditionVal ที่ตั้งไว้ ให้ข้ามการแทนค่าฟิลด์นี้ไปเลย
+             if (parentVal !== field.conditionVal) return;
           }
 
           if (field.type === 'image') {
@@ -334,20 +351,21 @@ export default function CodeDetail() {
             if (imgData.url && imgData.url.trim() !== '') {
               const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
               const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
-              if (legacyRegex.test(finalHtml)) finalHtml = finalHtml.replace(legacyRegex, `${imgData.url}) ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`);
-              else {
+              if (legacyRegex.test(finalHtml)) {
+                finalHtml = finalHtml.replace(legacyRegex, `${imgData.url}) ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`);
+              } else {
                 finalHtml = finalHtml.split(field.variableName).join(imgData.url);
                 finalHtml = finalHtml.split(`${field.variableName}_URL`).join(imgData.url);
-                finalHtml = finalHtml.split(`${field.variableName}_X`).join(imgData.x);
-                finalHtml = finalHtml.split(`${field.variableName}_Y`).join(imgData.y);
-                finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom);
+                finalHtml = finalHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
+                finalHtml = finalHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
+                finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
               }
             }
           } else if (field.type === 'color' || field.type === 'gradient') {
             const colorVal = val !== "" ? val : getFallbackColor(field.variableName);
+            // 🎯 Global Replace มั่นใจ 100% ว่าแก้ทุกจุด
             finalHtml = finalHtml.split(field.variableName).join(colorVal);
           } else if (field.type === 'richtext' || field.type === 'roleplay') {
-            // 🌟 จุดสำคัญ: ถ้าเรนเดอร์เพื่อก๊อปปี้โค้ด (isForPreview = false) จะคงค่า BBCode เดิมไว้ ไม่แปลงเป็น HTML!
             const textToInsert = isForPreview ? parseContent(val, true) : val;
             if (val !== "") finalHtml = finalHtml.split(field.variableName).join(textToInsert);
           } else {
@@ -356,17 +374,29 @@ export default function CodeDetail() {
         });
       }
 
+      // 3️⃣ จัดการส่วนเสริม (Blocks)
       if (activeBlocks.length > 0) {
         const blocksByPlaceholder: { [key: string]: string[] } = {};
+        
         activeBlocks.forEach(block => {
           let blockHtml = block.htmlTemplate;
+          
           if (block.fields && Array.isArray(block.fields)) {
+            // แทนค่า Dropdown ใน Block ก่อนเหมือนเดิม
+            block.fields.filter((f: any) => f.type === 'dropdown').forEach((field: any) => {
+              const val = block.values[field.variableName] || "";
+              if (val !== "") blockHtml = blockHtml.split(field.variableName).join(val);
+            });
+
             block.fields.forEach((field: any) => {
+              if (field.type === 'dropdown') return;
+              
               const val = block.values[field.variableName] || "";
               
+              // ⚠️ ระบบเช็คเงื่อนไขย่อยใน Block
               if (field.conditionVar && field.conditionVar.trim() !== "") {
                  const parentVal = block.values[field.conditionVar] || "";
-                 if (parentVal !== field.conditionVar) return;
+                 if (parentVal !== field.conditionVal) return;
               }
 
               if (field.type === 'image') {
@@ -374,13 +404,14 @@ export default function CodeDetail() {
                 if (imgData.url && imgData.url.trim() !== '') {
                   const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
                   const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
-                  if (legacyRegex.test(blockHtml)) blockHtml = blockHtml.replace(legacyRegex, `${imgData.url}) ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`);
-                  else {
+                  if (legacyRegex.test(blockHtml)) {
+                    blockHtml = blockHtml.replace(legacyRegex, `${imgData.url}) ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`);
+                  } else {
                     blockHtml = blockHtml.split(field.variableName).join(imgData.url);
                     blockHtml = blockHtml.split(`${field.variableName}_URL`).join(imgData.url);
-                    blockHtml = blockHtml.split(`${field.variableName}_X`).join(imgData.x);
-                    blockHtml = blockHtml.split(`${field.variableName}_Y`).join(imgData.y);
-                    blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom);
+                    blockHtml = blockHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
+                    blockHtml = blockHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
+                    blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
                   }
                 }
               } else if (field.type === 'color' || field.type === 'gradient') {
@@ -405,6 +436,7 @@ export default function CodeDetail() {
       }
 
     } else {
+      // 🌟 Mode ต้นฉบับ (Original)
       const variation = code.variations?.[activeVariation];
       if (variation) {
         if (variation.type === 'full_html' && variation.fullHtml) {
@@ -428,25 +460,6 @@ export default function CodeDetail() {
     }
 
     if (isForPreview) {
-      finalHtml = finalHtml
-        .replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong>$1</strong>')
-        .replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>')
-        .replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<u>$1</u>')
-        .replace(/\[align=(left|center|right|justify)\]([\s\S]*?)\[\/align\]/gi, '<div style="text-align: $1;">$2</div>')
-        .replace(/\[size=(.*?)\]([\s\S]*?)\[\/size\]/gi, '<span style="font-size: $1;">$2</span>')
-        .replace(/\[color=(.*?)\]([\s\S]*?)\[\/color\]/gi, '<span style="color: $1;">$2</span>')
-        .replace(/\[bg=(.*?)\]([\s\S]*?)\[\/bg\]/gi, '<span style="background-color: $1;">$2</span>')
-        .replace(/\[url=(.*?)\]([\s\S]*?)\[\/url\]/gi, '<a href="$1" target="_blank" style="color: #a855f7; text-decoration: underline;">$2</a>')
-        .replace(/\[img\](.*?)\[\/img\]/gi, '<img src="$1" style="max-width: 100%; height: auto; border-radius: 8px;" />')
-        .replace(/\[img=(.*?)\][\s\S]*?\[\/img\]/gi, '<img src="$1" style="max-width: 100%; height: auto; border-radius: 8px;" />')
-        .replace(/\[yt\](.*?)\[\/yt\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen></iframe></div>')
-        .replace(/\[yt=(.*?)\][\s\S]*?\[\/yt\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen></iframe></div>')
-        .replace(/\[ytauto\](.*?)\[\/ytauto\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allow="autoplay" allowfullscreen></iframe></div>')
-        .replace(/\[ytauto=(.*?)\][\s\S]*?\[\/ytauto\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allow="autoplay" allowfullscreen></iframe></div>')
-        .replace(/\[hideyt\](.*?)\[\/hideyt\]/gi, '<iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="width:0; height:0; border:0; display:none;" allow="autoplay"></iframe>')
-        .replace(/\[hideyt=(.*?)\][\s\S]*?\[\/hideyt\]/gi, '<iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="width:0; height:0; border:0; display:none;" allow="autoplay"></iframe>')
-        .replace(/\[hr\]/gi, '<hr style="border: 0; border-top: 1px solid currentColor; opacity: 0.3; margin: 16px 0;" />');
-
       finalHtml = finalHtml.replace(/\n/g, '<br/>');
       finalHtml = finalHtml.replace(/>\s*<br\/>\s*</g, '>\n<');
     }
@@ -462,10 +475,11 @@ export default function CodeDetail() {
 
   const renderFieldUI = (field: any, val: any, onChange: (v: any) => void, refKey: string, allValues: any) => {
     
+    // 🌟 ระบบเช็คเงื่อนไขในการแสดงผลช่อง UI 🌟
     if (field.conditionVar && field.conditionVar.trim() !== "") {
       const parentVal = allValues[field.conditionVar] || "";
       if (parentVal !== field.conditionVal) {
-        return null;
+        return null; // ซ่อนจาก UI ไปเลยถ้าค่า Dropdown ไม่ตรง
       }
     }
 

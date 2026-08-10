@@ -277,7 +277,15 @@ export default function CodesShowcase() {
                 >
                   <div className="card-preview">
                     {isPrivate && <div className="lock-icon-overlay">🔒</div>}
-                    <img src={bgImageUrl} alt={isPrivate ? 'Private Preview' : code.name} loading="lazy" />
+                    <img 
+                      src={bgImageUrl} 
+                      alt={isPrivate ? 'Private Preview' : code.name} 
+                      loading="lazy" 
+                      onError={(e) => {
+                        // ถ้ารูปโหลดไม่ขึ้น หรือลิงก์พัง ให้เปลี่ยนไปใช้รูป Default สีเทาๆ นี้แทน
+                        e.currentTarget.src = "https://i.pinimg.com/1200x/1d/e5/78/1de578351b09df48023a06e33341fd77.jpg";
+                      }}
+                    />
                   </div>
                   
                   <div className="card-info">

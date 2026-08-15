@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -23,8 +23,14 @@ export default function CodeDetail() {
   const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview');
   const [copied, setCopied] = useState(false);
 
+  // 🌟 State หลักที่อัปเดตทันทีที่พิมพ์
   const [fieldValues, setFieldValues] = useState<{ [key: string]: any }>({});
+  
+  // 🌟 State ที่ชะลอการอัปเดต (Debounced) เพื่อไม่ให้พรีวิวกระพริบตอนพิมพ์
+  const [debouncedFieldValues, setDebouncedFieldValues] = useState<{ [key: string]: any }>({});
+  
   const [activeBlocks, setActiveBlocks] = useState<any[]>([]);
+  const [debouncedActiveBlocks, setDebouncedActiveBlocks] = useState<any[]>([]);
   
   const [customDropdowns, setCustomDropdowns] = useState<{ [key: string]: boolean }>({});
   
@@ -34,6 +40,15 @@ export default function CodeDetail() {
 
   const textareaRefs = useRef<{ [key: string]: HTMLTextAreaElement | null }>({});
   const [selections, setSelections] = useState<{ [key: string]: { start: number, end: number } }>({});
+
+  // 🌟 Effect สำหรับทำ Debounce (หน่วงเวลา 300ms)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedFieldValues(fieldValues);
+      setDebouncedActiveBlocks(activeBlocks);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [fieldValues, activeBlocks]);
 
   useEffect(() => {
     if (!codeId) return;
@@ -313,41 +328,38 @@ export default function CodeDetail() {
     return defaultHex;
   };
 
-  // 🌟 ฟังก์ชันหลักสำหรับแทนค่าและคอมไพล์โค้ด HTML (อัปเดตระบบ Global Replace) 🌟
+  // 🌟 ใช้ useMemo คำนวณ HTML เฉพาะตอนที่ debounced ค่าแล้ว (พิมพ์เสร็จ) เท่านั้น 🌟
   const getRenderedHtml = (isForPreview: boolean = false) => {
     if (!code || !code.htmlCode) return "";
     let finalHtml = code.htmlCode;
     
+    // 💡 เลือกใช้ FieldValues แบบไหน? (ถ้าตอน Copy HTML เอาแบบปัจจุบันทันที ถ้าเป็น Preview เอาอันที่ Debounce แล้วลดกระตุก)
+    const currentValuesToUse = isForPreview ? debouncedFieldValues : fieldValues;
+    const currentBlocksToUse = isForPreview ? debouncedActiveBlocks : activeBlocks;
+    
     if (editMode === 'customize') {
-
-      // 1️⃣ วนลูปเช็คและแทนค่า Dropdown ก่อนเพื่อน (เพราะมันจะไปโผล่ในเงื่อนไขการโชว์สี)
       if (code.customFields && Array.isArray(code.customFields)) {
         code.customFields.filter((f: any) => f.type === 'dropdown').forEach((field: any) => {
-          const val = fieldValues[field.variableName] || "";
+          const val = currentValuesToUse[field.variableName] || "";
           if (val !== "") {
-            // ค้นหาและแทนค่าแบบ Global Replace (เผื่อมันมีแทรกอยู่หลายจุด)
             finalHtml = finalHtml.split(field.variableName).join(val);
           }
         });
       }
 
-      // 2️⃣ วนลูปตัวแปรทั้งหมด (ที่เหลือ) ลงไปแทนค่า
       if (code.customFields && Array.isArray(code.customFields)) {
         code.customFields.forEach((field: any) => {
-          // ข้าม dropdown เพราะทำไปแล้วข้างบน
           if (field.type === 'dropdown') return;
 
-          const val = fieldValues[field.variableName] || "";
+          const val = currentValuesToUse[field.variableName] || "";
           
-          // ⚠️ ระบบเช็คเงื่อนไข: ข้ามฟิลด์ที่โดนซ่อนอยู่ (เพื่อให้สีหรือค่าที่ไม่ตรงเงื่อนไขไม่ถูกดึงไปใช้มั่ว)
           if (field.conditionVar && field.conditionVar.trim() !== "") {
-             const parentVal = fieldValues[field.conditionVar] || "";
-             // ถัาค่าของตัวแปรหลัก (Dropdown) ไม่ตรงกับค่า conditionVal ที่ตั้งไว้ ให้ข้ามการแทนค่าฟิลด์นี้ไปเลย
+             const parentVal = currentValuesToUse[field.conditionVar] || "";
              if (parentVal !== field.conditionVal) return;
           }
 
           if (field.type === 'image') {
-            const imgData = fieldValues[field.variableName] || { url: "", x: 50, y: 50, zoom: 100 };
+            const imgData = currentValuesToUse[field.variableName] || { url: "", x: 50, y: 50, zoom: 100 };
             if (imgData.url && imgData.url.trim() !== '') {
               const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
               const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
@@ -363,7 +375,6 @@ export default function CodeDetail() {
             }
           } else if (field.type === 'color' || field.type === 'gradient') {
             const colorVal = val !== "" ? val : getFallbackColor(field.variableName);
-            // 🎯 Global Replace มั่นใจ 100% ว่าแก้ทุกจุด
             finalHtml = finalHtml.split(field.variableName).join(colorVal);
           } else if (field.type === 'richtext' || field.type === 'roleplay') {
             const textToInsert = isForPreview ? parseContent(val, true) : val;
@@ -374,15 +385,13 @@ export default function CodeDetail() {
         });
       }
 
-      // 3️⃣ จัดการส่วนเสริม (Blocks)
-      if (activeBlocks.length > 0) {
+      if (currentBlocksToUse.length > 0) {
         const blocksByPlaceholder: { [key: string]: string[] } = {};
         
-        activeBlocks.forEach(block => {
+        currentBlocksToUse.forEach(block => {
           let blockHtml = block.htmlTemplate;
           
           if (block.fields && Array.isArray(block.fields)) {
-            // แทนค่า Dropdown ใน Block ก่อนเหมือนเดิม
             block.fields.filter((f: any) => f.type === 'dropdown').forEach((field: any) => {
               const val = block.values[field.variableName] || "";
               if (val !== "") blockHtml = blockHtml.split(field.variableName).join(val);
@@ -393,7 +402,6 @@ export default function CodeDetail() {
               
               const val = block.values[field.variableName] || "";
               
-              // ⚠️ ระบบเช็คเงื่อนไขย่อยใน Block
               if (field.conditionVar && field.conditionVar.trim() !== "") {
                  const parentVal = block.values[field.conditionVar] || "";
                  if (parentVal !== field.conditionVal) return;
@@ -436,7 +444,6 @@ export default function CodeDetail() {
       }
 
     } else {
-      // 🌟 Mode ต้นฉบับ (Original)
       const variation = code.variations?.[activeVariation];
       if (variation) {
         if (variation.type === 'full_html' && variation.fullHtml) {
@@ -467,19 +474,28 @@ export default function CodeDetail() {
     return finalHtml;
   };
 
+  // 🌟 ประมวลผลล่วงหน้าเพื่อลดปัญหา Re-render 🌟
+  const previewHtml = useMemo(() => getRenderedHtml(true), [debouncedFieldValues, debouncedActiveBlocks, code, editMode, activeVariation]);
+  const codeHtml = useMemo(() => getRenderedHtml(false), [debouncedFieldValues, debouncedActiveBlocks, code, editMode, activeVariation]);
+
   const handleCopy = () => {
-    navigator.clipboard.writeText(getRenderedHtml(false));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    // ใช้ค่าปัจจุบัน (ไม่รอ Debounce) เพราะเวลาคลิกก๊อปปี้ ผู้ใช้ไม่ได้พิมพ์อยู่แล้ว
+    const exactCodeHtml = getRenderedHtml(false); 
+    navigator.clipboard.writeText(exactCodeHtml).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(err => {
+      console.error("Failed to copy text: ", err);
+      alert("ไม่สามารถก๊อปปี้ได้ กรุณาลองใหม่อีกครั้ง");
+    });
   };
 
   const renderFieldUI = (field: any, val: any, onChange: (v: any) => void, refKey: string, allValues: any) => {
     
-    // 🌟 ระบบเช็คเงื่อนไขในการแสดงผลช่อง UI 🌟
     if (field.conditionVar && field.conditionVar.trim() !== "") {
       const parentVal = allValues[field.conditionVar] || "";
       if (parentVal !== field.conditionVal) {
-        return null; // ซ่อนจาก UI ไปเลยถ้าค่า Dropdown ไม่ตรง
+        return null; 
       }
     }
 
@@ -668,9 +684,6 @@ export default function CodeDetail() {
   if (loading) return <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>Loading...</div>;
   if (!code) return <div style={{ textAlign: 'center', padding: '50px' }}><h2>ไม่พบข้อมูลโค้ดนี้ 😥</h2><Link href="/codes">กลับไปหน้าหลัก</Link></div>;
 
-  const previewHtml = getRenderedHtml(true);
-  const codeHtml = getRenderedHtml(false);
-
   const themeVars = {
     '--color-text-main': '#2e1065',
     '--color-primary': '#4c1d95',
@@ -838,7 +851,6 @@ export default function CodeDetail() {
                   {code.isCommission && <span style={{ marginLeft: '10px', fontSize: '0.8rem', background: '#fef08a', color: '#854d0e', padding: '4px 8px', borderRadius: '8px', fontWeight: 'bold' }}>💎 Private</span>}
                 </div>
 
-                {/* 🌟 แสดงแท็กและกิจกรรมใต้ป้ายกำกับเทมเพลต */}
                 {(code.activityTags?.length > 0 || code.eventTags?.length > 0) && (
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' }}>
                     {code.eventTags?.map((tag: string) => (

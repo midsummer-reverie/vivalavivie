@@ -18,7 +18,7 @@ export default function ManageCodes() {
   });
 
   const [tagInput, setTagInput] = useState(""); 
-  const [eventTagInput, setEventTagInput] = useState(""); // 🌟 ตัวแปรใหม่สำหรับช่องแท็กกิจกรรม
+  const [eventTagInput, setEventTagInput] = useState("");
 
   const fetchCodes = async () => {
     try {
@@ -63,7 +63,6 @@ export default function ManageCodes() {
     setFormData({ ...formData, activityTags: formData.activityTags.filter(t => t !== tagToRemove) });
   };
 
-  // 🌟 ฟังก์ชันจัดการแท็กกิจกรรม
   const handleAddEventTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
@@ -78,6 +77,25 @@ export default function ManageCodes() {
     setFormData({ ...formData, eventTags: formData.eventTags.filter(t => t !== tagToRemove) });
   };
 
+  // 🌟 ฟังก์ชันจัดการ Custom Fields (รวมปุ่มเลื่อนขึ้น-ลง)
+  const handleCustomFieldChange = (index: number, field: string, value: any) => {
+    const newFields = [...formData.customFields];
+    newFields[index] = { ...newFields[index], [field]: value };
+    setFormData({ ...formData, customFields: newFields });
+  };
+  const addCustomField = () => setFormData({ ...formData, customFields: [...formData.customFields, { id: Date.now().toString(), label: "ชื่อตัวละคร", variableName: "**ชื่อตัวละคร**", type: "text", options: "", conditionVar: "", conditionVal: "" }] });
+  const removeCustomField = (index: number) => setFormData({ ...formData, customFields: formData.customFields.filter((_, i) => i !== index) });
+  const moveCustomField = (index: number, direction: 'up' | 'down') => {
+    const newArr = [...formData.customFields];
+    if (direction === 'up' && index > 0) {
+      [newArr[index - 1], newArr[index]] = [newArr[index], newArr[index - 1]];
+    } else if (direction === 'down' && index < newArr.length - 1) {
+      [newArr[index + 1], newArr[index]] = [newArr[index], newArr[index + 1]];
+    }
+    setFormData({ ...formData, customFields: newArr });
+  };
+
+  // 🌟 ฟังก์ชันจัดการ Blocks
   const handleAddBlock = (type: string) => {
     let newBlock = { id: `block_${Date.now()}`, name: "", placeholder: "", html: "", fields: [] as any[] };
     if (type === "gallery") {
@@ -139,7 +157,7 @@ export default function ManageCodes() {
           description: code.description || "", 
           codeType: code.codeType || "",
           activityTags: code.activityTags || [], 
-          eventTags: code.eventTags || [], // 🌟 โหลดแท็กกิจกรรมจากฐานข้อมูล
+          eventTags: code.eventTags || [], 
           previewUrl: code.previewUrl || "",
           htmlCode: code.htmlCode || "",
           isLocked: code.isLocked || false,
@@ -161,14 +179,6 @@ export default function ManageCodes() {
   const addVariation = () => setFormData({ ...formData, variations: [...formData.variations, { id: Date.now().toString(), label: "New Theme", color: "#bae6fd", type: "replace", replacements: "", fullHtml: "" }] });
   const removeVariation = (index: number) => setFormData({ ...formData, variations: formData.variations.filter((_, i) => i !== index) });
 
-  const handleCustomFieldChange = (index: number, field: string, value: any) => {
-    const newFields = [...formData.customFields];
-    newFields[index] = { ...newFields[index], [field]: value };
-    setFormData({ ...formData, customFields: newFields });
-  };
-  const addCustomField = () => setFormData({ ...formData, customFields: [...formData.customFields, { id: Date.now().toString(), label: "ชื่อตัวละคร", variableName: "**ชื่อตัวละคร**", type: "text", options: "", conditionVar: "", conditionVal: "" }] });
-  const removeCustomField = (index: number) => setFormData({ ...formData, customFields: formData.customFields.filter((_, i) => i !== index) });
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -179,7 +189,7 @@ export default function ManageCodes() {
       name: formData.name,
       codeType: formData.codeType,
       activityTags: formData.activityTags, 
-      eventTags: formData.eventTags, // 🌟 ส่งข้อมูลไปยัง API สำหรับเซฟ
+      eventTags: formData.eventTags,
       previewUrl: formData.previewUrl,
       htmlCode: formData.htmlCode,
       description: formData.description,
@@ -248,6 +258,10 @@ export default function ManageCodes() {
         .privacy-box { background: rgba(255, 255, 255, 0.8); border-radius: 12px; padding: 20px; border: 1px solid rgba(216, 180, 254, 0.8); }
         .checkbox-label { display: flex; align-items: center; gap: 10px; font-weight: 600; color: #4c1d95; cursor: pointer; margin-bottom: 12px; }
         .custom-checkbox { width: 18px; height: 18px; accent-color: #a855f7; cursor: pointer; }
+
+        .tool-btn { background: #fff; border: 1px solid #d8b4fe; border-radius: 6px; padding: 4px 8px; font-size: 0.85rem; font-weight: 600; color: #6b21a8; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.15s; }
+        .tool-btn:hover { background: #f3e8ff; border-color: #a855f7; }
+        .tool-btn:disabled { opacity: 0.3; cursor: not-allowed; }
       `}} />
 
       <Link href="/codes" className="back-btn">← กลับไปหน้า Showcase</Link>
@@ -410,10 +424,21 @@ export default function ManageCodes() {
           <h3 className="section-title">🛠️ กำหนดจุดที่ให้ผู้ใช้ปรับแต่ง (Custom Fields)</h3>
           {formData.customFields.map((field, index) => (
             <div key={field.id} className="variation-box" style={{ borderColor: '#60a5fa', background: 'rgba(239, 246, 255, 0.4)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                <h4 style={{ margin: 0, color: '#1e3a8a' }}>จุดที่ #{index + 1}</h4>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #bfdbfe', paddingBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h4 style={{ margin: 0, color: '#1e3a8a' }}>จุดที่ #{index + 1}</h4>
+                  
+                  {/* 🌟 ปุ่มเลื่อนขึ้น-ลงของ Custom Fields */}
+                  <div style={{ display: 'flex', gap: '4px', marginLeft: '12px' }}>
+                    <button type="button" className="tool-btn" onClick={() => moveCustomField(index, 'up')} disabled={index === 0} title="เลื่อนขึ้น">⬆️</button>
+                    <button type="button" className="tool-btn" onClick={() => moveCustomField(index, 'down')} disabled={index === formData.customFields.length - 1} title="เลื่อนลง">⬇️</button>
+                  </div>
+                </div>
+                
                 <button type="button" className="btn-remove" onClick={() => removeCustomField(index)}>✕ ลบจุดนี้</button>
               </div>
+
               <div className="form-grid-2">
                 <div className="form-group"><label className="form-label">ชื่อป้ายกำกับ</label><input type="text" required className="glass-input" value={field.label} onChange={e => handleCustomFieldChange(index, 'label', e.target.value)} /></div>
                 <div className="form-group"><label className="form-label">ชื่อตัวแปรในโค้ด (เช่น **ลิงก์ภาพเมจ**)</label><input type="text" required className="glass-input" style={{ fontFamily: 'monospace' }} value={field.variableName} onChange={e => handleCustomFieldChange(index, 'variableName', e.target.value)} /></div>

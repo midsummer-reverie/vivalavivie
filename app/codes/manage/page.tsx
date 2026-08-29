@@ -83,7 +83,7 @@ export default function ManageCodes() {
     newFields[index] = { ...newFields[index], [field]: value };
     setFormData({ ...formData, customFields: newFields });
   };
-  const addCustomField = () => setFormData({ ...formData, customFields: [...formData.customFields, { id: Date.now().toString(), label: "ชื่อตัวละคร", variableName: "**ชื่อตัวละคร**", type: "text", options: "", conditionVar: "", conditionVal: "" }] });
+  const addCustomField = () => setFormData({ ...formData, customFields: [...formData.customFields, { id: Date.now().toString(), label: " ", variableName: " ", type: "text", options: "", conditionVar: "", conditionVal: "" }] });
   const removeCustomField = (index: number) => setFormData({ ...formData, customFields: formData.customFields.filter((_, i) => i !== index) });
   const moveCustomField = (index: number, direction: 'up' | 'down') => {
     const newArr = [...formData.customFields];

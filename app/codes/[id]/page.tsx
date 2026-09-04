@@ -328,7 +328,6 @@ export default function CodeDetail() {
     return defaultHex;
   };
 
-  // 🌟 ใช้ useMemo คำนวณ HTML เฉพาะตอนที่ debounced ค่าแล้ว (พิมพ์เสร็จ) เท่านั้น 🌟
   const getRenderedHtml = (isForPreview: boolean = false) => {
     if (!code || !code.htmlCode) return "";
     let finalHtml = code.htmlCode;
@@ -474,12 +473,46 @@ export default function CodeDetail() {
     return finalHtml;
   };
 
-  // 🌟 ประมวลผลล่วงหน้าเพื่อลดปัญหา Re-render 🌟
   const previewHtml = useMemo(() => getRenderedHtml(true), [debouncedFieldValues, debouncedActiveBlocks, code, editMode, activeVariation]);
   const codeHtml = useMemo(() => getRenderedHtml(false), [debouncedFieldValues, debouncedActiveBlocks, code, editMode, activeVariation]);
 
+  // 🌟 ใช้ iframeSrcDoc เพื่อแสดงผลพรีวิวแบบสมบูรณ์ โดย 100vw = ขนาดของกล่องจำลอง 100%
+  const iframeSrcDoc = useMemo(() => `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          ::-webkit-scrollbar { width: 6px; height: 6px; }
+          ::-webkit-scrollbar-track { background: transparent; }
+          ::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.4); border-radius: 10px; }
+          ::-webkit-scrollbar-thumb:hover { background: rgba(168, 85, 247, 0.6); }
+          body { 
+            margin: 0; 
+            padding: 40px 20px; 
+            background: transparent; 
+            display: flex; 
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            font-family: sans-serif;
+          }
+          #wrapper {
+            width: 100%;
+            max-width: 900px; /* จำกัดความกว้างคล้ายๆ หน้าบอร์ดโรลเพลย์จริง */
+          }
+        </style>
+      </head>
+      <body>
+        <div id="wrapper">
+          ${previewHtml}
+        </div>
+      </body>
+    </html>
+  `, [previewHtml]);
+
   const handleCopy = () => {
-    // ใช้ค่าปัจจุบัน (ไม่รอ Debounce) เพราะเวลาคลิกก๊อปปี้ ผู้ใช้ไม่ได้พิมพ์อยู่แล้ว
     const exactCodeHtml = getRenderedHtml(false); 
     navigator.clipboard.writeText(exactCodeHtml).then(() => {
       setCopied(true);
@@ -709,26 +742,50 @@ export default function CodeDetail() {
     <div className="code-detail-wrapper" style={themeVars}>
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;600;700&display=swap');
-        .code-detail-wrapper { min-height: 100vh; margin: 0; padding: 2vw 4vw; font-family: 'Google Sans', sans-serif; color: var(--color-text-main); background: radial-gradient(circle at 15% 20%, var(--bg-grad-1) 0%, transparent 50%), radial-gradient(circle at 85% 80%, var(--bg-grad-2) 0%, transparent 50%), linear-gradient(135deg, var(--bg-grad-3) 0%, var(--bg-grad-4) 100%); background-attachment: fixed; overflow-x: hidden; }
+        
+        /* 🔥 ปลดล็อกให้หน้าจอหลัก Scroll ได้ตามธรรมชาติ */
+        .code-detail-wrapper { 
+          min-height: 100vh; 
+          margin: 0; 
+          padding: 20px 4vw; 
+          font-family: 'Google Sans', sans-serif; 
+          color: var(--color-text-main); 
+          background: radial-gradient(circle at 15% 20%, var(--bg-grad-1) 0%, transparent 50%), radial-gradient(circle at 85% 80%, var(--bg-grad-2) 0%, transparent 50%), linear-gradient(135deg, var(--bg-grad-3) 0%, var(--bg-grad-4) 100%); 
+          overflow-x: hidden; 
+        }
+
         .code-detail-wrapper * { box-sizing: border-box; }
         button, input, textarea, select { font-family: 'Google Sans', sans-serif !important; }
         
-        .wide-w { max-width: 1600px; margin: 0 auto; position: relative; z-index: 10; width: 100%; }
-        .split-layout { display: grid; grid-template-columns: 500px 1fr; gap: 24px; align-items: start; }
+        .wide-w { 
+          max-width: 1600px; 
+          margin: 0 auto; 
+          width: 100%; 
+        }
+
+        .split-layout { 
+          display: grid; 
+          grid-template-columns: 480px 1fr; 
+          gap: 24px; 
+          align-items: start; /* ปล่อยให้ขยายอิสระ ไม่ต้องดึงให้เท่ากัน */
+        }
         
-        .back-btn { display: inline-flex; align-items: center; margin-bottom: 20px; text-decoration: none; color: var(--color-text-main); font-weight: 600; background: rgba(255,255,255,0.45); border: 1px solid var(--glass-border); padding: 8px 16px; border-radius: 12px; backdrop-filter: blur(8px); }
+        .back-btn { display: inline-flex; align-items: center; text-decoration: none; color: var(--color-text-main); font-weight: 600; background: rgba(255,255,255,0.45); border: 1px solid var(--glass-border); padding: 8px 16px; border-radius: 12px; backdrop-filter: blur(8px); transition: 0.2s;}
+        .back-btn:hover { background: rgba(255,255,255,0.8); transform: translateX(-4px); }
         
         .glass-panel { background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.7); border-radius: 20px; padding: 24px; backdrop-filter: blur(16px); box-shadow: 0 10px 40px rgba(139, 92, 246, 0.08); }
+        
+        /* 🔥 กล่องซ้ายอยู่กับที่ (Sticky) */
         .left-panel { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
-        .right-panel { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+        
+        /* 🔥 กล่องขวาปล่อยไหลตามความยาวโค้ด */
+        .right-panel { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.3); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(168, 85, 247, 0.5); }
 
-        .header-box { border-bottom: 2px solid rgba(139, 92, 246, 0.15); padding-bottom: 16px; }
-        .code-title { font-size: 1.8rem; font-weight: 700; margin: 0 0 10px 0; color: var(--color-text-main); line-height: 1.2; }
         .tag-type { background: rgba(216, 180, 254, 0.6); color: var(--color-primary); font-size: 0.8rem; font-weight: 700; padding: 4px 10px; border-radius: 8px; display: inline-block; }
         
         .customizer-box { background: rgba(255,255,255,0.6); border: 1px solid var(--color-accent-light); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 16px; animation: fadeIn 0.3s ease-in-out; }
@@ -765,28 +822,36 @@ export default function CodeDetail() {
         .var-btn.active { background: #fff; border-color: var(--color-accent); box-shadow: 0 4px 12px rgba(168, 85, 247, 0.2); }
         .color-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.1); }
 
-        .mode-toggles { display: flex; background: rgba(255,255,255,0.4); border-radius: 12px; padding: 4px; border: 1px solid var(--glass-border); margin-bottom: 16px; }
-        .m-toggle-btn { flex: 1; background: transparent; border: none; padding: 8px 10px; border-radius: 8px; font-weight: 700; color: var(--color-secondary); cursor: pointer; font-size: 0.9rem; transition: 0.2s; }
+        .m-toggle-btn { flex: 1; background: transparent; border: none; padding: 6px 10px; border-radius: 8px; font-weight: 700; color: var(--color-secondary); cursor: pointer; font-size: 0.9rem; transition: 0.2s; white-space: nowrap; }
         .m-toggle-btn.active { background: #fff; color: var(--color-text-main); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
-        .controls-row-right { display: flex; justify-content: space-between; align-items: center; }
-        .view-toggles { display: flex; background: rgba(255,255,255,0.4); border-radius: 16px; padding: 4px; border: 1px solid var(--glass-border); }
+        .controls-row-right { display: flex; justify-content: flex-start; align-items: center; }
+        .view-toggles { display: flex; background: rgba(255,255,255,0.4); border-radius: 16px; padding: 4px; border: 1px solid var(--glass-border); margin-bottom: 8px; }
         .toggle-btn { background: transparent; border: none; padding: 6px 16px; border-radius: 12px; font-weight: 600; color: var(--color-secondary); cursor: pointer; font-size: 0.9rem; }
         .toggle-btn.active { background: #fff; color: var(--color-text-main); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
-        .display-area { background: #131313; border-radius: 12px; border: 1px solid var(--glass-border); min-height: 500px; position: relative; display: flex; flex-direction: column; overflow-x: hidden; }
-        .preview-container { padding: 40px; display: flex; justify-content: center; align-items: flex-start; background: #131313; flex: 1; overflow-x: hidden; overflow-y: visible; max-width: 100%; }
-        .preview-inner { box-shadow: 0 20px 40px rgba(0,0,0,0.5); border-radius: 8px; overflow: hidden; width: 100%; max-width: 100%; background: transparent; }
+        /* 🔥 จัดการกล่องแสดงผลพรีวิวให้เป็น iframe */
+        .display-area { 
+          background: #131313; border-radius: 12px; border: 1px solid var(--glass-border); 
+          display: flex; flex-direction: column; overflow: hidden; 
+          min-height: calc(100vh - 120px); 
+          height: auto; 
+          max-height: 1200px; 
+        }
         
-        .preview-inner img, 
-        .preview-container img,
-        .preview-inner iframe,
-        .preview-inner video {
-          max-width: 100% !important;
-          height: auto !important;
+        .preview-iframe { 
+          flex: 1; 
+          width: 100%; 
+          height: 100%; 
+          border: none; 
+          background: #131313; 
         }
 
-        .code-container { padding: 24px; background: #131313; color: #e2e8f0; font-family: monospace !important; font-size: 0.95rem; line-height: 1.6; overflow: auto; margin: 0; flex: 1; white-space: pre-wrap; }
+        .code-container { 
+          padding: 24px; background: #131313; color: #e2e8f0; font-family: monospace !important; 
+          font-size: 0.95rem; line-height: 1.6; margin: 0; flex: 1; 
+          white-space: pre-wrap; word-break: break-all; overflow-y: auto; overflow-x: hidden; 
+        }
         
         .btn-copy { position: absolute; top: 16px; right: 16px; background: var(--glass-input); border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; color: var(--color-text-main); cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10; transition: 0.2s; }
         .btn-copy:hover { transform: scale(1.05); }
@@ -806,8 +871,9 @@ export default function CodeDetail() {
 
         @media (max-width: 1024px) {
           .split-layout { grid-template-columns: 1fr; }
-          .left-panel { position: static; max-height: none; overflow-y: visible; }
-          .display-area { min-height: 400px; height: 60vh; }
+          .left-panel { position: static; height: auto; max-height: none; overflow-y: visible; }
+          .right-panel { position: static; height: auto; }
+          .display-area { min-height: 500px; max-height: 800px; }
         }
       `}} />
 
@@ -829,10 +895,58 @@ export default function CodeDetail() {
       )}
 
       <div className="wide-w">
-        <Link className="back-btn" href="/codes">← กลับไปหน้าหลัก</Link>
+        
+        {/* 🌟 Compact Header: รวมทุกอย่างไว้ด้านบนในบรรทัดเดียว 🌟 */}
+        {code && !isFullLocked && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', background: 'var(--glass-bg)', padding: '16px 24px', borderRadius: '16px', border: '1px solid var(--glass-border)', marginBottom: '20px', flexShrink: 0 }}>
+            
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+              <Link className="back-btn" href="/codes" style={{ margin: 0, padding: '8px 12px' }}>← กลับ</Link>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <h1 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--color-text-main)' }}>{code.name}</h1>
+                  <span className="tag-type" style={{ padding: '2px 8px', fontSize: '0.75rem' }}>{code.codeType}</span>
+                  {code.isCommission && <span style={{ fontSize: '0.7rem', background: '#fef08a', color: '#854d0e', padding: '2px 8px', borderRadius: '8px', fontWeight: 'bold' }}>💎 Private</span>}
+                </div>
+                
+                {(code.activityTags?.length > 0 || code.eventTags?.length > 0) && (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {code.eventTags?.map((tag: string) => <span key={`event_${tag}`} style={{ background: '#f59e0b', color: '#fff', padding: '2px 8px', borderRadius: '8px', fontSize: '0.7rem', fontWeight: 'bold' }}>🎯 {tag}</span>)}
+                    {code.activityTags?.map((tag: string) => <span key={`tag_${tag}`} style={{ background: 'rgba(216, 180, 254, 0.4)', color: '#6b21a8', padding: '2px 8px', borderRadius: '8px', fontSize: '0.7rem', fontWeight: 'bold' }}>🏷️ {tag}</span>)}
+                  </div>
+                )}
+
+                {/* 🔥 ย้าย Description มาไว้ใน Header แล้ว */}
+                {code.description && (
+                  <div style={{ 
+                    marginTop: '4px',
+                    fontSize: '0.9rem', 
+                    color: 'var(--color-secondary)', 
+                    background: 'rgba(255,255,255,0.5)', 
+                    padding: '8px 14px', 
+                    borderRadius: '8px', 
+                    borderLeft: '4px solid var(--color-accent)',
+                    maxWidth: '800px',
+                    lineHeight: '1.5'
+                  }}>
+                    {code.description}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div className="mode-toggles" style={{ margin: 0, padding: '4px' }}>
+                <button className={`m-toggle-btn ${editMode === 'original' ? 'active' : ''}`} onClick={() => handleModeSwitch('original', viewMode)}>👀 ตัวอย่าง</button>
+                <button className={`m-toggle-btn ${editMode === 'customize' ? 'active' : ''}`} onClick={() => handleModeSwitch('customize', viewMode)}>{code.isLocked && !isUnlocked ? "🔒 ปรับแต่ง" : "✍️ ปรับแต่ง"}</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {isFullLocked ? (
           <div className="glass-panel" style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center', padding: '60px' }}>
+            <Link className="back-btn" href="/codes" style={{ position: 'absolute', top: '20px', left: '20px' }}>← กลับ</Link>
             <h2>🔒 โค้ดนี้ถูกล็อกเป็นส่วนตัว</h2>
             <form onSubmit={handleUnlockSubmit} style={{ marginTop: '20px' }}>
               <input type="password" className="glass-input" style={{ maxWidth: '300px', textAlign: 'center', marginBottom: '16px' }} placeholder="ใส่รหัสผ่าน..." value={passwordInput} onChange={e => setPasswordInput(e.target.value)} autoFocus />
@@ -843,48 +957,10 @@ export default function CodeDetail() {
         ) : (
           <div className="split-layout">
             
+            {/* ================= กล่องซ้าย ================= */}
             <div className="glass-panel left-panel custom-scrollbar">
-              <div className="header-box">
-                <h1 className="code-title">{code.name}</h1>
-                <div style={{ marginBottom: code.description ? '12px' : '0' }}>
-                  <span className="tag-type">{code.codeType}</span>
-                  {code.isCommission && <span style={{ marginLeft: '10px', fontSize: '0.8rem', background: '#fef08a', color: '#854d0e', padding: '4px 8px', borderRadius: '8px', fontWeight: 'bold' }}>💎 Private</span>}
-                </div>
-
-                {(code.activityTags?.length > 0 || code.eventTags?.length > 0) && (
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' }}>
-                    {code.eventTags?.map((tag: string) => (
-                      <span key={`event_${tag}`} style={{ background: '#f59e0b', color: '#fff', padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(245, 158, 11, 0.3)' }}>🎯 {tag}</span>
-                    ))}
-                    {code.activityTags?.map((tag: string) => (
-                      <span key={`tag_${tag}`} style={{ background: 'rgba(216, 180, 254, 0.4)', color: '#6b21a8', padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold', border: '1px solid rgba(216, 180, 254, 0.8)' }}>🏷️ {tag}</span>
-                    ))}
-                  </div>
-                )}
-                
-                {code.description && (
-                  <div style={{ 
-                    marginTop: '12px',
-                    fontSize: '0.9rem', 
-                    color: 'var(--color-secondary)', 
-                    background: 'rgba(255,255,255,0.5)', 
-                    padding: '10px 14px', 
-                    borderRadius: '8px', 
-                    borderLeft: '4px solid var(--color-accent)' 
-                  }}>
-                    {code.description}
-                  </div>
-                )}
-              </div>
-
-              <div className="mode-toggles">
-                <button className={`m-toggle-btn ${editMode === 'original' ? 'active' : ''}`} onClick={() => handleModeSwitch('original', viewMode)}>
-                  👀 ดูตัวอย่างต้นฉบับ
-                </button>
-                <button className={`m-toggle-btn ${editMode === 'customize' ? 'active' : ''}`} onClick={() => handleModeSwitch('customize', viewMode)}>
-                  {code.isLocked && !isUnlocked ? "🔒 ปรับแต่ง (ล็อก)" : "✍️ ปรับแต่งเอง"}
-                </button>
-              </div>
+              
+              {/* ลบกล่อง Description ตรงนี้ออกไปแล้ว */}
 
               {editMode === 'customize' && isUnlocked && (
                 <div className="draft-row">
@@ -974,6 +1050,7 @@ export default function CodeDetail() {
               )}
             </div>
 
+            {/* ================= กล่องขวา ================= */}
             <div className="glass-panel right-panel">
               <div className="controls-row-right">
                 <div className="view-toggles">
@@ -994,9 +1071,11 @@ export default function CodeDetail() {
                 )}
                 
                 {viewMode === 'preview' ? (
-                  <div className="preview-container custom-scrollbar">
-                    <div className="preview-inner" dangerouslySetInnerHTML={{ __html: previewHtml }} />
-                  </div>
+                  <iframe 
+                    className="preview-iframe" 
+                    srcDoc={iframeSrcDoc} 
+                    title="Live Preview"
+                  />
                 ) : (
                   <pre className="code-container custom-scrollbar"><code>{codeHtml}</code></pre>
                 )}

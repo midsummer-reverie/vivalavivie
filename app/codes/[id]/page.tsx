@@ -534,7 +534,19 @@ export default function CodeDetail() {
 
     if (field.type === 'dropdown') {
       const optionsArray = field.options ? field.options.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
-      const isValueCustom = val && val !== "" && !optionsArray.includes(val);
+      
+      // 🌟 แปลง Options ให้รองรับแบบ Label=Value
+      const parsedOptions = optionsArray.map((opt: string) => {
+        const parts = opt.split('=');
+        if (parts.length >= 2) {
+          // ใช้ชิ้นแรกเป็น label, ที่เหลือเป็น value (เผื่อมี = ใน value)
+          return { label: parts[0].trim(), value: parts.slice(1).join('=').trim() };
+        }
+        return { label: opt, value: opt };
+      });
+
+      const predefinedValues = parsedOptions.map((o: any) => o.value);
+      const isValueCustom = val && val !== "" && !predefinedValues.includes(val);
       const isCustom = customDropdowns[refKey] || isValueCustom;
 
       return (
@@ -545,7 +557,7 @@ export default function CodeDetail() {
               <input type="text" className="glass-input" placeholder={`พิมพ์${field.label}ด้วยตัวเอง...`} value={val || ""} onChange={e => onChange(e.target.value)} />
               <button type="button" className="tool-btn" style={{ padding: '0 12px' }} onClick={() => {
                 setCustomDropdowns(prev => ({ ...prev, [refKey]: false }));
-                onChange(optionsArray[0] || "");
+                onChange(parsedOptions[0]?.value || "");
               }} title="กลับไปเลือกจากรายการ">
                 ↩️
               </button>
@@ -560,8 +572,8 @@ export default function CodeDetail() {
               }
             }}>
               <option value="" disabled>-- เลือก{field.label} --</option>
-              {optionsArray.map((opt: string) => (
-                <option key={opt} value={opt}>{opt}</option>
+              {parsedOptions.map((opt: any, idx: number) => (
+                <option key={`${opt.value}_${idx}`} value={opt.value}>{opt.label}</option>
               ))}
               <option value="__CUSTOM__">✨ พิมพ์กำหนดค่าเอง...</option>
             </select>

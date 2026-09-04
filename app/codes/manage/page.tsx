@@ -459,8 +459,8 @@ export default function ManageCodes() {
 
               {field.type === 'dropdown' && (
                 <div className="form-group" style={{ marginTop: '16px', marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.85rem' }}>ระบุตัวเลือก (คั่นด้วยลูกน้ำ เช่น home, about, profile)</label>
-                  <input type="text" className="glass-input" placeholder="ใส่ตัวเลือกที่นี่..." value={field.options || ""} onChange={e => handleCustomFieldChange(index, 'options', e.target.value)} />
+                  <label className="form-label" style={{ fontSize: '0.85rem' }}>ระบุตัวเลือก (เช่น สีแดง=#ff0000, สีดำ=#000 คั่นด้วยลูกน้ำ)</label>
+                  <input type="text" className="glass-input" placeholder="ข้อความที่แสดง=ค่าที่จะไปแทนในโค้ด" value={field.options || ""} onChange={e => handleCustomFieldChange(index, 'options', e.target.value)} />
                 </div>
               )}
 
@@ -553,7 +553,7 @@ export default function ManageCodes() {
                             </select>
                             
                             {field.type === 'dropdown' && (
-                              <input type="text" value={field.options || ""} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'options', e.target.value)} placeholder="คั่นด้วยลูกน้ำ (,)" className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', marginTop: '8px', width: '100%' }} />
+                              <input type="text" value={field.options || ""} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'options', e.target.value)} placeholder="เช่น โชว์=ค่าในโค้ด, สีแดง=#ff0" className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', marginTop: '8px', width: '100%' }} />
                             )}
                           </div>
                           <button type="button" onClick={() => handleRemoveBlockField(bIndex, fIndex)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '4px' }} title="ลบ Field">✕</button>

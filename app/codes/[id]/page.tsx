@@ -39,7 +39,6 @@ export default function CodeDetail() {
   const textareaRefs = useRef<{ [key: string]: HTMLTextAreaElement | null }>({});
   const [selections, setSelections] = useState<{ [key: string]: { start: number, end: number } }>({});
 
-  // 🌟 Effect สำหรับทำ Debounce (หน่วงเวลา 300ms)
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedFieldValues(fieldValues);
@@ -272,19 +271,14 @@ export default function CodeDetail() {
       .replace(/\[color=(.*?)\]([\s\S]*?)\[\/color\]/gi, '<span style="color: $1;">$2</span>')
       .replace(/\[bg=(.*?)\]([\s\S]*?)\[\/bg\]/gi, '<span style="background-color: $1;">$2</span>')
       .replace(/\[url=(.*?)\]([\s\S]*?)\[\/url\]/gi, '<a href="$1" target="_blank" style="color: #a855f7; text-decoration: underline;">$2</a>')
-      
       .replace(/\[img\](.*?)\[\/img\]/gi, '<img src="$1" style="max-width: 100%; height: auto; border-radius: 8px;" />')
       .replace(/\[img=(.*?)\][\s\S]*?\[\/img\]/gi, '<img src="$1" style="max-width: 100%; height: auto; border-radius: 8px;" />')
-      
       .replace(/\[yt\](.*?)\[\/yt\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen></iframe></div>')
       .replace(/\[yt=(.*?)\][\s\S]*?\[\/yt\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen></iframe></div>')
-      
       .replace(/\[ytauto\](.*?)\[\/ytauto\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allow="autoplay" allowfullscreen></iframe></div>')
       .replace(/\[ytauto=(.*?)\][\s\S]*?\[\/ytauto\]/gi, '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0;"><iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allow="autoplay" allowfullscreen></iframe></div>')
-      
       .replace(/\[hideyt\](.*?)\[\/hideyt\]/gi, '<iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="width:0; height:0; border:0; display:none;" allow="autoplay"></iframe>')
       .replace(/\[hideyt=(.*?)\][\s\S]*?\[\/hideyt\]/gi, '<iframe src="https://www.youtube.com/embed/$1?autoplay=1" style="width:0; height:0; border:0; display:none;" allow="autoplay"></iframe>')
-      
       .replace(/\[hr\]/gi, '<hr style="border: 0; border-top: 1px solid currentColor; opacity: 0.3; margin: 16px 0;" />');
       
     if (isForPreview) parsed = parsed.replace(/\n/g, '<br/>');
@@ -315,6 +309,7 @@ export default function CodeDetail() {
 
   const safeHex = (colorStr: string, defaultHex: string = '#000000') => {
     if (!colorStr) return defaultHex;
+    if (colorStr.startsWith('rgb') || colorStr.startsWith('hsl') || colorStr.startsWith('var')) return colorStr;
     const match = colorStr.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/i);
     if (match) {
       let hex = match[0];
@@ -323,24 +318,19 @@ export default function CodeDetail() {
       }
       return hex;
     }
-    return defaultHex;
+    return colorStr;
   };
 
-  // 🌟 ฟังก์ชันอัจฉริยะสำหรับเช็คเงื่อนไขซ่อน/โชว์ ของ Dropdown 🌟
-  // ค้นหาฟิลด์แม่จากทั้ง contextFields (ฟิลด์ในบล็อกปัจจุบัน) และ code.customFields (ฟิลด์หลัก)
   const checkConditionMatch = (field: any, allValues: any, contextFields: any[]) => {
     if (!field.conditionVar || field.conditionVar.trim() === "") return true;
     
-    // ลองหาค่าจาก allValues ก่อน (ค่าในบล็อก)
-    // ถ้าไม่เจอ และมี fieldValues (ค่าหลัก) ให้ดึงจากฟิลด์หลักมาเทียบ
     let parentVal = allValues[field.conditionVar];
     if (parentVal === undefined) {
       parentVal = fieldValues[field.conditionVar] || "";
     }
     
-    if (parentVal === field.conditionVal) return true; // ตรงเป๊ะกับ Value ก็ให้ผ่าน
+    if (parentVal === field.conditionVal) return true;
 
-    // ค้นหาฟิลด์แม่จากทั้ง 2 แหล่งรวมกัน
     const allAvailableFields = [...(contextFields || []), ...(code?.customFields || [])];
     
     const parentField = allAvailableFields.find((f: any) => f.variableName === field.conditionVar);
@@ -364,7 +354,6 @@ export default function CodeDetail() {
     if (!code || !code.htmlCode) return "";
     let finalHtml = code.htmlCode;
     
-    // 💡 เลือกใช้ FieldValues แบบไหน?
     const currentValuesToUse = isForPreview ? debouncedFieldValues : fieldValues;
     const currentBlocksToUse = isForPreview ? debouncedActiveBlocks : activeBlocks;
     
@@ -383,8 +372,6 @@ export default function CodeDetail() {
           if (field.type === 'dropdown') return;
 
           const val = currentValuesToUse[field.variableName] || "";
-          
-          // 🌟 ใช้ฟังก์ชันอัจฉริยะแทน
           if (!checkConditionMatch(field, currentValuesToUse, code.customFields)) return;
 
           if (field.type === 'image') {
@@ -430,8 +417,6 @@ export default function CodeDetail() {
               if (field.type === 'dropdown') return;
               
               const val = block.values[field.variableName] || "";
-              
-              // 🌟 ใช้ฟังก์ชันอัจฉริยะแทน
               if (!checkConditionMatch(field, block.values, block.fields)) return;
 
               if (field.type === 'image') {
@@ -504,7 +489,6 @@ export default function CodeDetail() {
   const previewHtml = useMemo(() => getRenderedHtml(true), [debouncedFieldValues, debouncedActiveBlocks, code, editMode, activeVariation]);
   const codeHtml = useMemo(() => getRenderedHtml(false), [debouncedFieldValues, debouncedActiveBlocks, code, editMode, activeVariation]);
 
-  // 🌟 ใช้ iframeSrcDoc เพื่อแสดงผลพรีวิวแบบสมบูรณ์ โดย 100vw = ขนาดของกล่องจำลอง 100%
   const iframeSrcDoc = useMemo(() => `
     <!DOCTYPE html>
     <html>
@@ -519,7 +503,7 @@ export default function CodeDetail() {
           body { 
             margin: 0; 
             padding: 40px 20px; 
-            background: transparent; 
+            background: #131313;
             display: flex; 
             justify-content: center;
             align-items: flex-start;
@@ -528,7 +512,7 @@ export default function CodeDetail() {
           }
           #wrapper {
             width: 100%;
-            max-width: 900px; /* จำกัดความกว้างคล้ายๆ หน้าบอร์ดโรลเพลย์จริง */
+            max-width: 900px;
           }
         </style>
       </head>
@@ -553,12 +537,10 @@ export default function CodeDetail() {
 
   const renderFieldUI = (field: any, val: any, onChange: (v: any) => void, refKey: string, allValues: any, contextFields: any[]) => {
     
-    // 🌟 ใช้ฟังก์ชันอัจฉริยะแทนของเดิม
     if (!checkConditionMatch(field, allValues, contextFields)) {
       return null; 
     }
 
-    // 🌟 เอาปุ่มและตัวเลือก "พิมพ์กำหนดค่าเอง... (Custom)" ออกแล้ว 🌟
     if (field.type === 'dropdown') {
       const optionsArray = field.options ? field.options.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
       
@@ -591,7 +573,6 @@ export default function CodeDetail() {
       const fallbackCol = getFallbackColor(field.variableName);
       const currentVal = val || fallbackCol || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
       
-      // 🌟 ใช้การเช็คจากข้อความแทน useState (แก้บั๊กพัง 100%)
       const isRadial = currentVal.includes('radial-gradient');
       const gradType = isRadial ? 'radial' : 'linear';
       
@@ -608,7 +589,6 @@ export default function CodeDetail() {
         return match && match[1] ? match[1] : '90';
       }
 
-      // ฟังก์ชันช่วยอัปเดต Gradient เมื่อมีการเปลี่ยนค่าใดๆ
       const updateGradient = (type: string, angle: string, c1: string, c2: string) => {
         if (type === 'linear') {
           onChange(`linear-gradient(${angle}deg, ${c1}, ${c2})`);
@@ -637,7 +617,6 @@ export default function CodeDetail() {
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px', background: 'rgba(255,255,255,0.4)', padding: '6px 12px', borderRadius: '8px', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>เครื่องมือ:</span>
             
-            {/* 🌟 Dropdown เลือกประเภท Gradient */}
             <select 
               className="glass-input" 
               style={{ width: '80px', padding: '2px 6px', height: '24px', fontSize: '0.75rem' }}
@@ -652,7 +631,6 @@ export default function CodeDetail() {
             <span style={{ fontSize: '0.75rem', color: 'var(--color-secondary)' }}>→</span>
             <input type="color" value={getC2()} onChange={e => updateGradient(gradType, getAngle(), getC1(), e.target.value)} style={{ width: '24px', height: '24px', border: 'none', cursor: 'pointer', padding: 0, background: 'transparent' }} title="สีสิ้นสุด" />
             
-            {/* ซ่อนองศา ถ้าเป็นวงกลม */}
             {gradType === 'linear' && (
               <>
                 <div style={{ width: '1px', height: '16px', background: 'var(--color-accent-mute)', margin: '0 4px' }} />
@@ -791,54 +769,90 @@ export default function CodeDetail() {
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;600;700&display=swap');
         
-        /* 🔥 ปลดล็อกให้หน้าจอหลัก Scroll ได้ตามธรรมชาติ และแก้ให้ยืดสุดเนื้อหาล่างสุด */
+        /* 🚨 ล็อก 100vh สำหรับ Desktop (No Scroll บนหน้าหลัก) 🚨 */
+        body { overflow: hidden !important; margin: 0; padding: 0; }
+        
         .code-detail-wrapper { 
-          min-height: 100vh; 
-          margin: 0; 
-          padding: 20px 4vw; 
+          position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+          margin: 0; padding: 20px 2vw; 
           font-family: 'Google Sans', sans-serif; 
           color: var(--color-text-main); 
           background: radial-gradient(circle at 15% 20%, var(--bg-grad-1) 0%, transparent 50%), radial-gradient(circle at 85% 80%, var(--bg-grad-2) 0%, transparent 50%), linear-gradient(135deg, var(--bg-grad-3) 0%, var(--bg-grad-4) 100%); 
-          overflow-x: hidden; 
-          display: flex;
-          flex-direction: column;
+          display: flex; flex-direction: column;
+          box-sizing: border-box;
         }
 
         .code-detail-wrapper * { box-sizing: border-box; }
         button, input, textarea, select { font-family: 'Google Sans', sans-serif !important; }
         
         .wide-w { 
-          max-width: 1600px; 
-          margin: 0 auto; 
-          width: 100%; 
-          flex: 1; /* ดันเนื้อหาให้เต็ม */
+          max-width: 1600px; margin: 0 auto; width: 100%; 
+          flex: 1; display: flex; flex-direction: column; min-height: 0; 
         }
 
         .split-layout { 
           display: grid; 
-          grid-template-columns: 480px 1fr; 
+          grid-template-columns: 1fr 1.25fr;
           gap: 24px; 
-          align-items: start; /* ปล่อยให้ขยายอิสระ ไม่ต้องดึงให้เท่ากัน */
+          flex: 1; min-height: 0; align-items: stretch; 
         }
         
+        /* 🔥 กล่องซ้าย - แก้ไขให้ Scrollbar ไม่ล้นมุมโค้ง 🔥 */
+        .glass-panel-scrollable {
+          background: var(--glass-bg); 
+          border: 1px solid rgba(255,255,255,0.7); 
+          border-radius: 20px; 
+          backdrop-filter: blur(16px); 
+          box-shadow: 0 10px 40px rgba(139, 92, 246, 0.08);
+          overflow: hidden; /* บังคับไม่ให้เนื้อหาล้นออกนอกขอบโค้ง */
+          display: flex;
+          flex-direction: column;
+        }
+
+        /* เอา padding มาใส่ชั้นใน เพื่อให้ Scrollbar โดนขังอยู่ข้างใน และเว้นระยะจากขอบบนล่าง */
+        .left-panel-inner { 
+          flex: 1; 
+          overflow-y: auto; 
+          padding: 24px; /* สร้างพื้นที่รอบๆ */
+          display: flex; 
+          flex-direction: column; 
+          gap: 20px; 
+        }
+
+        /* ขยับเนื้อหาออกห่างจาก Scrollbar นิดหน่อยให้ดูสวยงาม */
+        .left-panel-content {
+          padding-right: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+        
+        /* 🔥 กล่องขวากินพื้นที่เต็ม และไม่ล้น 🔥 */
+        .right-panel { height: 100%; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+
+        .display-area { 
+          background: #131313; border-radius: 12px; border: 1px solid var(--glass-border); 
+          display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; 
+        }
+        
+        .preview-iframe { flex: 1; width: 100%; height: 100%; border: none; background: #131313; }
+        
+        .code-container { 
+          padding: 24px; background: #131313; color: #e2e8f0; font-family: monospace !important; 
+          font-size: 0.95rem; line-height: 1.6; margin: 0; flex: 1; min-height: 0; 
+          overflow-y: auto; overflow-x: hidden; white-space: pre-wrap; word-break: break-all; 
+        }
+
+        .glass-panel { background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.7); border-radius: 20px; padding: 24px; backdrop-filter: blur(16px); box-shadow: 0 10px 40px rgba(139, 92, 246, 0.08); }
         .back-btn { display: inline-flex; align-items: center; text-decoration: none; color: var(--color-text-main); font-weight: 600; background: rgba(255,255,255,0.45); border: 1px solid var(--glass-border); padding: 8px 16px; border-radius: 12px; backdrop-filter: blur(8px); transition: 0.2s;}
         .back-btn:hover { background: rgba(255,255,255,0.8); transform: translateX(-4px); }
         
-        .glass-panel { background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.7); border-radius: 20px; padding: 24px; backdrop-filter: blur(16px); box-shadow: 0 10px 40px rgba(139, 92, 246, 0.08); }
-        
-        /* 🔥 กล่องซ้ายอยู่กับที่ (Sticky) */
-        .left-panel { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
-        
-        /* 🔥 กล่องขวาปล่อยไหลตามความยาวโค้ด */
-        .right-panel { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.3); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(168, 85, 247, 0.5); }
 
         .tag-type { background: rgba(216, 180, 254, 0.6); color: var(--color-primary); font-size: 0.8rem; font-weight: 700; padding: 4px 10px; border-radius: 8px; display: inline-block; }
-        
         .customizer-box { background: rgba(255,255,255,0.6); border: 1px solid var(--color-accent-light); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 16px; animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         
@@ -852,15 +866,12 @@ export default function CodeDetail() {
         .editor-toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: rgba(243, 232, 255, 0.8); border-bottom: 1px solid var(--color-accent-lighter); align-items: center; }
         .tb-group { display: flex; gap: 4px; align-items: center; }
         .tb-divider { width: 1px; background: var(--color-accent-light); height: 18px; margin: 0 2px; opacity: 0.5; }
-        
         .editor-textarea { width: 100%; border: none; padding: 12px; font-size: 0.95rem; outline: none; background: transparent; resize: none; overflow-y: hidden; min-height: 180px; line-height: 1.6; transition: height 0.1s; }
         
         .tool-btn { background: #fff; border: 1px solid var(--color-accent-mute); border-radius: 6px; padding: 4px; font-size: 0.85rem; font-weight: 600; color: var(--color-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; min-width: 28px; transition: 0.15s; }
         .tool-btn:hover { background: var(--color-accent-lighter); border-color: var(--color-accent); }
-        .tool-btn svg { width: 16px; height: 16px; }
         .tool-btn:disabled { opacity: 0.5; cursor: not-allowed; background: #f3f4f6; }
         .tb-select { border: 1px solid var(--color-accent-mute); border-radius: 6px; padding: 2px 4px; font-size: 0.8rem; color: var(--color-secondary); background: #fff; outline: none; cursor: pointer; height: 26px; }
-        
         .color-picker-group { display: flex; align-items: center; gap: 2px; background: #fff; padding: 2px; border-radius: 6px; border: 1px solid var(--color-accent-mute); height: 28px; }
         .cp-input { width: 22px; height: 22px; padding: 0; border: none; cursor: pointer; background: transparent; }
         .cp-btn { border: none !important; background: transparent !important; padding: 0 6px !important; min-width: auto !important; height: auto !important; box-shadow: none !important; font-size: 0.8rem !important; }
@@ -877,33 +888,12 @@ export default function CodeDetail() {
         .m-toggle-btn.active { background: #fff; color: var(--color-text-main); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
         .controls-row-right { display: flex; justify-content: flex-start; align-items: center; }
-        .view-toggles { display: flex; background: rgba(255,255,255,0.4); border-radius: 16px; padding: 4px; border: 1px solid var(--glass-border); margin-bottom: 8px; }
-        .toggle-btn { background: transparent; border: none; padding: 6px 16px; border-radius: 12px; font-weight: 600; color: var(--color-secondary); cursor: pointer; font-size: 0.9rem; }
+        .view-toggles { display: flex; background: rgba(255,255,255,0.4); border-radius: 10px; padding: 2px; border: 1px solid var(--glass-border); margin-bottom: 8px; }
+        
+        /* 🔥 ย่อปุ่ม Live Preview / HTML ให้เล็กลง */
+        .toggle-btn { background: transparent; border: none; padding: 4px 10px; border-radius: 8px; font-weight: 600; color: var(--color-secondary); cursor: pointer; font-size: 0.75rem; }
         .toggle-btn.active { background: #fff; color: var(--color-text-main); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
-        /* 🔥 จัดการกล่องแสดงผลพรีวิวให้เป็น iframe */
-        .display-area { 
-          background: #131313; border-radius: 12px; border: 1px solid var(--glass-border); 
-          display: flex; flex-direction: column; overflow: hidden; 
-          min-height: calc(100vh - 120px); 
-          height: auto; 
-          max-height: 1200px; 
-        }
-        
-        .preview-iframe { 
-          flex: 1; 
-          width: 100%; 
-          height: 100%; 
-          border: none; 
-          background: #131313; 
-        }
-
-        .code-container { 
-          padding: 24px; background: #131313; color: #e2e8f0; font-family: monospace !important; 
-          font-size: 0.95rem; line-height: 1.6; margin: 0; flex: 1; 
-          white-space: pre-wrap; word-break: break-all; overflow-y: auto; overflow-x: hidden; 
-        }
-        
         .btn-copy { position: absolute; top: 16px; right: 16px; background: var(--glass-input); border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; color: var(--color-text-main); cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10; transition: 0.2s; }
         .btn-copy:hover { transform: scale(1.05); }
 
@@ -920,11 +910,16 @@ export default function CodeDetail() {
         .modal-content { background: var(--glass-bg); padding: 40px; border-radius: 24px; border: 1px solid var(--glass-border); box-shadow: 0 20px 40px rgba(0,0,0,0.2); text-align: center; max-width: 400px; width: 90%; position: relative; }
         .btn-close-modal { position: absolute; top: 16px; right: 16px; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--color-primary); }
 
+        /* 🔥 ยกเว้นให้มือถือ Scroll ได้ปกติ 🔥 */
         @media (max-width: 1024px) {
-          .split-layout { grid-template-columns: 1fr; }
-          .left-panel { position: static; height: auto; max-height: none; overflow-y: visible; }
-          .right-panel { position: static; height: auto; }
-          .display-area { min-height: 500px; max-height: 800px; }
+          body { overflow: auto !important; }
+          .code-detail-wrapper { position: static; height: auto; min-height: 100vh; overflow: visible !important; }
+          .wide-w { height: auto; display: block; }
+          .split-layout { grid-template-columns: 1fr; display: block; }
+          .glass-panel-scrollable { height: auto; margin-bottom: 24px; display: block; overflow: visible; }
+          .left-panel-inner { overflow-y: visible; padding: 24px; }
+          .right-panel { height: auto; }
+          .display-area { min-height: 500px; height: 60vh; }
         }
       `}} />
 
@@ -947,51 +942,27 @@ export default function CodeDetail() {
 
       <div className="wide-w">
         
-        {/* 🌟 Compact Header: รวมทุกอย่างไว้ด้านบนในบรรทัดเดียว 🌟 */}
+        {/* 🌟 Compact Header: นำแท็กกิจกรรมมารวมบรรทัดเดียว 🌟 */}
         {code && !isFullLocked && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', background: 'var(--glass-bg)', padding: '16px 24px', borderRadius: '16px', border: '1px solid var(--glass-border)', marginBottom: '20px', flexShrink: 0 }}>
-            
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
-              <Link className="back-btn" href="/codes" style={{ margin: 0, padding: '8px 12px' }}>← กลับ</Link>
+          <div className="glass-panel" style={{ padding: '16px 24px', borderRadius: '16px', marginBottom: '20px', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
+              <Link className="back-btn" href="/codes" style={{ margin: 0, padding: '6px 12px', fontSize: '0.85rem' }}>← กลับ</Link>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                   <h1 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--color-text-main)' }}>{code.name}</h1>
                   <span className="tag-type" style={{ padding: '2px 8px', fontSize: '0.75rem' }}>{code.codeType}</span>
+                  {code.eventTags?.map((tag: string) => <span key={`event_${tag}`} style={{ background: '#f59e0b', color: '#fff', padding: '2px 8px', borderRadius: '8px', fontSize: '0.7rem', fontWeight: 'bold' }}>🎯 {tag}</span>)}
+                  {code.activityTags?.map((tag: string) => <span key={`tag_${tag}`} style={{ background: 'rgba(216, 180, 254, 0.4)', color: '#6b21a8', padding: '2px 8px', borderRadius: '8px', fontSize: '0.7rem', fontWeight: 'bold' }}>🏷️ {tag}</span>)}
                   {code.isCommission && <span style={{ fontSize: '0.7rem', background: '#fef08a', color: '#854d0e', padding: '2px 8px', borderRadius: '8px', fontWeight: 'bold' }}>💎 Private</span>}
                 </div>
-                
-                {(code.activityTags?.length > 0 || code.eventTags?.length > 0) && (
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    {code.eventTags?.map((tag: string) => <span key={`event_${tag}`} style={{ background: '#f59e0b', color: '#fff', padding: '2px 8px', borderRadius: '8px', fontSize: '0.7rem', fontWeight: 'bold' }}>🎯 {tag}</span>)}
-                    {code.activityTags?.map((tag: string) => <span key={`tag_${tag}`} style={{ background: 'rgba(216, 180, 254, 0.4)', color: '#6b21a8', padding: '2px 8px', borderRadius: '8px', fontSize: '0.7rem', fontWeight: 'bold' }}>🏷️ {tag}</span>)}
-                  </div>
-                )}
-
-                {/* 🔥 ย้าย Description มาไว้ใน Header แล้ว */}
-                {code.description && (
-                  <div style={{ 
-                    marginTop: '4px',
-                    fontSize: '0.9rem', 
-                    color: 'var(--color-secondary)', 
-                    background: 'rgba(255,255,255,0.5)', 
-                    padding: '8px 14px', 
-                    borderRadius: '8px', 
-                    borderLeft: '4px solid var(--color-accent)',
-                    maxWidth: '800px',
-                    lineHeight: '1.5'
-                  }}>
-                    {code.description}
-                  </div>
-                )}
               </div>
             </div>
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div className="mode-toggles" style={{ margin: 0, padding: '4px' }}>
-                <button className={`m-toggle-btn ${editMode === 'original' ? 'active' : ''}`} onClick={() => handleModeSwitch('original', viewMode)}>👀 ตัวอย่าง</button>
-                <button className={`m-toggle-btn ${editMode === 'customize' ? 'active' : ''}`} onClick={() => handleModeSwitch('customize', viewMode)}>{code.isLocked && !isUnlocked ? "🔒 ปรับแต่ง" : "✍️ ปรับแต่ง"}</button>
+            {code.description && (
+              <div style={{ marginTop: '12px', fontSize: '0.85rem', color: 'var(--color-secondary)', background: 'rgba(255,255,255,0.5)', padding: '8px 14px', borderRadius: '8px', borderLeft: '4px solid var(--color-accent)', lineHeight: '1.5' }}>
+                {code.description}
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -1001,7 +972,7 @@ export default function CodeDetail() {
             <h2>🔒 โค้ดนี้ถูกล็อกเป็นส่วนตัว</h2>
             <form onSubmit={handleUnlockSubmit} style={{ marginTop: '20px' }}>
               <input type="password" className="glass-input" style={{ maxWidth: '300px', textAlign: 'center', marginBottom: '16px' }} placeholder="ใส่รหัสผ่าน..." value={passwordInput} onChange={e => setPasswordInput(e.target.value)} autoFocus />
-              {passwordError && <div style={{ color: 'var(--danger)', marginBottom: '10px' }}>รหัสผ่านไม่ถูกต้อง</div>}
+              {passwordError && <div style={{ color: 'var(--danger)', marginBottom: '10px', fontSize: '0.85rem' }}>รหัสผ่านไม่ถูกต้อง</div>}
               <div><button type="submit" className="tool-btn" style={{ padding: '10px 24px', margin: '0 auto' }}>ปลดล็อก</button></div>
             </form>
           </div>
@@ -1009,96 +980,140 @@ export default function CodeDetail() {
           <div className="split-layout">
             
             {/* ================= กล่องซ้าย ================= */}
-            <div className="glass-panel left-panel custom-scrollbar">
-              
-              {/* ลบกล่อง Description ตรงนี้ออกไปแล้ว */}
-
-              {editMode === 'customize' && isUnlocked && (
-                <div className="draft-row">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-primary)' }}>💾 ระบบ Draft & Auto-save</span>
-                    <button className="tool-btn" onClick={() => {
-                      if(confirm("ล้างข้อมูลที่พิมพ์ค้างไว้ทั้งหมดและกลับไปเริ่มใหม่?")) {
-                         localStorage.removeItem(`code_autosave_${codeId}`);
-                         initFieldValues(code, true);
-                      }
-                    }} style={{ padding: '2px 8px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>
-                      🔄 เริ่มใหม่ทั้งหมด
-                    </button>
-                  </div>
+            <div className="glass-panel-scrollable">
+              <div className="left-panel-inner custom-scrollbar">
+                <div className="left-panel-content">
                   
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <input type="text" className="glass-input" style={{ padding: '6px 10px', fontSize: '0.9rem' }} placeholder="ตั้งชื่อดราฟต์เพื่อเซฟถาวร..." value={draftName} onChange={e => setDraftName(e.target.value)} />
-                    <button className="tool-btn" onClick={handleSaveDraft} style={{ minWidth: '70px', padding: '0 12px' }}>บันทึก</button>
+                  {/* 🌟 ย้ายปุ่มสลับโหมดกลับมาฝั่งซ้าย และย่อขนาดลง 🌟 */}
+                  <div style={{ display: 'flex', background: 'rgba(255,255,255,0.4)', borderRadius: '10px', padding: '2px', border: '1px solid var(--glass-border)', marginBottom: '8px', flexShrink: 0 }}>
+                    <button className={`m-toggle-btn ${editMode === 'original' ? 'active' : ''}`} onClick={() => handleModeSwitch('original', viewMode)} style={{ fontSize: '0.8rem', padding: '6px' }}>👀 ดูตัวอย่าง</button>
+                    <button className={`m-toggle-btn ${editMode === 'customize' ? 'active' : ''}`} onClick={() => handleModeSwitch('customize', viewMode)} style={{ fontSize: '0.8rem', padding: '6px' }}>{code.isLocked && !isUnlocked ? "🔒 ปรับแต่ง" : "✍️ ปรับแต่ง"}</button>
                   </div>
-                  {drafts.length > 0 && (
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginTop: '4px' }}>
-                      <select className="glass-input tb-select" style={{ flex: 1, minWidth: '150px', height: '32px', padding: '0 10px', fontSize: '0.9rem' }} value={selectedDraftIndex} onChange={e => setSelectedDraftIndex(Number(e.target.value))}>
-                        <option value={-1}>-- เลือกดราฟต์ที่เซฟไว้ --</option>
-                        {drafts.map((d, i) => <option key={i} value={i}>📁 {d.name}</option>)}
-                      </select>
+
+                  {editMode === 'customize' && isUnlocked && (
+                    <div className="draft-row">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-primary)' }}>💾 ระบบ Draft & Auto-save</span>
+                        <button className="tool-btn" onClick={() => {
+                          if(confirm("ล้างข้อมูลที่พิมพ์ค้างไว้ทั้งหมดและกลับไปเริ่มใหม่?")) {
+                             localStorage.removeItem(`code_autosave_${codeId}`);
+                             initFieldValues(code, true);
+                          }
+                        }} style={{ padding: '2px 8px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>
+                          🔄 เริ่มใหม่
+                        </button>
+                      </div>
+                      
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        <button className="tool-btn" onClick={handleLoadDraft} disabled={selectedDraftIndex === -1} style={{ height: '32px', padding: '0 12px' }}>โหลด</button>
-                        <button className="tool-btn" onClick={handleUpdateDraft} disabled={selectedDraftIndex === -1} style={{ height: '32px', padding: '0 12px', background: '#dcfce7', borderColor: '#86efac', color: '#166534' }}>อัปเดต</button>
-                        <button className="tool-btn" onClick={handleDeleteDraft} disabled={selectedDraftIndex === -1} style={{ height: '32px', padding: '0 12px', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>ลบ</button>
+                        <input type="text" className="glass-input" style={{ padding: '6px 10px', fontSize: '0.9rem' }} placeholder="ตั้งชื่อดราฟต์เพื่อเซฟถาวร..." value={draftName} onChange={e => setDraftName(e.target.value)} />
+                        <button className="tool-btn" onClick={handleSaveDraft} style={{ minWidth: '70px', padding: '0 12px' }}>บันทึก</button>
+                      </div>
+                      {drafts.length > 0 && (
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginTop: '4px' }}>
+                          <select className="glass-input tb-select" style={{ flex: 1, minWidth: '150px', height: '32px', padding: '0 10px', fontSize: '0.9rem' }} value={selectedDraftIndex} onChange={e => setSelectedDraftIndex(Number(e.target.value))}>
+                            <option value={-1}>-- เลือกดราฟต์ที่เซฟไว้ --</option>
+                            {drafts.map((d, i) => <option key={i} value={i}>📁 {d.name}</option>)}
+                          </select>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button className="tool-btn" onClick={handleLoadDraft} disabled={selectedDraftIndex === -1} style={{ height: '32px', padding: '0 12px' }}>โหลด</button>
+                            <button className="tool-btn" onClick={handleUpdateDraft} disabled={selectedDraftIndex === -1} style={{ height: '32px', padding: '0 12px', background: '#dcfce7', borderColor: '#86efac', color: '#166534' }}>อัปเดต</button>
+                            <button className="tool-btn" onClick={handleDeleteDraft} disabled={selectedDraftIndex === -1} style={{ height: '32px', padding: '0 12px', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>ลบ</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {editMode === 'original' && code.variations && code.variations.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-primary)', marginBottom: '8px' }}>🎨 เลือกพรีเซ็ตตั้งต้น:</div>
+                      <div className="variations-list">
+                        {code.variations.map((v: any, index: number) => (
+                          <button key={v.id || index} className={`var-btn ${activeVariation === index ? 'active' : ''}`} onClick={() => setActiveVariation(index)}>
+                            <div className="color-dot" style={{ backgroundColor: v.color || '#ccc' }}></div>{v.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {/* ⚠️ Terms of Use (Fixed) */}
+                        <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '16px' }}>
+                          <h4 style={{ margin: '0 0 8px 0', color: '#b91c1c', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>⚠️</span> Terms of Use
+                          </h4>
+                          <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.8rem', color: '#7f1d1d', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <li>สามารถแก้ไขรายละเอียดยิบย่อยที่นอกเหนือจากที่กำหนดเอาไว้ เช่น แก้ไขขนาดฟอนต์ แก้ไขฟอนต์เนื้อความ ปรับแต่งระยะห่าง แต่ไม่อนุญาตให้คัดลอก ดัดแปลง แอบอ้างทุกกรณี</li>
+                            <li>ไม่อนุญาตให้ลบเครดิตที่ติดอยู่กับโค้ดทุกกรณี</li>
+                            <li>ใช้งานได้เฉพาะบนเว็บไซต์ <a href="https://roleplayth.com/" target="_blank" style={{ color: '#871f1f', fontWeight: 'bold', textDecoration: 'underline' }}>RoleplayTH</a> เท่านั้น</li>
+                          </ul>
+                        </div>
+
+                        {/* 💡 Tips (Fixed) */}
+                        <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: '12px', padding: '16px' }}>
+                          <h4 style={{ margin: '0 0 8px 0', color: '#854d0e', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>💡</span> คำแนะนำ
+                          </h4>
+                          <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.8rem', color: '#713f12', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <li>โค้ดจะแสดงผลได้ดีที่สุดบนหน้าจอ Desktop (PC/Laptop) แต่จะไม่แตกหรือแหกหากใช้บนหน้าจออื่น ๆ</li>
+                            <li>preview ใน editor นี้อาจมีความคลาดเคลื่อนของสเกลหรือตำแหน่งอยู่บ้าง หากนำไปใช้บนเว็บไซต์จะแสดงผลปกติ</li>
+                            <li>สามารถเพิ่มส่วนเสริม (Dynamic Blocks) ได้ที่โหมด <strong>✍️ ปรับแต่ง</strong></li>
+                          </ul>
+                        </div>
+
+                        {/* 💬 Contact */}
+                        <div style={{ background: 'rgba(216, 180, 254, 0.2)', border: '1px solid var(--color-accent-light)', borderRadius: '12px', padding: '16px' }}>
+                          <h4 style={{ margin: '0 0 8px 0', color: 'var(--color-primary)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>💬</span> พบปัญหาการใช้งาน?
+                          </h4>
+                          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-main)', lineHeight: '1.6' }}>
+                            หากพบปัญหาโค้ดพัง สัดส่วนเพี้ยน หรือมีข้อสงสัย สามารถติดต่อได้ที่ <a href="https://discord.com/channels/848447153604919296/1138853513808580689" target="_blank" style={{ color: '#6b21a8', fontWeight: 'bold', textDecoration: 'underline' }}>Discord</a>
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )}
-                </div>
-              )}
 
-              {editMode === 'original' && code.variations && code.variations.length > 0 && (
-                <div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-primary)', marginBottom: '8px' }}>🎨 เลือกพรีเซ็ตตั้งต้น:</div>
-                  <div className="variations-list">
-                    {code.variations.map((v: any, index: number) => (
-                      <button key={v.id || index} className={`var-btn ${activeVariation === index ? 'active' : ''}`} onClick={() => setActiveVariation(index)}>
-                        <div className="color-dot" style={{ backgroundColor: v.color || '#ccc' }}></div>{v.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+                  {editMode === 'customize' && isUnlocked && (
+                    <div className="customizer-box">
+                      <h3 style={{ margin: 0, color: 'var(--color-primary)', fontSize: '1.1rem' }}>✨ ปรับแต่งฟิลด์หลัก</h3>
+                      {code.customFields && code.customFields.map((field: any, index: number) => 
+                        renderFieldUI(field, fieldValues[field.variableName], (newVal) => setFieldValues({ ...fieldValues, [field.variableName]: newVal }), `cf_${index}`, fieldValues, code.customFields)
+                      )}
 
-              {editMode === 'customize' && isUnlocked && (
-                <div className="customizer-box">
-                  <h3 style={{ margin: 0, color: 'var(--color-primary)', fontSize: '1.1rem' }}>✨ ปรับแต่งฟิลด์หลัก</h3>
-                  {code.customFields && code.customFields.map((field: any, index: number) => 
-                    renderFieldUI(field, fieldValues[field.variableName], (newVal) => setFieldValues({ ...fieldValues, [field.variableName]: newVal }), `cf_${index}`, fieldValues, code.customFields)
-                  )}
-
-                  {(code.blocks?.length > 0 || activeBlocks.length > 0) && (
-                    <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '2px dashed var(--color-accent-light)' }}>
-                      <h3 style={{ margin: '0 0 16px 0', color: 'var(--color-primary)', fontSize: '1.1rem' }}>🧱 เพิ่มส่วนเสริม (Blocks)</h3>
-                      {activeBlocks.map((block, index) => {
-                        const blockDef = code.blocks?.find((b: any) => b.id === block.blockId);
-                        return (
-                          <div key={block.instanceId} className="block-card">
-                            <div className="block-header">
-                              <div className="block-title"><span style={{ background: 'var(--color-accent-light)', color: 'var(--color-primary)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem' }}>#{index + 1}</span>{blockDef?.name || "ส่วนเสริม"}</div>
-                              <div className="block-actions">
-                                <button className="tool-btn" onClick={() => moveBlock(index, 'up')} disabled={index === 0} title="เลื่อนขึ้น">⬆️</button>
-                                <button className="tool-btn" onClick={() => moveBlock(index, 'down')} disabled={index === activeBlocks.length - 1} title="เลื่อนลง">⬇️</button>
-                                <button className="tool-btn" onClick={() => removeBlock(block.instanceId)} style={{ color: 'var(--danger)', borderColor: 'var(--danger-border)' }} title="ลบส่วนนี้">🗑️</button>
+                      {(code.blocks?.length > 0 || activeBlocks.length > 0) && (
+                        <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '2px dashed var(--color-accent-light)' }}>
+                          <h3 style={{ margin: '0 0 16px 0', color: 'var(--color-primary)', fontSize: '1.1rem' }}>🧱 เพิ่มส่วนเสริม (Blocks)</h3>
+                          {activeBlocks.map((block, index) => {
+                            const blockDef = code.blocks?.find((b: any) => b.id === block.blockId);
+                            return (
+                              <div key={block.instanceId} className="block-card">
+                                <div className="block-header">
+                                  <div className="block-title"><span style={{ background: 'var(--color-accent-light)', color: 'var(--color-primary)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem' }}>#{index + 1}</span>{blockDef?.name || "ส่วนเสริม"}</div>
+                                  <div className="block-actions">
+                                    <button className="tool-btn" onClick={() => moveBlock(index, 'up')} disabled={index === 0} title="เลื่อนขึ้น">⬆️</button>
+                                    <button className="tool-btn" onClick={() => moveBlock(index, 'down')} disabled={index === activeBlocks.length - 1} title="เลื่อนลง">⬇️</button>
+                                    <button className="tool-btn" onClick={() => removeBlock(block.instanceId)} style={{ color: 'var(--danger)', borderColor: 'var(--danger-border)' }} title="ลบส่วนนี้">🗑️</button>
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                  {block.fields && Array.isArray(block.fields) && block.fields.map((field: any, fIndex: number) => renderFieldUI(field, block.values[field.variableName], (newVal) => updateBlockValue(block.instanceId, field.variableName, newVal), `${block.instanceId}_f_${fIndex}`, block.values, block.fields))}
+                                </div>
                               </div>
+                            )
+                          })}
+                          {code.blocks && code.blocks.length > 0 && (
+                            <div className="add-block-row">
+                              {code.blocks.map((blockDef: any) => (
+                                <button key={blockDef.id} className="btn-add-block" onClick={() => addBlock(blockDef)}><span>➕ เพิ่ม {blockDef.name}</span></button>
+                              ))}
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                              {block.fields && Array.isArray(block.fields) && block.fields.map((field: any, fIndex: number) => renderFieldUI(field, block.values[field.variableName], (newVal) => updateBlockValue(block.instanceId, field.variableName, newVal), `${block.instanceId}_f_${fIndex}`, block.values, block.fields))}
-                            </div>
-                          </div>
-                        )
-                      })}
-                      {code.blocks && code.blocks.length > 0 && (
-                        <div className="add-block-row">
-                          {code.blocks.map((blockDef: any) => (
-                            <button key={blockDef.id} className="btn-add-block" onClick={() => addBlock(blockDef)}><span>➕ เพิ่ม {blockDef.name}</span></button>
-                          ))}
+                          )}
                         </div>
                       )}
                     </div>
                   )}
                 </div>
-              )}
+              </div>
             </div>
 
             {/* ================= กล่องขวา ================= */}
@@ -1108,7 +1123,7 @@ export default function CodeDetail() {
                   <button className={`toggle-btn ${viewMode === 'preview' ? 'active' : ''}`} onClick={() => handleModeSwitch(editMode, 'preview')}>✨ Live Preview</button>
                   {editMode === 'customize' && (
                     <button className={`toggle-btn ${viewMode === 'code' ? 'active' : ''}`} onClick={() => handleModeSwitch(editMode, 'code')}>
-                      {code.isLocked && !isUnlocked ? "🔒 HTML Code" : "💻 HTML Code"}
+                      💻 HTML Code
                     </button>
                   )}
                 </div>

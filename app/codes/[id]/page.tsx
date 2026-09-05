@@ -586,6 +586,10 @@ export default function CodeDetail() {
       const fallbackCol = getFallbackColor(field.variableName);
       const currentVal = val || fallbackCol || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
       
+      // 🌟 ใช้การเช็คจากข้อความแทน useState (แก้บั๊กพัง 100%)
+      const isRadial = currentVal.includes('radial-gradient');
+      const gradType = isRadial ? 'radial' : 'linear';
+      
       const getC1 = () => {
         const matches = currentVal.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/gi);
         return safeHex(matches ? matches[0] : '#d8b4fe', '#d8b4fe');
@@ -598,6 +602,15 @@ export default function CodeDetail() {
         const match = currentVal.match(/(\d+)deg/);
         return match && match[1] ? match[1] : '90';
       }
+
+      // ฟังก์ชันช่วยอัปเดต Gradient เมื่อมีการเปลี่ยนค่าใดๆ
+      const updateGradient = (type: string, angle: string, c1: string, c2: string) => {
+        if (type === 'linear') {
+          onChange(`linear-gradient(${angle}deg, ${c1}, ${c2})`);
+        } else if (type === 'radial') {
+          onChange(`radial-gradient(circle, ${c1}, ${c2})`);
+        }
+      };
 
       return (
         <div key={refKey} className="field-group">
@@ -616,14 +629,32 @@ export default function CodeDetail() {
               onChange={e => onChange(e.target.value)} 
             />
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px', background: 'rgba(255,255,255,0.4)', padding: '6px 12px', borderRadius: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px', background: 'rgba(255,255,255,0.4)', padding: '6px 12px', borderRadius: '8px', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>เครื่องมือ:</span>
-            <input type="color" value={getC1()} onChange={e => onChange(`linear-gradient(${getAngle()}deg, ${e.target.value}, ${getC2()})`)} style={{ width: '24px', height: '24px', border: 'none', cursor: 'pointer', padding: 0, background: 'transparent' }} title="สีเริ่มต้น" />
+            
+            {/* 🌟 Dropdown เลือกประเภท Gradient */}
+            <select 
+              className="glass-input" 
+              style={{ width: '80px', padding: '2px 6px', height: '24px', fontSize: '0.75rem' }}
+              value={gradType}
+              onChange={(e) => updateGradient(e.target.value, getAngle(), getC1(), getC2())}
+            >
+              <option value="linear">เส้นตรง</option>
+              <option value="radial">วงกลม</option>
+            </select>
+
+            <input type="color" value={getC1()} onChange={e => updateGradient(gradType, getAngle(), e.target.value, getC2())} style={{ width: '24px', height: '24px', border: 'none', cursor: 'pointer', padding: 0, background: 'transparent' }} title="สีเริ่มต้น" />
             <span style={{ fontSize: '0.75rem', color: 'var(--color-secondary)' }}>→</span>
-            <input type="color" value={getC2()} onChange={e => onChange(`linear-gradient(${getAngle()}deg, ${getC1()}, ${e.target.value})`)} style={{ width: '24px', height: '24px', border: 'none', cursor: 'pointer', padding: 0, background: 'transparent' }} title="สีสิ้นสุด" />
-            <div style={{ width: '1px', height: '16px', background: 'var(--color-accent-mute)', margin: '0 4px' }} />
-            <input type="number" min="0" max="360" value={getAngle()} onChange={e => onChange(`linear-gradient(${e.target.value}deg, ${getC1()}, ${getC2()})`)} className="glass-input" style={{ width: '60px', padding: '2px 6px', height: '24px', fontSize: '0.8rem' }} />
-            <span style={{ fontSize: '0.75rem', color: 'var(--color-secondary)' }}>deg</span>
+            <input type="color" value={getC2()} onChange={e => updateGradient(gradType, getAngle(), getC1(), e.target.value)} style={{ width: '24px', height: '24px', border: 'none', cursor: 'pointer', padding: 0, background: 'transparent' }} title="สีสิ้นสุด" />
+            
+            {/* ซ่อนองศา ถ้าเป็นวงกลม */}
+            {gradType === 'linear' && (
+              <>
+                <div style={{ width: '1px', height: '16px', background: 'var(--color-accent-mute)', margin: '0 4px' }} />
+                <input type="number" min="0" max="360" value={getAngle()} onChange={e => updateGradient('linear', e.target.value, getC1(), getC2())} className="glass-input" style={{ width: '60px', padding: '2px 6px', height: '24px', fontSize: '0.8rem' }} />
+                <span style={{ fontSize: '0.75rem', color: 'var(--color-secondary)' }}>deg</span>
+              </>
+            )}
           </div>
         </div>
       );

@@ -77,7 +77,6 @@ export default function ManageCodes() {
     setFormData({ ...formData, eventTags: formData.eventTags.filter(t => t !== tagToRemove) });
   };
 
-  // 🌟 ฟังก์ชันจัดการ Custom Fields (รวมปุ่มเลื่อนขึ้น-ลง)
   const handleCustomFieldChange = (index: number, field: string, value: any) => {
     const newFields = [...formData.customFields];
     newFields[index] = { ...newFields[index], [field]: value };
@@ -95,7 +94,6 @@ export default function ManageCodes() {
     setFormData({ ...formData, customFields: newArr });
   };
 
-  // 🌟 ฟังก์ชันจัดการ Blocks
   const handleAddBlock = (type: string) => {
     let newBlock = { id: `block_${Date.now()}`, name: "", placeholder: "", html: "", fields: [] as any[] };
     if (type === "gallery") {
@@ -460,7 +458,13 @@ export default function ManageCodes() {
               {field.type === 'dropdown' && (
                 <div className="form-group" style={{ marginTop: '16px', marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.85rem' }}>ระบุตัวเลือก (เช่น สีแดง=#ff0000, สีดำ=#000 คั่นด้วยลูกน้ำ)</label>
-                  <input type="text" className="glass-input" placeholder="ข้อความที่แสดง=ค่าที่จะไปแทนในโค้ด" value={field.options || ""} onChange={e => handleCustomFieldChange(index, 'options', e.target.value)} />
+                  <textarea 
+                    className="glass-input custom-scrollbar" 
+                    rows={3}
+                    placeholder="ข้อความที่แสดง=ค่าที่จะไปแทนในโค้ด" 
+                    value={field.options || ""} 
+                    onChange={e => handleCustomFieldChange(index, 'options', e.target.value)} 
+                  />
                 </div>
               )}
 
@@ -553,7 +557,14 @@ export default function ManageCodes() {
                             </select>
                             
                             {field.type === 'dropdown' && (
-                              <input type="text" value={field.options || ""} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'options', e.target.value)} placeholder="เช่น โชว์=ค่าในโค้ด, สีแดง=#ff0" className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', marginTop: '8px', width: '100%' }} />
+                              <textarea 
+                                value={field.options || ""} 
+                                onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'options', e.target.value)} 
+                                placeholder="เช่น โชว์=ค่าในโค้ด, สีแดง=#ff0" 
+                                className="glass-input custom-scrollbar" 
+                                rows={2}
+                                style={{ padding: '8px', fontSize: '0.85rem', marginTop: '8px', width: '100%' }} 
+                              />
                             )}
                           </div>
                           <button type="button" onClick={() => handleRemoveBlockField(bIndex, fIndex)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '4px' }} title="ลบ Field">✕</button>

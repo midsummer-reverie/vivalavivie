@@ -327,27 +327,36 @@ export default function CodeDetail() {
   };
 
   // 🌟 ฟังก์ชันอัจฉริยะสำหรับเช็คเงื่อนไขซ่อน/โชว์ ของ Dropdown 🌟
+  // ค้นหาฟิลด์แม่จากทั้ง contextFields (ฟิลด์ในบล็อกปัจจุบัน) และ code.customFields (ฟิลด์หลัก)
   const checkConditionMatch = (field: any, allValues: any, contextFields: any[]) => {
     if (!field.conditionVar || field.conditionVar.trim() === "") return true;
     
-    const parentVal = allValues[field.conditionVar] || "";
+    // ลองหาค่าจาก allValues ก่อน (ค่าในบล็อก)
+    // ถ้าไม่เจอ และมี fieldValues (ค่าหลัก) ให้ดึงจากฟิลด์หลักมาเทียบ
+    let parentVal = allValues[field.conditionVar];
+    if (parentVal === undefined) {
+      parentVal = fieldValues[field.conditionVar] || "";
+    }
+    
     if (parentVal === field.conditionVal) return true; // ตรงเป๊ะกับ Value ก็ให้ผ่าน
 
-    if (contextFields) {
-      const parentField = contextFields.find((f: any) => f.variableName === field.conditionVar);
-      if (parentField && parentField.type === 'dropdown' && parentField.options) {
-        const optionsArray = parentField.options.split(',').map((s: string) => s.trim()).filter(Boolean);
-        for (const opt of optionsArray) {
-          const parts = opt.split('=');
-          const label = parts[0].trim();
-          const value = parts.length >= 2 ? parts.slice(1).join('=').trim() : label;
-          
-          if (value === parentVal && (label === field.conditionVal || value === field.conditionVal)) {
-            return true;
-          }
+    // ค้นหาฟิลด์แม่จากทั้ง 2 แหล่งรวมกัน
+    const allAvailableFields = [...(contextFields || []), ...(code?.customFields || [])];
+    
+    const parentField = allAvailableFields.find((f: any) => f.variableName === field.conditionVar);
+    if (parentField && parentField.type === 'dropdown' && parentField.options) {
+      const optionsArray = parentField.options.split(',').map((s: string) => s.trim()).filter(Boolean);
+      for (const opt of optionsArray) {
+        const parts = opt.split('=');
+        const label = parts[0].trim();
+        const value = parts.length >= 2 ? parts.slice(1).join('=').trim() : label;
+        
+        if (value === parentVal && (label === field.conditionVal || value === field.conditionVal)) {
+          return true;
         }
       }
     }
+    
     return false;
   };
 

@@ -514,6 +514,11 @@ export default function CodeDetail() {
             width: 100%;
             max-width: 900px;
           }
+          /* 🔥 กฎเหล็กบังคับไม่ให้รูปภาพหรือวิดีโอล้นกรอบ 🔥 */
+          img, video, iframe {
+            max-width: 100%;
+            height: auto;
+          }
         </style>
       </head>
       <body>
@@ -972,7 +977,7 @@ export default function CodeDetail() {
             <h2>🔒 โค้ดนี้ถูกล็อกเป็นส่วนตัว</h2>
             <form onSubmit={handleUnlockSubmit} style={{ marginTop: '20px' }}>
               <input type="password" className="glass-input" style={{ maxWidth: '300px', textAlign: 'center', marginBottom: '16px' }} placeholder="ใส่รหัสผ่าน..." value={passwordInput} onChange={e => setPasswordInput(e.target.value)} autoFocus />
-              {passwordError && <div style={{ color: 'var(--danger)', marginBottom: '10px', fontSize: '0.85rem' }}>รหัสผ่านไม่ถูกต้อง</div>}
+              {passwordError && <div style={{ color: 'var(--danger)', marginBottom: '10px' }}>รหัสผ่านไม่ถูกต้อง</div>}
               <div><button type="submit" className="tool-btn" style={{ padding: '10px 24px', margin: '0 auto' }}>ปลดล็อก</button></div>
             </form>
           </div>

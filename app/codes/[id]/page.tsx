@@ -32,8 +32,6 @@ export default function CodeDetail() {
   const [activeBlocks, setActiveBlocks] = useState<any[]>([]);
   const [debouncedActiveBlocks, setDebouncedActiveBlocks] = useState<any[]>([]);
   
-  const [customDropdowns, setCustomDropdowns] = useState<{ [key: string]: boolean }>({});
-  
   const [drafts, setDrafts] = useState<{ name: string; values: any; blocks: any[] }[]>([]);
   const [draftName, setDraftName] = useState("");
   const [selectedDraftIndex, setSelectedDraftIndex] = useState<number>(-1);
@@ -328,11 +326,36 @@ export default function CodeDetail() {
     return defaultHex;
   };
 
+  // 🌟 ฟังก์ชันอัจฉริยะสำหรับเช็คเงื่อนไขซ่อน/โชว์ ของ Dropdown 🌟
+  const checkConditionMatch = (field: any, allValues: any, contextFields: any[]) => {
+    if (!field.conditionVar || field.conditionVar.trim() === "") return true;
+    
+    const parentVal = allValues[field.conditionVar] || "";
+    if (parentVal === field.conditionVal) return true; // ตรงเป๊ะกับ Value ก็ให้ผ่าน
+
+    if (contextFields) {
+      const parentField = contextFields.find((f: any) => f.variableName === field.conditionVar);
+      if (parentField && parentField.type === 'dropdown' && parentField.options) {
+        const optionsArray = parentField.options.split(',').map((s: string) => s.trim()).filter(Boolean);
+        for (const opt of optionsArray) {
+          const parts = opt.split('=');
+          const label = parts[0].trim();
+          const value = parts.length >= 2 ? parts.slice(1).join('=').trim() : label;
+          
+          if (value === parentVal && (label === field.conditionVal || value === field.conditionVal)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  };
+
   const getRenderedHtml = (isForPreview: boolean = false) => {
     if (!code || !code.htmlCode) return "";
     let finalHtml = code.htmlCode;
     
-    // 💡 เลือกใช้ FieldValues แบบไหน? (ถ้าตอน Copy HTML เอาแบบปัจจุบันทันที ถ้าเป็น Preview เอาอันที่ Debounce แล้วลดกระตุก)
+    // 💡 เลือกใช้ FieldValues แบบไหน?
     const currentValuesToUse = isForPreview ? debouncedFieldValues : fieldValues;
     const currentBlocksToUse = isForPreview ? debouncedActiveBlocks : activeBlocks;
     
@@ -352,10 +375,8 @@ export default function CodeDetail() {
 
           const val = currentValuesToUse[field.variableName] || "";
           
-          if (field.conditionVar && field.conditionVar.trim() !== "") {
-             const parentVal = currentValuesToUse[field.conditionVar] || "";
-             if (parentVal !== field.conditionVal) return;
-          }
+          // 🌟 ใช้ฟังก์ชันอัจฉริยะแทน
+          if (!checkConditionMatch(field, currentValuesToUse, code.customFields)) return;
 
           if (field.type === 'image') {
             const imgData = currentValuesToUse[field.variableName] || { url: "", x: 50, y: 50, zoom: 100 };
@@ -401,10 +422,8 @@ export default function CodeDetail() {
               
               const val = block.values[field.variableName] || "";
               
-              if (field.conditionVar && field.conditionVar.trim() !== "") {
-                 const parentVal = block.values[field.conditionVar] || "";
-                 if (parentVal !== field.conditionVal) return;
-              }
+              // 🌟 ใช้ฟังก์ชันอัจฉริยะแทน
+              if (!checkConditionMatch(field, block.values, block.fields)) return;
 
               if (field.type === 'image') {
                 const imgData = val || { url: "", x: 50, y: 50, zoom: 100 };
@@ -523,61 +542,38 @@ export default function CodeDetail() {
     });
   };
 
-  const renderFieldUI = (field: any, val: any, onChange: (v: any) => void, refKey: string, allValues: any) => {
+  const renderFieldUI = (field: any, val: any, onChange: (v: any) => void, refKey: string, allValues: any, contextFields: any[]) => {
     
-    if (field.conditionVar && field.conditionVar.trim() !== "") {
-      const parentVal = allValues[field.conditionVar] || "";
-      if (parentVal !== field.conditionVal) {
-        return null; 
-      }
+    // 🌟 ใช้ฟังก์ชันอัจฉริยะแทนของเดิม
+    if (!checkConditionMatch(field, allValues, contextFields)) {
+      return null; 
     }
 
+    // 🌟 เอาปุ่มและตัวเลือก "พิมพ์กำหนดค่าเอง... (Custom)" ออกแล้ว 🌟
     if (field.type === 'dropdown') {
       const optionsArray = field.options ? field.options.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
       
-      // 🌟 แปลง Options ให้รองรับแบบ Label=Value
       const parsedOptions = optionsArray.map((opt: string) => {
         const parts = opt.split('=');
         if (parts.length >= 2) {
-          // ใช้ชิ้นแรกเป็น label, ที่เหลือเป็น value (เผื่อมี = ใน value)
           return { label: parts[0].trim(), value: parts.slice(1).join('=').trim() };
         }
         return { label: opt, value: opt };
       });
 
-      const predefinedValues = parsedOptions.map((o: any) => o.value);
-      const isValueCustom = val && val !== "" && !predefinedValues.includes(val);
-      const isCustom = customDropdowns[refKey] || isValueCustom;
-
       return (
         <div key={refKey} className="field-group">
           <label className="field-label">{field.label}</label>
-          {isCustom ? (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input type="text" className="glass-input" placeholder={`พิมพ์${field.label}ด้วยตัวเอง...`} value={val || ""} onChange={e => onChange(e.target.value)} />
-              <button type="button" className="tool-btn" style={{ padding: '0 12px' }} onClick={() => {
-                setCustomDropdowns(prev => ({ ...prev, [refKey]: false }));
-                onChange(parsedOptions[0]?.value || "");
-              }} title="กลับไปเลือกจากรายการ">
-                ↩️
-              </button>
-            </div>
-          ) : (
-            <select className="glass-input" value={val || ""} onChange={e => {
-              if (e.target.value === '__CUSTOM__') {
-                setCustomDropdowns(prev => ({ ...prev, [refKey]: true }));
-                onChange("");
-              } else {
-                onChange(e.target.value);
-              }
-            }}>
-              <option value="" disabled>-- เลือก{field.label} --</option>
-              {parsedOptions.map((opt: any, idx: number) => (
-                <option key={`${opt.value}_${idx}`} value={opt.value}>{opt.label}</option>
-              ))}
-              <option value="__CUSTOM__">✨ พิมพ์กำหนดค่าเอง...</option>
-            </select>
-          )}
+          <select 
+            className="glass-input" 
+            value={val || ""} 
+            onChange={e => onChange(e.target.value)}
+          >
+            <option value="" disabled>-- เลือก{field.label} --</option>
+            {parsedOptions.map((opt: any, idx: number) => (
+              <option key={`${opt.value}_${idx}`} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
       );
     }
@@ -786,7 +782,7 @@ export default function CodeDetail() {
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;600;700&display=swap');
         
-        /* 🔥 ปลดล็อกให้หน้าจอหลัก Scroll ได้ตามธรรมชาติ */
+        /* 🔥 ปลดล็อกให้หน้าจอหลัก Scroll ได้ตามธรรมชาติ และแก้ให้ยืดสุดเนื้อหาล่างสุด */
         .code-detail-wrapper { 
           min-height: 100vh; 
           margin: 0; 
@@ -795,6 +791,8 @@ export default function CodeDetail() {
           color: var(--color-text-main); 
           background: radial-gradient(circle at 15% 20%, var(--bg-grad-1) 0%, transparent 50%), radial-gradient(circle at 85% 80%, var(--bg-grad-2) 0%, transparent 50%), linear-gradient(135deg, var(--bg-grad-3) 0%, var(--bg-grad-4) 100%); 
           overflow-x: hidden; 
+          display: flex;
+          flex-direction: column;
         }
 
         .code-detail-wrapper * { box-sizing: border-box; }
@@ -804,6 +802,7 @@ export default function CodeDetail() {
           max-width: 1600px; 
           margin: 0 auto; 
           width: 100%; 
+          flex: 1; /* ดันเนื้อหาให้เต็ม */
         }
 
         .split-layout { 
@@ -1056,7 +1055,7 @@ export default function CodeDetail() {
                 <div className="customizer-box">
                   <h3 style={{ margin: 0, color: 'var(--color-primary)', fontSize: '1.1rem' }}>✨ ปรับแต่งฟิลด์หลัก</h3>
                   {code.customFields && code.customFields.map((field: any, index: number) => 
-                    renderFieldUI(field, fieldValues[field.variableName], (newVal) => setFieldValues({ ...fieldValues, [field.variableName]: newVal }), `cf_${index}`, fieldValues)
+                    renderFieldUI(field, fieldValues[field.variableName], (newVal) => setFieldValues({ ...fieldValues, [field.variableName]: newVal }), `cf_${index}`, fieldValues, code.customFields)
                   )}
 
                   {(code.blocks?.length > 0 || activeBlocks.length > 0) && (
@@ -1075,7 +1074,7 @@ export default function CodeDetail() {
                               </div>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                              {block.fields && Array.isArray(block.fields) && block.fields.map((field: any, fIndex: number) => renderFieldUI(field, block.values[field.variableName], (newVal) => updateBlockValue(block.instanceId, field.variableName, newVal), `${block.instanceId}_f_${fIndex}`, block.values))}
+                              {block.fields && Array.isArray(block.fields) && block.fields.map((field: any, fIndex: number) => renderFieldUI(field, block.values[field.variableName], (newVal) => updateBlockValue(block.instanceId, field.variableName, newVal), `${block.instanceId}_f_${fIndex}`, block.values, block.fields))}
                             </div>
                           </div>
                         )

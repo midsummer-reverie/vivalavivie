@@ -1132,7 +1132,7 @@ export default function CodeDetail() {
               <div className="display-area">
                 {editMode === 'customize' && (
                   <button className="btn-copy" onClick={handleCopy}>
-                    {copied ? "✅ Copied!" : "📋 Copy HTML"}
+                    {copied ? "✅ Copied!" : "📋 Copy"}
                   </button>
                 )}
                 

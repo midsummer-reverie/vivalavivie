@@ -574,37 +574,71 @@ export default function CodeDetail() {
       );
     }
     
+    // 🌟 ระบบ Gradient ตัวใหม่ (เพิ่มสีและปรับตำแหน่งได้)
     if (field.type === 'gradient') {
       const fallbackCol = getFallbackColor(field.variableName);
       const currentVal = val || fallbackCol || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
       
+      // ดึงข้อมูลประเภทของ Gradient
       const isRadial = currentVal.includes('radial-gradient');
       const gradType = isRadial ? 'radial' : 'linear';
       
-      const getC1 = () => {
-        const matches = currentVal.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/gi);
-        return safeHex(matches ? matches[0] : '#d8b4fe', '#d8b4fe');
-      }
-      const getC2 = () => {
-        const matches = currentVal.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/gi);
-        return safeHex(matches && matches.length > 1 ? matches[1] : (matches ? matches[0] : '#bae6fd'), '#bae6fd');
-      }
-      const getAngle = () => {
-        const match = currentVal.match(/(\d+)deg/);
-        return match && match[1] ? match[1] : '90';
-      }
-
-      const updateGradient = (type: string, angle: string, c1: string, c2: string) => {
-        if (type === 'linear') {
-          onChange(`linear-gradient(${angle}deg, ${c1}, ${c2})`);
-        } else if (type === 'radial') {
-          onChange(`radial-gradient(circle, ${c1}, ${c2})`);
+      // ดึงข้อมูลองศา หรือ ตำแหน่งวงกลม
+      const getAngleOrPosition = () => {
+        if (isRadial) {
+          const posMatch = currentVal.match(/circle at ([^,]+)/);
+          return posMatch ? posMatch[1].trim() : 'center';
+        } else {
+          const angleMatch = currentVal.match(/(\d+)deg/);
+          return angleMatch ? angleMatch[1] : '90';
         }
+      };
+
+      // ดึงรายการสีทั้งหมดออกมาเป็น Array
+      const extractColors = () => {
+        const matches = currentVal.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b|(rgb|hsl)a?\([^)]+\)|[a-zA-Z]+/gi) || [];
+        // กรองเอาเฉพาะที่ดูเหมือนรหัสสีจริงๆ
+        const colors = matches.filter((c: string) => c.startsWith('#') || c.startsWith('rgb') || c.startsWith('hsl'));
+        return colors.length >= 2 ? colors : ['#d8b4fe', '#bae6fd'];
+      };
+
+      const colors = extractColors();
+      const angleOrPos = getAngleOrPosition();
+
+      // ฟังก์ชันประกอบร่าง Gradient กลับไปเป็น String
+      const updateGradient = (newType: string, newAngleOrPos: string, newColors: string[]) => {
+        if (newType === 'linear') {
+          // ถ้าเดิมเป็นวงกลมแล้วมีคำว่า center ให้เปลี่ยนเป็น 90deg แทน
+          const safeAngle = newAngleOrPos === 'center' || newAngleOrPos.includes('%') ? '90' : newAngleOrPos.replace(/[^0-9]/g, '');
+          onChange(`linear-gradient(${safeAngle || '90'}deg, ${newColors.join(', ')})`);
+        } else if (newType === 'radial') {
+          // ถ้าเดิมเป็นองศา ให้เปลี่ยนกลับเป็น center
+          const safePos = newAngleOrPos.includes('deg') || !isNaN(Number(newAngleOrPos)) ? 'center' : newAngleOrPos;
+          onChange(`radial-gradient(circle at ${safePos}, ${newColors.join(', ')})`);
+        }
+      };
+
+      const handleColorChange = (index: number, newColor: string) => {
+        const newColors = [...colors];
+        newColors[index] = newColor;
+        updateGradient(gradType, angleOrPos, newColors);
+      };
+
+      const handleAddColor = () => {
+        const lastColor = colors[colors.length - 1];
+        updateGradient(gradType, angleOrPos, [...colors, lastColor]);
+      };
+
+      const handleRemoveColor = (index: number) => {
+        if (colors.length <= 2) return; // ห้ามลบจนเหลือน้อยกว่า 2 สี
+        const newColors = colors.filter((_, i) => i !== index);
+        updateGradient(gradType, angleOrPos, newColors);
       };
 
       return (
         <div key={refKey} className="field-group">
           <label className="field-label">{field.label}</label>
+          
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <div style={{ 
               width: '40px', height: '36px', borderRadius: '6px', 
@@ -619,30 +653,83 @@ export default function CodeDetail() {
               onChange={e => onChange(e.target.value)} 
             />
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px', background: 'rgba(255,255,255,0.4)', padding: '6px 12px', borderRadius: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>เครื่องมือ:</span>
-            
-            <select 
-              className="glass-input" 
-              style={{ width: '80px', padding: '2px 6px', height: '24px', fontSize: '0.75rem' }}
-              value={gradType}
-              onChange={(e) => updateGradient(e.target.value, getAngle(), getC1(), getC2())}
-            >
-              <option value="linear">เส้นตรง</option>
-              <option value="radial">วงกลม</option>
-            </select>
 
-            <input type="color" value={getC1()} onChange={e => updateGradient(gradType, getAngle(), e.target.value, getC2())} style={{ width: '24px', height: '24px', border: 'none', cursor: 'pointer', padding: 0, background: 'transparent' }} title="สีเริ่มต้น" />
-            <span style={{ fontSize: '0.75rem', color: 'var(--color-secondary)' }}>→</span>
-            <input type="color" value={getC2()} onChange={e => updateGradient(gradType, getAngle(), getC1(), e.target.value)} style={{ width: '24px', height: '24px', border: 'none', cursor: 'pointer', padding: 0, background: 'transparent' }} title="สีสิ้นสุด" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px', background: 'rgba(255,255,255,0.4)', padding: '12px', borderRadius: '8px' }}>
             
-            {gradType === 'linear' && (
-              <>
-                <div style={{ width: '1px', height: '16px', background: 'var(--color-accent-mute)', margin: '0 4px' }} />
-                <input type="number" min="0" max="360" value={getAngle()} onChange={e => updateGradient('linear', e.target.value, getC1(), getC2())} className="glass-input" style={{ width: '60px', padding: '2px 6px', height: '24px', fontSize: '0.8rem' }} />
-                <span style={{ fontSize: '0.75rem', color: 'var(--color-secondary)' }}>deg</span>
-              </>
-            )}
+            {/* 🌟 บรรทัดบน: เครื่องมือหลัก */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>เครื่องมือ:</span>
+              
+              <select 
+                className="glass-input" 
+                style={{ width: '80px', padding: '2px 6px', height: '24px', fontSize: '0.75rem' }}
+                value={gradType}
+                onChange={(e) => updateGradient(e.target.value, angleOrPos, colors)}
+              >
+                <option value="linear">เส้นตรง</option>
+                <option value="radial">วงกลม</option>
+              </select>
+
+              <div style={{ width: '1px', height: '16px', background: 'var(--color-accent-mute)', margin: '0 4px' }} />
+
+              {/* สลับการแสดงผล องศา หรือ ตำแหน่ง */}
+              {gradType === 'linear' ? (
+                <>
+                  <input type="number" min="0" max="360" value={angleOrPos.replace(/[^0-9]/g, '') || 90} onChange={e => updateGradient('linear', e.target.value, colors)} className="glass-input" style={{ width: '60px', padding: '2px 6px', height: '24px', fontSize: '0.8rem' }} />
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-secondary)' }}>deg</span>
+                </>
+              ) : (
+                <select 
+                  className="glass-input" 
+                  style={{ width: '100px', padding: '2px 6px', height: '24px', fontSize: '0.75rem' }}
+                  value={angleOrPos}
+                  onChange={(e) => updateGradient('radial', e.target.value, colors)}
+                >
+                  <option value="center">ตรงกลาง</option>
+                  <option value="top">ด้านบน</option>
+                  <option value="bottom">ด้านล่าง</option>
+                  <option value="left">ซ้าย</option>
+                  <option value="right">ขวา</option>
+                  <option value="top left">ซ้ายบน</option>
+                  <option value="top right">ขวาบน</option>
+                  <option value="bottom left">ซ้ายล่าง</option>
+                  <option value="bottom right">ขวาล่าง</option>
+                </select>
+              )}
+            </div>
+
+            {/* 🌟 บรรทัดล่าง: จัดการจุดสี (Color Stops) */}
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginTop: '4px' }}>
+              {colors.map((color, index) => (
+                <div key={`${refKey}_color_${index}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#fff', padding: '2px 4px', borderRadius: '6px', border: '1px solid var(--color-accent-lighter)' }}>
+                  <input 
+                    type="color" 
+                    value={safeHex(color, '#d8b4fe')} 
+                    onChange={e => handleColorChange(index, e.target.value)} 
+                    style={{ width: '20px', height: '20px', border: 'none', cursor: 'pointer', padding: 0, background: 'transparent' }} 
+                  />
+                  {colors.length > 2 && (
+                    <button 
+                      onClick={() => handleRemoveColor(index)} 
+                      style={{ background: 'transparent', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 2px' }}
+                      title="ลบสีนี้"
+                    >
+                      ×
+                    </button>
+                  )}
+                  {index < colors.length - 1 && <span style={{ fontSize: '0.75rem', color: 'var(--color-secondary)', marginLeft: '4px' }}>→</span>}
+                </div>
+              ))}
+              
+              <button 
+                onClick={handleAddColor} 
+                style={{ background: 'var(--color-accent)', color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', lineHeight: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                title="เพิ่มสี"
+              >
+                +
+              </button>
+            </div>
+
           </div>
         </div>
       );
@@ -1005,7 +1092,7 @@ export default function CodeDetail() {
                              initFieldValues(code, true);
                           }
                         }} style={{ padding: '2px 8px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>
-                          🔄 เริ่มใหม่
+                          🔄 Reset
                         </button>
                       </div>
                       
@@ -1061,6 +1148,7 @@ export default function CodeDetail() {
                           <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.8rem', color: '#713f12', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <li>โค้ดจะแสดงผลได้ดีที่สุดบนหน้าจอ Desktop (PC/Laptop) แต่จะไม่แตกหรือแหกหากใช้บนหน้าจออื่น ๆ</li>
                             <li>preview ใน editor นี้อาจมีความคลาดเคลื่อนของสเกลหรือตำแหน่งอยู่บ้าง หากนำไปใช้บนเว็บไซต์จะแสดงผลปกติ</li>
+                            <li>สามารถเพิ่มส่วนเสริม (Dynamic Blocks) ได้ที่โหมด <strong>✍️ ปรับแต่ง</strong></li>
                           </ul>
                         </div>
 
@@ -1136,7 +1224,7 @@ export default function CodeDetail() {
               <div className="display-area">
                 {editMode === 'customize' && (
                   <button className="btn-copy" onClick={handleCopy}>
-                    {copied ? "✅ Copied!" : "📋 Copy"}
+                    {copied ? "✅ Copied!" : "📋 Copy HTML"}
                   </button>
                 )}
                 

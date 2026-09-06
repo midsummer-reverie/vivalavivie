@@ -595,7 +595,7 @@ export default function CodeDetail() {
       };
 
       // ดึงรายการสีทั้งหมดออกมาเป็น Array
-      const extractColors = () => {
+      const extractColors = (): string[] => {
         const matches = currentVal.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b|(rgb|hsl)a?\([^)]+\)|[a-zA-Z]+/gi) || [];
         // กรองเอาเฉพาะที่ดูเหมือนรหัสสีจริงๆ
         const colors = matches.filter((c: string) => c.startsWith('#') || c.startsWith('rgb') || c.startsWith('hsl'));
@@ -631,7 +631,7 @@ export default function CodeDetail() {
 
       const handleRemoveColor = (index: number) => {
         if (colors.length <= 2) return; // ห้ามลบจนเหลือน้อยกว่า 2 สี
-        const newColors = colors.filter((_: string, i: number) => i !== index);
+        const newColors = colors.filter((color: string, i: number) => i !== index);
         updateGradient(gradType, angleOrPos, newColors);
       };
 
@@ -700,7 +700,7 @@ export default function CodeDetail() {
 
             {/* 🌟 บรรทัดล่าง: จัดการจุดสี (Color Stops) */}
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginTop: '4px' }}>
-              {colors.map((color, index) => (
+              {colors.map((color: string, index: number) => (
                 <div key={`${refKey}_color_${index}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#fff', padding: '2px 4px', borderRadius: '6px', border: '1px solid var(--color-accent-lighter)' }}>
                   <input 
                     type="color" 
@@ -1064,7 +1064,7 @@ export default function CodeDetail() {
             <h2>🔒 โค้ดนี้ถูกล็อกเป็นส่วนตัว</h2>
             <form onSubmit={handleUnlockSubmit} style={{ marginTop: '20px' }}>
               <input type="password" className="glass-input" style={{ maxWidth: '300px', textAlign: 'center', marginBottom: '16px' }} placeholder="ใส่รหัสผ่าน..." value={passwordInput} onChange={e => setPasswordInput(e.target.value)} autoFocus />
-              {passwordError && <div style={{ color: 'var(--danger)', marginBottom: '10px' }}>รหัสผ่านไม่ถูกต้อง</div>}
+              {passwordError && <div style={{ color: 'var(--danger)', marginBottom: '10px', fontSize: '0.85rem' }}>รหัสผ่านไม่ถูกต้อง</div>}
               <div><button type="submit" className="tool-btn" style={{ padding: '10px 24px', margin: '0 auto' }}>ปลดล็อก</button></div>
             </form>
           </div>
@@ -1092,7 +1092,7 @@ export default function CodeDetail() {
                              initFieldValues(code, true);
                           }
                         }} style={{ padding: '2px 8px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>
-                          🔄 Reset
+                          🔄 เริ่มใหม่
                         </button>
                       </div>
                       

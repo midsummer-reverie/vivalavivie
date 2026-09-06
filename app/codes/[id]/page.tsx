@@ -1148,7 +1148,6 @@ export default function CodeDetail() {
                           <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.8rem', color: '#713f12', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <li>โค้ดจะแสดงผลได้ดีที่สุดบนหน้าจอ Desktop (PC/Laptop) แต่จะไม่แตกหรือแหกหากใช้บนหน้าจออื่น ๆ</li>
                             <li>preview ใน editor นี้อาจมีความคลาดเคลื่อนของสเกลหรือตำแหน่งอยู่บ้าง หากนำไปใช้บนเว็บไซต์จะแสดงผลปกติ</li>
-                            <li>สามารถเพิ่มส่วนเสริม (Dynamic Blocks) ได้ที่โหมด <strong>✍️ ปรับแต่ง</strong></li>
                           </ul>
                         </div>
 

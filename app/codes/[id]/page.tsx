@@ -1070,7 +1070,7 @@ export default function CodeDetail() {
                             <span>💬</span> พบปัญหาการใช้งาน?
                           </h4>
                           <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-main)', lineHeight: '1.6' }}>
-                            หากพบปัญหาโค้ดพัง สัดส่วนเพี้ยน หรือมีข้อสงสัย สามารถติดต่อได้ที่ <a href="https://discord.com/channels/848447153604919296/1138853513808580689" target="_blank" style={{ color: '#6b21a8', fontWeight: 'bold', textDecoration: 'underline' }}>Discord</a>
+                            หากพบปัญหาโค้ดพังหรือมีข้อสงสัย สามารถติดต่อได้ที่ <a href="https://discord.com/channels/848447153604919296/1138853513808580689" target="_blank" style={{ color: '#6b21a8', fontWeight: 'bold', textDecoration: 'underline' }}>Discord</a>
                           </p>
                         </div>
                       </div>

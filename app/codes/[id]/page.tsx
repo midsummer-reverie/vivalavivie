@@ -631,7 +631,7 @@ export default function CodeDetail() {
 
       const handleRemoveColor = (index: number) => {
         if (colors.length <= 2) return; // ห้ามลบจนเหลือน้อยกว่า 2 สี
-        const newColors = colors.filter((_, i) => i !== index);
+        const newColors = colors.filter((_: string, i: number) => i !== index);
         updateGradient(gradType, angleOrPos, newColors);
       };
 

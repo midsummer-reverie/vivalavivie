@@ -385,7 +385,6 @@ export default function CodeDetail() {
               if (legacyRegex.test(finalHtml)) {
                 finalHtml = finalHtml.replace(legacyRegex, urlCss);
               } else {
-                // 🔥 แทนที่ตัวแปรหลัก: ถ้าเป็น image_url ให้ใส่ url(...) เต็มๆ ถ้าเป็น image ธรรมดาให้ใส่แค่ลิงก์
                 finalHtml = finalHtml.split(field.variableName).join(field.type === 'image_url' ? urlCss : imgData.url);
                 finalHtml = finalHtml.split(`${field.variableName}_URL`).join(imgData.url);
                 finalHtml = finalHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
@@ -543,31 +542,86 @@ export default function CodeDetail() {
           ::-webkit-scrollbar-track { background: transparent; }
           ::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.4); border-radius: 10px; }
           ::-webkit-scrollbar-thumb:hover { background: rgba(168, 85, 247, 0.6); }
-          body { 
-            margin: 0; 
-            padding: 40px 20px; 
+          
+          body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
             background: #131313;
-            display: flex; 
+            overflow: hidden; /* ปิด Scrollbar ของ Body ไปเลย เราจะใช้ของ Wrapper แทน */
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+
+          /* กรอบหน้าต่างหลักที่ทำหน้าที่รับขนาดจาก iframe */
+          #scale-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
             justify-content: center;
             align-items: flex-start;
-            min-height: 100vh;
-            font-family: sans-serif;
+            overflow-y: auto; /* ให้เลื่อนเฉพาะข้างในนี้ */
+            position: relative;
           }
-          #wrapper {
-            width: 100%;
-            max-width: 900px;
+
+          /* กระดานเว็บบอร์ดจำลอง (Fixed Board Width) */
+          #board-simulator {
+            width: 900px; /* สมมติว่าความกว้างบอร์ดคือ 900px */
+            min-height: 100%;
+            background: #131313; /* พื้นหลังบอร์ดจำลอง */
+            transform-origin: top center;
+            padding: 40px 20px;
+            box-sizing: border-box;
           }
-          /* 🔥 กฎเหล็กบังคับไม่ให้รูปภาพหรือวิดีโอล้นกรอบ 🔥 */
-          img, video, iframe {
+
+          /* บังคับไม่ให้รูป/วิดีโอล้นขอบเหมือนเดิม */
+          #board-simulator img, #board-simulator video, #board-simulator iframe {
             max-width: 100%;
             height: auto;
           }
+
         </style>
       </head>
       <body>
-        <div id="wrapper">
-          ${previewHtml}
+        <div id="scale-container">
+          <div id="board-simulator">
+            ${previewHtml}
+          </div>
         </div>
+
+        <script>
+          // สคริปต์คำนวณและปรับขนาดอัตโนมัติ (Auto-Scaling)
+          function adjustScale() {
+            const container = document.getElementById('scale-container');
+            const board = document.getElementById('board-simulator');
+            
+            // หาความกว้างของ iframe ในขณะนั้น
+            const availableWidth = container.clientWidth;
+            
+            // ถ้าพื้นที่ว่างแคบกว่า 900px ให้ย่อส่วน (Scale Down)
+            if (availableWidth < 900) {
+              const scaleRatio = availableWidth / 900;
+              board.style.transform = 'scale(' + scaleRatio + ')';
+              // ชดเชยความสูงที่หายไปจากการย่อส่วน
+              board.style.marginBottom = '-' + (board.offsetHeight * (1 - scaleRatio)) + 'px';
+            } else {
+              // ถ้าจอใหญ่พอก็ไม่ต้องย่อ
+              board.style.transform = 'scale(1)';
+              board.style.marginBottom = '0px';
+            }
+          }
+
+          // ปรับขนาดตอนโหลดเสร็จ และตอนที่เบราว์เซอร์โดนย่อ/ขยาย
+          window.addEventListener('resize', adjustScale);
+          // ใช้ ResizeObserver ดักการเปลี่ยนแปลงขนาดของเนื้อหาด้วย (เผื่อโหลดรูปเสร็จแล้วขนาดเปลี่ยน)
+          const observer = new ResizeObserver(adjustScale);
+          observer.observe(document.body);
+          
+          adjustScale();
+        </script>
       </body>
     </html>
   `, [previewHtml]);

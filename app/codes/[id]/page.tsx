@@ -376,32 +376,39 @@ export default function CodeDetail() {
 
           if (field.type === 'image' || field.type === 'image_url') {
             const imgData = currentValuesToUse[field.variableName] || { url: "", x: 50, y: 50, zoom: 100 };
-            const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-            const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
-
+            
+            // 🔥 แยกระบบแปลงค่าอย่างชัดเจน
             if (isVisible && imgData.url && imgData.url.trim() !== '') {
-              // 🌟 แยกระบบแปลงค่าอย่างชัดเจน
-              const finalValue = field.type === 'image_url' ? `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%` : imgData.url;
-              
-              if (legacyRegex.test(finalHtml)) {
-                finalHtml = finalHtml.replace(legacyRegex, finalValue);
-              } else {
-                finalHtml = finalHtml.split(field.variableName).join(finalValue);
-                finalHtml = finalHtml.split(`${field.variableName}_URL`).join(imgData.url);
-                finalHtml = finalHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
-                finalHtml = finalHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
-                finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
-                // สำหรับ backward compatibility เผื่อยังใช้ _CSS อยู่
-                finalHtml = finalHtml.split(`${field.variableName}_CSS`).join(`url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`);
+              if (field.type === 'image_url') {
+                  const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+                  const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
+                  const urlCss = `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`;
+                  
+                  if (legacyRegex.test(finalHtml)) {
+                    finalHtml = finalHtml.replace(legacyRegex, urlCss);
+                  } else {
+                    finalHtml = finalHtml.split(field.variableName).join(urlCss);
+                    finalHtml = finalHtml.split(`${field.variableName}_URL`).join(imgData.url);
+                    finalHtml = finalHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
+                    finalHtml = finalHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
+                    finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
+                    finalHtml = finalHtml.split(`${field.variableName}_CSS`).join(urlCss);
+                  }
+              } else if (field.type === 'image') {
+                  finalHtml = finalHtml.split(field.variableName).join(imgData.url);
               }
             } else {
               finalHtml = finalHtml.split(field.variableName).join("");
-              finalHtml = finalHtml.split(`${field.variableName}_URL`).join("");
-              finalHtml = finalHtml.split(`${field.variableName}_X`).join("50");
-              finalHtml = finalHtml.split(`${field.variableName}_Y`).join("50");
-              finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join("100");
-              finalHtml = finalHtml.split(`${field.variableName}_CSS`).join("");
-              finalHtml = finalHtml.replace(legacyRegex, "");
+              if (field.type === 'image_url') {
+                  const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+                  const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
+                  finalHtml = finalHtml.split(`${field.variableName}_URL`).join("");
+                  finalHtml = finalHtml.split(`${field.variableName}_X`).join("50");
+                  finalHtml = finalHtml.split(`${field.variableName}_Y`).join("50");
+                  finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join("100");
+                  finalHtml = finalHtml.split(`${field.variableName}_CSS`).join("");
+                  finalHtml = finalHtml.replace(legacyRegex, "");
+              }
             }
           } else if (field.type === 'color' || field.type === 'gradient') {
             if (isVisible) {
@@ -443,31 +450,39 @@ export default function CodeDetail() {
 
               if (field.type === 'image' || field.type === 'image_url') {
                 const imgData = block.values[field.variableName] || { url: "", x: 50, y: 50, zoom: 100 };
-                const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
 
                 if (isVisible && imgData.url && imgData.url.trim() !== '') {
                   // 🌟 แยกระบบแปลงค่าอย่างชัดเจนสำหรับ Blocks ด้วย
-                  const finalValue = field.type === 'image_url' ? `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%` : imgData.url;
-                  
-                  if (legacyRegex.test(blockHtml)) {
-                    blockHtml = blockHtml.replace(legacyRegex, finalValue);
-                  } else {
-                    blockHtml = blockHtml.split(field.variableName).join(finalValue);
-                    blockHtml = blockHtml.split(`${field.variableName}_URL`).join(imgData.url);
-                    blockHtml = blockHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
-                    blockHtml = blockHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
-                    blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
-                    blockHtml = blockHtml.split(`${field.variableName}_CSS`).join(`url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`);
+                  if (field.type === 'image_url') {
+                      const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+                      const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
+                      const urlCss = `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`;
+                      
+                      if (legacyRegex.test(blockHtml)) {
+                        blockHtml = blockHtml.replace(legacyRegex, urlCss);
+                      } else {
+                        blockHtml = blockHtml.split(field.variableName).join(urlCss);
+                        blockHtml = blockHtml.split(`${field.variableName}_URL`).join(imgData.url);
+                        blockHtml = blockHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
+                        blockHtml = blockHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
+                        blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
+                        blockHtml = blockHtml.split(`${field.variableName}_CSS`).join(urlCss);
+                      }
+                  } else if (field.type === 'image') {
+                      blockHtml = blockHtml.split(field.variableName).join(imgData.url);
                   }
                 } else {
                   blockHtml = blockHtml.split(field.variableName).join("");
-                  blockHtml = blockHtml.split(`${field.variableName}_URL`).join("");
-                  blockHtml = blockHtml.split(`${field.variableName}_X`).join("50");
-                  blockHtml = blockHtml.split(`${field.variableName}_Y`).join("50");
-                  blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join("100");
-                  blockHtml = blockHtml.split(`${field.variableName}_CSS`).join("");
-                  blockHtml = blockHtml.replace(legacyRegex, "");
+                  if (field.type === 'image_url') {
+                      const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+                      const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
+                      blockHtml = blockHtml.split(`${field.variableName}_URL`).join("");
+                      blockHtml = blockHtml.split(`${field.variableName}_X`).join("50");
+                      blockHtml = blockHtml.split(`${field.variableName}_Y`).join("50");
+                      blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join("100");
+                      blockHtml = blockHtml.split(`${field.variableName}_CSS`).join("");
+                      blockHtml = blockHtml.replace(legacyRegex, "");
+                  }
                 }
               } else if (field.type === 'color' || field.type === 'gradient') {
                 if (isVisible) {
@@ -1266,36 +1281,6 @@ export default function CodeDetail() {
                         renderFieldUI(field, fieldValues[field.variableName], (newVal) => setFieldValues({ ...fieldValues, [field.variableName]: newVal }), `cf_${index}`, fieldValues, code.customFields)
                       )}
 
-                      {(code.blocks?.length > 0 || activeBlocks.length > 0) && (
-                        <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '2px dashed var(--color-accent-light)' }}>
-                          <h3 style={{ margin: '0 0 16px 0', color: 'var(--color-primary)', fontSize: '1.1rem' }}>🧱 เพิ่มส่วนเสริม (Blocks)</h3>
-                          {activeBlocks.map((block, index) => {
-                            const blockDef = code.blocks?.find((b: any) => b.id === block.blockId);
-                            return (
-                              <div key={block.instanceId} className="block-card">
-                                <div className="block-header">
-                                  <div className="block-title"><span style={{ background: 'var(--color-accent-light)', color: 'var(--color-primary)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem' }}>#{index + 1}</span>{blockDef?.name || "ส่วนเสริม"}</div>
-                                  <div className="block-actions">
-                                    <button className="tool-btn" onClick={() => moveBlock(index, 'up')} disabled={index === 0} title="เลื่อนขึ้น">⬆️</button>
-                                    <button className="tool-btn" onClick={() => moveBlock(index, 'down')} disabled={index === activeBlocks.length - 1} title="เลื่อนลง">⬇️</button>
-                                    <button className="tool-btn" onClick={() => removeBlock(block.instanceId)} style={{ color: 'var(--danger)', borderColor: 'var(--danger-border)' }} title="ลบส่วนนี้">🗑️</button>
-                                  </div>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                  {block.fields && Array.isArray(block.fields) && block.fields.map((field: any, fIndex: number) => renderFieldUI(field, block.values[field.variableName], (newVal) => updateBlockValue(block.instanceId, field.variableName, newVal), `${block.instanceId}_f_${fIndex}`, block.values, block.fields))}
-                                </div>
-                              </div>
-                            )
-                          })}
-                          {code.blocks && code.blocks.length > 0 && (
-                            <div className="add-block-row">
-                              {code.blocks.map((blockDef: any) => (
-                                <button key={blockDef.id} className="btn-add-block" onClick={() => addBlock(blockDef)}><span>➕ เพิ่ม {blockDef.name}</span></button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>

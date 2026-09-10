@@ -376,39 +376,35 @@ export default function CodeDetail() {
 
           if (field.type === 'image' || field.type === 'image_url') {
             const imgData = currentValuesToUse[field.variableName] || { url: "", x: 50, y: 50, zoom: 100 };
-            
-            // 🔥 แยกระบบแปลงค่าอย่างชัดเจน
+            const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+            const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
+
             if (isVisible && imgData.url && imgData.url.trim() !== '') {
-              if (field.type === 'image_url') {
-                  const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                  const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
-                  const urlCss = `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`;
-                  
-                  if (legacyRegex.test(finalHtml)) {
-                    finalHtml = finalHtml.replace(legacyRegex, urlCss);
-                  } else {
-                    finalHtml = finalHtml.split(field.variableName).join(urlCss);
-                    finalHtml = finalHtml.split(`${field.variableName}_URL`).join(imgData.url);
-                    finalHtml = finalHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
-                    finalHtml = finalHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
-                    finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
-                    finalHtml = finalHtml.split(`${field.variableName}_CSS`).join(urlCss);
-                  }
-              } else if (field.type === 'image') {
+              if (field.type === 'image') {
+                if (legacyRegex.test(finalHtml)) {
+                  finalHtml = finalHtml.replace(legacyRegex, `${imgData.url}) ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`);
+                } else {
                   finalHtml = finalHtml.split(field.variableName).join(imgData.url);
+                  finalHtml = finalHtml.split(`${field.variableName}_URL`).join(imgData.url);
+                  finalHtml = finalHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
+                  finalHtml = finalHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
+                  finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
+                }
+              } else if (field.type === 'image_url') {
+                const urlCss = `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`;
+                finalHtml = finalHtml.split(field.variableName).join(urlCss);
+                finalHtml = finalHtml.split(`${field.variableName}_URL`).join(imgData.url);
+                finalHtml = finalHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
+                finalHtml = finalHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
+                finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
               }
             } else {
               finalHtml = finalHtml.split(field.variableName).join("");
-              if (field.type === 'image_url') {
-                  const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                  const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
-                  finalHtml = finalHtml.split(`${field.variableName}_URL`).join("");
-                  finalHtml = finalHtml.split(`${field.variableName}_X`).join("50");
-                  finalHtml = finalHtml.split(`${field.variableName}_Y`).join("50");
-                  finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join("100");
-                  finalHtml = finalHtml.split(`${field.variableName}_CSS`).join("");
-                  finalHtml = finalHtml.replace(legacyRegex, "");
-              }
+              finalHtml = finalHtml.split(`${field.variableName}_URL`).join("");
+              finalHtml = finalHtml.split(`${field.variableName}_X`).join("50");
+              finalHtml = finalHtml.split(`${field.variableName}_Y`).join("50");
+              finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join("100");
+              finalHtml = finalHtml.replace(legacyRegex, "");
             }
           } else if (field.type === 'color' || field.type === 'gradient') {
             if (isVisible) {
@@ -450,39 +446,35 @@ export default function CodeDetail() {
 
               if (field.type === 'image' || field.type === 'image_url') {
                 const imgData = block.values[field.variableName] || { url: "", x: 50, y: 50, zoom: 100 };
+                const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+                const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
 
                 if (isVisible && imgData.url && imgData.url.trim() !== '') {
-                  // 🌟 แยกระบบแปลงค่าอย่างชัดเจนสำหรับ Blocks ด้วย
-                  if (field.type === 'image_url') {
-                      const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                      const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
-                      const urlCss = `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`;
-                      
-                      if (legacyRegex.test(blockHtml)) {
-                        blockHtml = blockHtml.replace(legacyRegex, urlCss);
-                      } else {
-                        blockHtml = blockHtml.split(field.variableName).join(urlCss);
-                        blockHtml = blockHtml.split(`${field.variableName}_URL`).join(imgData.url);
-                        blockHtml = blockHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
-                        blockHtml = blockHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
-                        blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
-                        blockHtml = blockHtml.split(`${field.variableName}_CSS`).join(urlCss);
-                      }
-                  } else if (field.type === 'image') {
+                  if (field.type === 'image') {
+                    if (legacyRegex.test(blockHtml)) {
+                      blockHtml = blockHtml.replace(legacyRegex, `${imgData.url}) ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`);
+                    } else {
                       blockHtml = blockHtml.split(field.variableName).join(imgData.url);
+                      blockHtml = blockHtml.split(`${field.variableName}_URL`).join(imgData.url);
+                      blockHtml = blockHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
+                      blockHtml = blockHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
+                      blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
+                    }
+                  } else if (field.type === 'image_url') {
+                    const urlCss = `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`;
+                    blockHtml = blockHtml.split(field.variableName).join(urlCss);
+                    blockHtml = blockHtml.split(`${field.variableName}_URL`).join(imgData.url);
+                    blockHtml = blockHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
+                    blockHtml = blockHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
+                    blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
                   }
                 } else {
                   blockHtml = blockHtml.split(field.variableName).join("");
-                  if (field.type === 'image_url') {
-                      const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                      const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
-                      blockHtml = blockHtml.split(`${field.variableName}_URL`).join("");
-                      blockHtml = blockHtml.split(`${field.variableName}_X`).join("50");
-                      blockHtml = blockHtml.split(`${field.variableName}_Y`).join("50");
-                      blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join("100");
-                      blockHtml = blockHtml.split(`${field.variableName}_CSS`).join("");
-                      blockHtml = blockHtml.replace(legacyRegex, "");
-                  }
+                  blockHtml = blockHtml.split(`${field.variableName}_URL`).join("");
+                  blockHtml = blockHtml.split(`${field.variableName}_X`).join("50");
+                  blockHtml = blockHtml.split(`${field.variableName}_Y`).join("50");
+                  blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join("100");
+                  blockHtml = blockHtml.replace(legacyRegex, "");
                 }
               } else if (field.type === 'color' || field.type === 'gradient') {
                 if (isVisible) {

@@ -380,17 +380,19 @@ export default function CodeDetail() {
             const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
 
             if (isVisible && imgData.url && imgData.url.trim() !== '') {
-              const urlCss = `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`;
+              // 🌟 แยกระบบแปลงค่าอย่างชัดเจน
+              const finalValue = field.type === 'image_url' ? `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%` : imgData.url;
               
               if (legacyRegex.test(finalHtml)) {
-                finalHtml = finalHtml.replace(legacyRegex, urlCss);
+                finalHtml = finalHtml.replace(legacyRegex, finalValue);
               } else {
-                finalHtml = finalHtml.split(field.variableName).join(field.type === 'image_url' ? urlCss : imgData.url);
+                finalHtml = finalHtml.split(field.variableName).join(finalValue);
                 finalHtml = finalHtml.split(`${field.variableName}_URL`).join(imgData.url);
                 finalHtml = finalHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
                 finalHtml = finalHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
                 finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
-                finalHtml = finalHtml.split(`${field.variableName}_CSS`).join(urlCss);
+                // สำหรับ backward compatibility เผื่อยังใช้ _CSS อยู่
+                finalHtml = finalHtml.split(`${field.variableName}_CSS`).join(`url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`);
               }
             } else {
               finalHtml = finalHtml.split(field.variableName).join("");
@@ -445,17 +447,18 @@ export default function CodeDetail() {
                 const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
 
                 if (isVisible && imgData.url && imgData.url.trim() !== '') {
-                  const urlCss = `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`;
+                  // 🌟 แยกระบบแปลงค่าอย่างชัดเจนสำหรับ Blocks ด้วย
+                  const finalValue = field.type === 'image_url' ? `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%` : imgData.url;
                   
                   if (legacyRegex.test(blockHtml)) {
-                    blockHtml = blockHtml.replace(legacyRegex, urlCss);
+                    blockHtml = blockHtml.replace(legacyRegex, finalValue);
                   } else {
-                    blockHtml = blockHtml.split(field.variableName).join(field.type === 'image_url' ? urlCss : imgData.url);
+                    blockHtml = blockHtml.split(field.variableName).join(finalValue);
                     blockHtml = blockHtml.split(`${field.variableName}_URL`).join(imgData.url);
                     blockHtml = blockHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
                     blockHtml = blockHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
                     blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
-                    blockHtml = blockHtml.split(`${field.variableName}_CSS`).join(urlCss);
+                    blockHtml = blockHtml.split(`${field.variableName}_CSS`).join(`url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`);
                   }
                 } else {
                   blockHtml = blockHtml.split(field.variableName).join("");

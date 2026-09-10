@@ -452,6 +452,7 @@ export default function ManageCodes() {
                   <option value="gradient">🌈 ไล่ระดับสี (Gradient)</option>
                   <option value="image">🖼️ รูปภาพ (เลื่อนตำแหน่ง/ซูม)</option>
                   <option value="dropdown">📋 ตัวเลือก (Dropdown + พิมพ์เอง)</option>
+                  <option value="image_url">🖼️ ภาพพื้นหลัง (+url)</option>
                 </select>
               </div>
 
@@ -554,6 +555,7 @@ export default function ManageCodes() {
                               <option value="color">เลือกสี</option>
                               <option value="gradient">ไล่ระดับสี</option>
                               <option value="dropdown">ตัวเลือก</option>
+                              <option value="image_url">ภาพพื้นหลัง (+url)</option>
                             </select>
                             
                             {field.type === 'dropdown' && (

@@ -95,7 +95,7 @@ export default function CodeDetail() {
     const initial: { [key: string]: any } = {};
     if (codeData.customFields && Array.isArray(codeData.customFields)) {
       codeData.customFields.forEach((field: any) => {
-        if (field.type === 'image') initial[field.variableName] = { url: "", x: 50, y: 50, zoom: 100 };
+        if (field.type === 'image' || field.type === 'image_url') initial[field.variableName] = { url: "", x: 50, y: 50, zoom: 100 };
         else initial[field.variableName] = ""; 
       });
     }
@@ -220,7 +220,7 @@ export default function CodeDetail() {
     const newBlock = { instanceId: `block_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`, blockId: blockDef.id, placeholder: blockDef.placeholder, htmlTemplate: blockDef.html, fields: blockDef.fields, values: {} as any };
     if (blockDef.fields && Array.isArray(blockDef.fields)) {
       blockDef.fields.forEach((f: any) => {
-        if (f.type === 'image') newBlock.values[f.variableName] = { url: "", x: 50, y: 50, zoom: 100 };
+        if (f.type === 'image' || f.type === 'image_url') newBlock.values[f.variableName] = { url: "", x: 50, y: 50, zoom: 100 };
         else newBlock.values[f.variableName] = "";
       });
     }
@@ -372,31 +372,53 @@ export default function CodeDetail() {
           if (field.type === 'dropdown') return;
 
           const val = currentValuesToUse[field.variableName] || "";
-          if (!checkConditionMatch(field, currentValuesToUse, code.customFields)) return;
+          const isVisible = checkConditionMatch(field, currentValuesToUse, code.customFields);
 
-          if (field.type === 'image') {
+          if (field.type === 'image' || field.type === 'image_url') {
             const imgData = currentValuesToUse[field.variableName] || { url: "", x: 50, y: 50, zoom: 100 };
-            if (imgData.url && imgData.url.trim() !== '') {
-              const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-              const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
+            const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+            const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
+
+            if (isVisible && imgData.url && imgData.url.trim() !== '') {
+              const urlCss = `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`;
+              
               if (legacyRegex.test(finalHtml)) {
-                finalHtml = finalHtml.replace(legacyRegex, `${imgData.url}) ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`);
+                finalHtml = finalHtml.replace(legacyRegex, urlCss);
               } else {
-                finalHtml = finalHtml.split(field.variableName).join(imgData.url);
+                // 🔥 แทนที่ตัวแปรหลัก: ถ้าเป็น image_url ให้ใส่ url(...) เต็มๆ ถ้าเป็น image ธรรมดาให้ใส่แค่ลิงก์
+                finalHtml = finalHtml.split(field.variableName).join(field.type === 'image_url' ? urlCss : imgData.url);
                 finalHtml = finalHtml.split(`${field.variableName}_URL`).join(imgData.url);
                 finalHtml = finalHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
                 finalHtml = finalHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
                 finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
+                finalHtml = finalHtml.split(`${field.variableName}_CSS`).join(urlCss);
               }
+            } else {
+              finalHtml = finalHtml.split(field.variableName).join("");
+              finalHtml = finalHtml.split(`${field.variableName}_URL`).join("");
+              finalHtml = finalHtml.split(`${field.variableName}_X`).join("50");
+              finalHtml = finalHtml.split(`${field.variableName}_Y`).join("50");
+              finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join("100");
+              finalHtml = finalHtml.split(`${field.variableName}_CSS`).join("");
+              finalHtml = finalHtml.replace(legacyRegex, "");
             }
           } else if (field.type === 'color' || field.type === 'gradient') {
-            const colorVal = val !== "" ? val : getFallbackColor(field.variableName);
-            finalHtml = finalHtml.split(field.variableName).join(colorVal);
-          } else if (field.type === 'richtext' || field.type === 'roleplay') {
-            const textToInsert = isForPreview ? parseContent(val, true) : val;
-            if (val !== "") finalHtml = finalHtml.split(field.variableName).join(textToInsert);
+            if (isVisible) {
+              const colorVal = val && val !== "" ? val : getFallbackColor(field.variableName);
+              finalHtml = finalHtml.split(field.variableName).join(colorVal || "");
+            } else {
+              finalHtml = finalHtml.split(field.variableName).join("");
+            }
           } else {
-            if (val !== "") finalHtml = finalHtml.split(field.variableName).join(val);
+            if (isVisible) {
+              let textVal = currentValuesToUse[field.variableName] || "";
+              if (field.type === 'richtext' || field.type === 'roleplay') {
+                textVal = isForPreview ? parseContent(textVal, true) : textVal;
+              }
+              finalHtml = finalHtml.split(field.variableName).join(textVal);
+            } else {
+              finalHtml = finalHtml.split(field.variableName).join("");
+            }
           }
         });
       }
@@ -416,32 +438,53 @@ export default function CodeDetail() {
             block.fields.forEach((field: any) => {
               if (field.type === 'dropdown') return;
               
-              const val = block.values[field.variableName] || "";
-              if (!checkConditionMatch(field, block.values, block.fields)) return;
+              const isVisible = checkConditionMatch(field, block.values, block.fields);
 
-              if (field.type === 'image') {
-                const imgData = val || { url: "", x: 50, y: 50, zoom: 100 };
-                if (imgData.url && imgData.url.trim() !== '') {
-                  const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                  const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
+              if (field.type === 'image' || field.type === 'image_url') {
+                const imgData = block.values[field.variableName] || { url: "", x: 50, y: 50, zoom: 100 };
+                const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+                const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
+
+                if (isVisible && imgData.url && imgData.url.trim() !== '') {
+                  const urlCss = `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`;
+                  
                   if (legacyRegex.test(blockHtml)) {
-                    blockHtml = blockHtml.replace(legacyRegex, `${imgData.url}) ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`);
+                    blockHtml = blockHtml.replace(legacyRegex, urlCss);
                   } else {
-                    blockHtml = blockHtml.split(field.variableName).join(imgData.url);
+                    blockHtml = blockHtml.split(field.variableName).join(field.type === 'image_url' ? urlCss : imgData.url);
                     blockHtml = blockHtml.split(`${field.variableName}_URL`).join(imgData.url);
                     blockHtml = blockHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
                     blockHtml = blockHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
                     blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
+                    blockHtml = blockHtml.split(`${field.variableName}_CSS`).join(urlCss);
                   }
+                } else {
+                  blockHtml = blockHtml.split(field.variableName).join("");
+                  blockHtml = blockHtml.split(`${field.variableName}_URL`).join("");
+                  blockHtml = blockHtml.split(`${field.variableName}_X`).join("50");
+                  blockHtml = blockHtml.split(`${field.variableName}_Y`).join("50");
+                  blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join("100");
+                  blockHtml = blockHtml.split(`${field.variableName}_CSS`).join("");
+                  blockHtml = blockHtml.replace(legacyRegex, "");
                 }
               } else if (field.type === 'color' || field.type === 'gradient') {
-                const colorVal = val !== "" ? val : getFallbackColor(field.variableName);
-                blockHtml = blockHtml.split(field.variableName).join(colorVal);
-              } else if (field.type === 'richtext' || field.type === 'roleplay') {
-                const textToInsert = isForPreview ? parseContent(val, true) : val;
-                if (val !== "") blockHtml = blockHtml.split(field.variableName).join(textToInsert);
+                if (isVisible) {
+                  const val = block.values[field.variableName];
+                  const colorVal = val && val !== "" ? val : getFallbackColor(field.variableName);
+                  blockHtml = blockHtml.split(field.variableName).join(colorVal || "");
+                } else {
+                  blockHtml = blockHtml.split(field.variableName).join("");
+                }
               } else {
-                if (val !== "") blockHtml = blockHtml.split(field.variableName).join(val);
+                if (isVisible) {
+                  let textVal = block.values[field.variableName] || "";
+                  if (field.type === 'richtext' || field.type === 'roleplay') {
+                    textVal = isForPreview ? parseContent(textVal, true) : textVal;
+                  }
+                  blockHtml = blockHtml.split(field.variableName).join(textVal);
+                } else {
+                  blockHtml = blockHtml.split(field.variableName).join("");
+                }
               }
             });
           }
@@ -574,16 +617,14 @@ export default function CodeDetail() {
       );
     }
     
-    // 🌟 ระบบ Gradient ตัวใหม่ (เพิ่มสีและปรับตำแหน่งได้)
+    // 🌟 ระบบ Gradient (คืนค่ากลับเป็น Linear / Radial อย่างเดียว)
     if (field.type === 'gradient') {
       const fallbackCol = getFallbackColor(field.variableName);
       const currentVal = val || fallbackCol || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
       
-      // ดึงข้อมูลประเภทของ Gradient
       const isRadial = currentVal.includes('radial-gradient');
       const gradType = isRadial ? 'radial' : 'linear';
       
-      // ดึงข้อมูลองศา หรือ ตำแหน่งวงกลม
       const getAngleOrPosition = () => {
         if (isRadial) {
           const posMatch = currentVal.match(/circle at ([^,]+)/);
@@ -594,10 +635,8 @@ export default function CodeDetail() {
         }
       };
 
-      // ดึงรายการสีทั้งหมดออกมาเป็น Array
       const extractColors = (): string[] => {
         const matches = currentVal.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b|(rgb|hsl)a?\([^)]+\)|[a-zA-Z]+/gi) || [];
-        // กรองเอาเฉพาะที่ดูเหมือนรหัสสีจริงๆ
         const colors = matches.filter((c: string) => c.startsWith('#') || c.startsWith('rgb') || c.startsWith('hsl'));
         return colors.length >= 2 ? colors : ['#d8b4fe', '#bae6fd'];
       };
@@ -605,14 +644,11 @@ export default function CodeDetail() {
       const colors = extractColors();
       const angleOrPos = getAngleOrPosition();
 
-      // ฟังก์ชันประกอบร่าง Gradient กลับไปเป็น String
       const updateGradient = (newType: string, newAngleOrPos: string, newColors: string[]) => {
         if (newType === 'linear') {
-          // ถ้าเดิมเป็นวงกลมแล้วมีคำว่า center ให้เปลี่ยนเป็น 90deg แทน
           const safeAngle = newAngleOrPos === 'center' || newAngleOrPos.includes('%') ? '90' : newAngleOrPos.replace(/[^0-9]/g, '');
           onChange(`linear-gradient(${safeAngle || '90'}deg, ${newColors.join(', ')})`);
         } else if (newType === 'radial') {
-          // ถ้าเดิมเป็นองศา ให้เปลี่ยนกลับเป็น center
           const safePos = newAngleOrPos.includes('deg') || !isNaN(Number(newAngleOrPos)) ? 'center' : newAngleOrPos;
           onChange(`radial-gradient(circle at ${safePos}, ${newColors.join(', ')})`);
         }
@@ -630,7 +666,7 @@ export default function CodeDetail() {
       };
 
       const handleRemoveColor = (index: number) => {
-        if (colors.length <= 2) return; // ห้ามลบจนเหลือน้อยกว่า 2 สี
+        if (colors.length <= 2) return; 
         const newColors = colors.filter((color: string, i: number) => i !== index);
         updateGradient(gradType, angleOrPos, newColors);
       };
@@ -656,7 +692,6 @@ export default function CodeDetail() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px', background: 'rgba(255,255,255,0.4)', padding: '12px', borderRadius: '8px' }}>
             
-            {/* 🌟 บรรทัดบน: เครื่องมือหลัก */}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>เครื่องมือ:</span>
               
@@ -672,7 +707,6 @@ export default function CodeDetail() {
 
               <div style={{ width: '1px', height: '16px', background: 'var(--color-accent-mute)', margin: '0 4px' }} />
 
-              {/* สลับการแสดงผล องศา หรือ ตำแหน่ง */}
               {gradType === 'linear' ? (
                 <>
                   <input type="number" min="0" max="360" value={angleOrPos.replace(/[^0-9]/g, '') || 90} onChange={e => updateGradient('linear', e.target.value, colors)} className="glass-input" style={{ width: '60px', padding: '2px 6px', height: '24px', fontSize: '0.8rem' }} />
@@ -698,7 +732,6 @@ export default function CodeDetail() {
               )}
             </div>
 
-            {/* 🌟 บรรทัดล่าง: จัดการจุดสี (Color Stops) */}
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginTop: '4px' }}>
               {colors.map((color: string, index: number) => (
                 <div key={`${refKey}_color_${index}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#fff', padding: '2px 4px', borderRadius: '6px', border: '1px solid var(--color-accent-lighter)' }}>
@@ -751,11 +784,15 @@ export default function CodeDetail() {
       );
     }
     
-    if (field.type === 'image') {
+    // 🌟 ระบบ รูปภาพ และ ภาพพื้นหลัง(+url)
+    if (field.type === 'image' || field.type === 'image_url') {
       const imgData = val || { url: "", x: 50, y: 50, zoom: 100 };
       return (
         <div key={refKey} className="field-group" style={{ background: 'rgba(255,255,255,0.4)', padding: '16px', borderRadius: '12px', border: '1px dashed var(--color-accent-light)' }}>
-          <label className="field-label" style={{ marginBottom: '8px', display: 'block' }}>{field.label}</label>
+          <label className="field-label" style={{ marginBottom: '8px', display: 'block' }}>
+            {field.label}
+            {field.type === 'image_url' && <span style={{ marginLeft: '8px', fontSize: '0.7rem', background: 'var(--color-accent-mute)', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontWeight: 'normal' }}>Background CSS</span>}
+          </label>
           <input type="url" className="glass-input" placeholder={`วางลิงก์รูปภาพ ${field.label}...`} value={imgData.url} onChange={e => onChange({ ...imgData, url: e.target.value })} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
             <div><span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>แกน X ({imgData.x}%)</span><input type="range" min="0" max="100" value={imgData.x} onChange={e => onChange({ ...imgData, x: Number(e.target.value) })} style={{ width: '100%' }} /></div>
@@ -765,6 +802,7 @@ export default function CodeDetail() {
         </div>
       );
     }
+    
     if (field.type === 'richtext' || field.type === 'roleplay') {
       const isRp = field.type === 'roleplay';
       const textVal = val || "";
@@ -1223,7 +1261,7 @@ export default function CodeDetail() {
               <div className="display-area">
                 {editMode === 'customize' && (
                   <button className="btn-copy" onClick={handleCopy}>
-                    {copied ? "✅ Copied!" : "📋 Copy HTML"}
+                    {copied ? "✅ Copied!" : "📋 Copy"}
                   </button>
                 )}
                 

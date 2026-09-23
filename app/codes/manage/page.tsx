@@ -8,11 +8,17 @@ type CodeType = {
   id: string;
   name: string;
   codeType: string;
+  description?: string;
+  htmlCode?: string;
+  lockPassword?: string;
   activityTags?: string[];
   eventTags?: string[];
   previewUrl?: string;
   isLocked: boolean;
   isCommission?: boolean; 
+  variations?: any;
+  customFields?: any;
+  blocks?: any;
 };
 
 export default function ManageCodes() {

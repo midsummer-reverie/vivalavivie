@@ -402,13 +402,13 @@ export default function CodeDetail() {
               }
             } else {
               finalHtml = finalHtml.split(field.variableName).join("");
-              finalHtml = finalHtml.split(`${field.variableName}_URL`).join("");
-              finalHtml = finalHtml.split(`${field.variableName}_X`).join("50");
-              finalHtml = finalHtml.split(`${field.variableName}_Y`).join("50");
-              finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join("100");
               if (field.type === 'image_url') {
                   const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
                   const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
+                  finalHtml = finalHtml.split(`${field.variableName}_URL`).join("");
+                  finalHtml = finalHtml.split(`${field.variableName}_X`).join("50");
+                  finalHtml = finalHtml.split(`${field.variableName}_Y`).join("50");
+                  finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join("100");
                   finalHtml = finalHtml.split(`${field.variableName}_CSS`).join("");
                   finalHtml = finalHtml.replace(legacyRegex, "");
               }
@@ -455,6 +455,7 @@ export default function CodeDetail() {
                 const imgData = block.values[field.variableName] || { url: "", x: 50, y: 50, zoom: 100 };
 
                 if (isVisible && imgData.url && imgData.url.trim() !== '') {
+                  // 🌟 แยกระบบแปลงค่าอย่างชัดเจนสำหรับ Blocks ด้วย
                   if (field.type === 'image_url') {
                       const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
                       const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
@@ -479,13 +480,13 @@ export default function CodeDetail() {
                   }
                 } else {
                   blockHtml = blockHtml.split(field.variableName).join("");
-                  blockHtml = blockHtml.split(`${field.variableName}_URL`).join("");
-                  blockHtml = blockHtml.split(`${field.variableName}_X`).join("50");
-                  blockHtml = blockHtml.split(`${field.variableName}_Y`).join("50");
-                  blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join("100");
                   if (field.type === 'image_url') {
                       const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
                       const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
+                      blockHtml = blockHtml.split(`${field.variableName}_URL`).join("");
+                      blockHtml = blockHtml.split(`${field.variableName}_X`).join("50");
+                      blockHtml = blockHtml.split(`${field.variableName}_Y`).join("50");
+                      blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join("100");
                       blockHtml = blockHtml.split(`${field.variableName}_CSS`).join("");
                       blockHtml = blockHtml.replace(legacyRegex, "");
                   }
@@ -577,7 +578,7 @@ export default function CodeDetail() {
             font-family: sans-serif;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
           }
 
           /* กรอบหน้าต่างหลักที่ทำหน้าที่รับขนาดจาก iframe */
@@ -697,8 +698,14 @@ export default function CodeDetail() {
     
     // 🌟 ระบบ Gradient (คืนค่ากลับเป็น Linear / Radial อย่างเดียว)
     if (field.type === 'gradient') {
+      // ดึง fallback เพื่อใช้เป็นค่าเริ่มต้น ถ้าว่าง
       const fallbackCol = getFallbackColor(field.variableName);
-      const currentVal = val || fallbackCol || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
+      let currentVal = val || fallbackCol;
+      
+      // 🔥 เช็คและให้ค่า default ที่ปลอดภัย (ถ้ายังคงไม่ใช่ string สีที่ใช้ได้)
+      if (!currentVal || (!currentVal.includes('gradient') && !currentVal.startsWith('#') && !currentVal.startsWith('rgb') && !currentVal.startsWith('hsl'))) {
+          currentVal = 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
+      }
       
       const isRadial = currentVal.includes('radial-gradient');
       const gradType = isRadial ? 'radial' : 'linear';
@@ -716,6 +723,7 @@ export default function CodeDetail() {
       const extractColors = (): string[] => {
         const matches = currentVal.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b|(rgb|hsl)a?\([^)]+\)|[a-zA-Z]+/gi) || [];
         const colors = matches.filter((c: string) => c.startsWith('#') || c.startsWith('rgb') || c.startsWith('hsl'));
+        // 🔥 ถ้าสกัดสีไม่ได้ ให้ส่งสีสำรองไป 2 สี ป้องกัน Array แหว่ง
         return colors.length >= 2 ? colors : ['#d8b4fe', '#bae6fd'];
       };
 
@@ -1264,6 +1272,7 @@ export default function CodeDetail() {
                           <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.8rem', color: '#713f12', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <li>โค้ดจะแสดงผลได้ดีที่สุดบนหน้าจอ Desktop (PC/Laptop) แต่จะไม่แตกหรือแหกหากใช้บนหน้าจออื่น ๆ</li>
                             <li>preview ใน editor นี้อาจมีความคลาดเคลื่อนของสเกลหรือตำแหน่งอยู่บ้าง หากนำไปใช้บนเว็บไซต์จะแสดงผลปกติ</li>
+                            <li>สามารถเพิ่มส่วนเสริม (Dynamic Blocks) ได้ที่โหมด <strong>✍️ ปรับแต่ง</strong></li>
                           </ul>
                         </div>
 

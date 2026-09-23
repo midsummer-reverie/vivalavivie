@@ -91,12 +91,26 @@ export default function CodeDetail() {
     fetchCode();
   }, [codeId]);
 
+  // ฟังก์ชันดึงค่าตั้งต้นของ Dropdown
+  const getDropdownFirstOption = (optionsStr: string) => {
+    if (!optionsStr) return "";
+    const opts = optionsStr.split(',').map((s: string) => s.trim()).filter(Boolean);
+    if (opts.length === 0) return "";
+    const parts = opts[0].split('=');
+    return parts.length >= 2 ? parts.slice(1).join('=').trim() : parts[0].trim();
+  };
+
   const initFieldValues = (codeData: any, forceReset: boolean = false) => {
     const initial: { [key: string]: any } = {};
     if (codeData.customFields && Array.isArray(codeData.customFields)) {
       codeData.customFields.forEach((field: any) => {
-        if (field.type === 'image' || field.type === 'image_url') initial[field.variableName] = { url: "", x: 50, y: 50, zoom: 100 };
-        else initial[field.variableName] = ""; 
+        if (field.type === 'image' || field.type === 'image_url') {
+          initial[field.variableName] = { url: "", x: 50, y: 50, zoom: 100 };
+        } else if (field.type === 'dropdown') {
+          initial[field.variableName] = getDropdownFirstOption(field.options);
+        } else {
+          initial[field.variableName] = ""; 
+        }
       });
     }
 
@@ -222,13 +236,10 @@ export default function CodeDetail() {
       blockDef.fields.forEach((f: any) => {
         if (f.type === 'image' || f.type === 'image_url') {
           newBlock.values[f.variableName] = { url: "", x: 50, y: 50, zoom: 100 };
-        } else if (f.type === 'gradient') {
-          newBlock.values[f.variableName] = f.options || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
-        } else if (f.type === 'color' || f.type === 'dropdown') {
-          newBlock.values[f.variableName] = "";
+        } else if (f.type === 'dropdown') {
+          newBlock.values[f.variableName] = getDropdownFirstOption(f.options);
         } else {
-          // สำหรับข้อความ ให้ตั้งค่าเริ่มต้นเป็นชื่อตัวแปร เพื่อให้พรีวิวไม่ว่างเปล่า
-          newBlock.values[f.variableName] = f.variableName; 
+          newBlock.values[f.variableName] = "";
         }
       });
     }
@@ -387,7 +398,6 @@ export default function CodeDetail() {
         code.customFields.forEach((field: any) => {
           if (field.type === 'dropdown') return;
 
-          const val = currentValuesToUse[field.variableName] || "";
           const isVisible = checkConditionMatch(field, currentValuesToUse, code.customFields);
 
           if (field.type === 'image' || field.type === 'image_url') {
@@ -440,17 +450,32 @@ export default function CodeDetail() {
             }
           } else if (field.type === 'color' || field.type === 'gradient') {
             if (isVisible) {
-              const colorVal = val && val !== "" ? val : getFallbackColor(field);
-              finalHtml = finalHtml.split(field.variableName).join(colorVal || "");
+              const val = currentValuesToUse[field.variableName];
+              let colorVal = val && val !== "" ? val : getFallbackColor(field);
+              
+              // 🔥 บังคับ Fallback ป้องกันการแหว่ง 100%
+              if (field.type === 'gradient' && (!colorVal || colorVal === "" || colorVal === '#8b5cf6')) {
+                colorVal = field.options || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
+              }
+              if (field.type === 'color' && (!colorVal || colorVal === "")) {
+                colorVal = '#8b5cf6';
+              }
+              
+              finalHtml = finalHtml.split(field.variableName).join(colorVal);
             } else {
               finalHtml = finalHtml.split(field.variableName).join("");
             }
           } else {
             if (isVisible) {
-              let textVal = currentValuesToUse[field.variableName] || "";
-              if (field.type === 'richtext' || field.type === 'roleplay') {
+              let textVal = currentValuesToUse[field.variableName];
+              
+              // 🔥 ถ้าว่างเปล่า ให้แสดงชื่อตัวแปร เพื่อรักษารูปทรงพรีวิว
+              if (!textVal || textVal === "") {
+                textVal = field.variableName;
+              } else if (field.type === 'richtext' || field.type === 'roleplay') {
                 textVal = isForPreview ? parseContent(textVal, true) : textVal;
               }
+              
               finalHtml = finalHtml.split(field.variableName).join(textVal);
             } else {
               finalHtml = finalHtml.split(field.variableName).join("");
@@ -527,17 +552,31 @@ export default function CodeDetail() {
               } else if (field.type === 'color' || field.type === 'gradient') {
                 if (isVisible) {
                   const val = block.values[field.variableName];
-                  const colorVal = val && val !== "" ? val : getFallbackColor(field);
-                  blockHtml = blockHtml.split(field.variableName).join(colorVal || "");
+                  let colorVal = val && val !== "" ? val : getFallbackColor(field);
+                  
+                  // 🔥 บังคับ Fallback ป้องกันการแหว่ง 100% (สำหรับ Blocks)
+                  if (field.type === 'gradient' && (!colorVal || colorVal === "" || colorVal === '#8b5cf6')) {
+                    colorVal = field.options || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
+                  }
+                  if (field.type === 'color' && (!colorVal || colorVal === "")) {
+                    colorVal = '#8b5cf6';
+                  }
+
+                  blockHtml = blockHtml.split(field.variableName).join(colorVal);
                 } else {
                   blockHtml = blockHtml.split(field.variableName).join("");
                 }
               } else {
                 if (isVisible) {
-                  let textVal = block.values[field.variableName] || "";
-                  if (field.type === 'richtext' || field.type === 'roleplay') {
+                  let textVal = block.values[field.variableName];
+                  
+                  // 🔥 ถ้าว่างเปล่า ให้แสดงชื่อตัวแปร เพื่อรักษารูปทรงพรีวิว (สำหรับ Blocks)
+                  if (!textVal || textVal === "") {
+                    textVal = field.variableName;
+                  } else if (field.type === 'richtext' || field.type === 'roleplay') {
                     textVal = isForPreview ? parseContent(textVal, true) : textVal;
                   }
+
                   blockHtml = blockHtml.split(field.variableName).join(textVal);
                 } else {
                   blockHtml = blockHtml.split(field.variableName).join("");

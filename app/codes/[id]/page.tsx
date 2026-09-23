@@ -298,13 +298,21 @@ export default function CodeDetail() {
     return clean.split(/\s+/).filter(Boolean).length;
   };
 
-  const getFallbackColor = (varName: string) => {
+  const getFallbackColor = (field: any) => {
     const variation = code?.variations?.[activeVariation];
-    if (!variation || !variation.replacements) return '#8b5cf6';
-    const lines = variation.replacements.split('\n');
-    const found = lines.find((l: string) => l.split('=')[0].trim() === varName);
-    if (found) return found.substring(found.indexOf('=') + 1).trim();
-    return '#8b5cf6';
+    let fallback = '#8b5cf6';
+    if (field.type === 'gradient') {
+      fallback = field.options || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
+    }
+
+    if (variation && variation.replacements) {
+      const lines = variation.replacements.split('\n');
+      const found = lines.find((l: string) => l.split('=')[0].trim() === field.variableName);
+      if (found) {
+        return found.substring(found.indexOf('=') + 1).trim();
+      }
+    }
+    return fallback;
   };
 
   const safeHex = (colorStr: string, defaultHex: string = '#000000') => {
@@ -380,7 +388,6 @@ export default function CodeDetail() {
             if (isVisible && imgData.url && imgData.url.trim() !== '') {
               if (field.type === 'image_url') {
                   const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                  // 🔥 ทำให้ Regex ยืดหยุ่นเพื่อจับ url(...) เก่าที่มีอยู่ในเทมเพลต (ถ้ามี)
                   const legacyRegex = new RegExp(`(?:url\\(['"]?)?${escapedVar}(['"]?\\))?\\s*center\\s*\\/?\\s*cover`, 'gi');
                   const urlCss = `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`;
                   
@@ -429,11 +436,7 @@ export default function CodeDetail() {
             }
           } else if (field.type === 'color' || field.type === 'gradient') {
             if (isVisible) {
-              let colorVal = val && val !== "" ? val : getFallbackColor(field.variableName);
-              // 🔥 มั่นใจว่าถ้าเป็น gradient และค่าว่าง จะดึงค่าสีไล่ระดับเริ่มต้นไปแทนที่ ไม่ใช่ส่งสีทึบไป ทำให้ CSS พัง
-              if (field.type === 'gradient' && (!val || val === "") && colorVal === '#8b5cf6') {
-                colorVal = 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
-              }
+              let colorVal = val && val !== "" ? val : getFallbackColor(field);
               finalHtml = finalHtml.split(field.variableName).join(colorVal || "");
             } else {
               finalHtml = finalHtml.split(field.variableName).join("");
@@ -475,7 +478,6 @@ export default function CodeDetail() {
                 if (isVisible && imgData.url && imgData.url.trim() !== '') {
                   if (field.type === 'image_url') {
                       const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                      // 🔥 ทำให้ Regex ยืดหยุ่นเพื่อจับ url(...) เก่าที่มีอยู่ในเทมเพลต (ถ้ามี)
                       const legacyRegex = new RegExp(`(?:url\\(['"]?)?${escapedVar}(['"]?\\))?\\s*center\\s*\\/?\\s*cover`, 'gi');
                       const urlCss = `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`;
                       
@@ -525,11 +527,7 @@ export default function CodeDetail() {
               } else if (field.type === 'color' || field.type === 'gradient') {
                 if (isVisible) {
                   const val = block.values[field.variableName];
-                  let colorVal = val && val !== "" ? val : getFallbackColor(field.variableName);
-                  // 🔥 ดักจับค่าว่างของ gradient ในบล็อกเสริม
-                  if (field.type === 'gradient' && (!val || val === "") && colorVal === '#8b5cf6') {
-                    colorVal = 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
-                  }
+                  let colorVal = val && val !== "" ? val : getFallbackColor(field);
                   blockHtml = blockHtml.split(field.variableName).join(colorVal || "");
                 } else {
                   blockHtml = blockHtml.split(field.variableName).join("");
@@ -733,7 +731,7 @@ export default function CodeDetail() {
     
     // 🌟 ระบบ Gradient (คืนค่ากลับเป็น Linear / Radial อย่างเดียว)
     if (field.type === 'gradient') {
-      const fallbackCol = getFallbackColor(field.variableName);
+      const fallbackCol = getFallbackColor(field);
       let currentVal = val || fallbackCol;
       
       // 🔥 เช็คและให้ค่า default ที่ปลอดภัย (ถ้ายังคงไม่ใช่ string สีที่ใช้ได้)
@@ -889,7 +887,7 @@ export default function CodeDetail() {
     }
 
     if (field.type === 'color') {
-      const fallbackCol = getFallbackColor(field.variableName);
+      const fallbackCol = getFallbackColor(field);
       const currentVal = val || fallbackCol;
       const pickerVal = safeHex(currentVal, '#8b5cf6');
 
@@ -1306,6 +1304,7 @@ export default function CodeDetail() {
                           <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.8rem', color: '#713f12', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <li>โค้ดจะแสดงผลได้ดีที่สุดบนหน้าจอ Desktop (PC/Laptop) แต่จะไม่แตกหรือแหกหากใช้บนหน้าจออื่น ๆ</li>
                             <li>preview ใน editor นี้อาจมีความคลาดเคลื่อนของสเกลหรือตำแหน่งอยู่บ้าง หากนำไปใช้บนเว็บไซต์จะแสดงผลปกติ</li>
+                            <li>สามารถเพิ่มส่วนเสริม (Dynamic Blocks) ได้ที่โหมด <strong>✍️ ปรับแต่ง</strong></li>
                           </ul>
                         </div>
 

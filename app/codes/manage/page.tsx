@@ -2,9 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
+type CodeType = {
+  id: string;
+  name: string;
+  codeType: string;
+  activityTags?: string[];
+  eventTags?: string[];
+  previewUrl?: string;
+  isLocked: boolean;
+  isCommission?: boolean; 
+};
 
 export default function ManageCodes() {
-  const [codes, setCodes] = useState<any[]>([]);
+  const [codes, setCodes] = useState<CodeType[]>([]);
   const [selectedCodeId, setSelectedCodeId] = useState<string>("new");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -79,7 +91,12 @@ export default function ManageCodes() {
 
   const handleCustomFieldChange = (index: number, field: string, value: any) => {
     const newFields = [...formData.customFields];
-    newFields[index] = { ...newFields[index], [field]: value };
+    // 🔥 บังคับใส่ค่าสีไล่ระดับสำรอง ถ้าประเภทเป็น gradient
+    if (field === 'type' && value === 'gradient' && !newFields[index].options) {
+      newFields[index] = { ...newFields[index], [field]: value, options: 'linear-gradient(90deg, #d8b4fe, #bae6fd)' };
+    } else {
+      newFields[index] = { ...newFields[index], [field]: value };
+    }
     setFormData({ ...formData, customFields: newFields });
   };
   const addCustomField = () => setFormData({ ...formData, customFields: [...formData.customFields, { id: Date.now().toString(), label: " ", variableName: " ", type: "text", options: "", conditionVar: "", conditionVal: "" }] });
@@ -120,7 +137,12 @@ export default function ManageCodes() {
   };
   const handleUpdateBlockField = (blockIndex: number, fieldIndex: number, key: string, value: any) => {
     const newBlocks = [...formData.blocks];
-    newBlocks[blockIndex].fields[fieldIndex] = { ...newBlocks[blockIndex].fields[fieldIndex], [key]: value };
+    // 🔥 บังคับใส่ค่าสีไล่ระดับสำรอง ถ้าประเภทเป็น gradient
+    if (key === 'type' && value === 'gradient' && !newBlocks[blockIndex].fields[fieldIndex].options) {
+      newBlocks[blockIndex].fields[fieldIndex] = { ...newBlocks[blockIndex].fields[fieldIndex], [key]: value, options: 'linear-gradient(90deg, #d8b4fe, #bae6fd)' };
+    } else {
+      newBlocks[blockIndex].fields[fieldIndex] = { ...newBlocks[blockIndex].fields[fieldIndex], [key]: value };
+    }
     setFormData({ ...formData, blocks: newBlocks });
   };
   const handleRemoveBlockField = (blockIndex: number, fieldIndex: number) => {
@@ -451,10 +473,24 @@ export default function ManageCodes() {
                   <option value="color">🎨 สี (Color Picker)</option>
                   <option value="gradient">🌈 ไล่ระดับสี (Gradient)</option>
                   <option value="image">🖼️ รูปภาพ (เลื่อนตำแหน่ง/ซูม)</option>
-                  <option value="dropdown">📋 ตัวเลือก (Dropdown + พิมพ์เอง)</option>
                   <option value="image_url">🖼️ ภาพพื้นหลัง (+url)</option>
+                  <option value="dropdown">📋 ตัวเลือก (Dropdown + พิมพ์เอง)</option>
                 </select>
               </div>
+
+              {/* เพิ่มช่องระบุ Fallback สำหรับ Gradient */}
+              {field.type === 'gradient' && (
+                <div className="form-group" style={{ marginTop: '16px', marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.85rem' }}>สีตั้งต้น (Fallback) หากพรีเซ็ตไม่ระบุสี</label>
+                  <input 
+                    type="text" 
+                    className="glass-input" 
+                    placeholder="เช่น linear-gradient(90deg, #d8b4fe, #bae6fd)" 
+                    value={field.options || ""} 
+                    onChange={e => handleCustomFieldChange(index, 'options', e.target.value)} 
+                  />
+                </div>
+              )}
 
               {field.type === 'dropdown' && (
                 <div className="form-group" style={{ marginTop: '16px', marginBottom: 0 }}>
@@ -565,6 +601,18 @@ export default function ManageCodes() {
                                 placeholder="เช่น โชว์=ค่าในโค้ด, สีแดง=#ff0" 
                                 className="glass-input custom-scrollbar" 
                                 rows={2}
+                                style={{ padding: '8px', fontSize: '0.85rem', marginTop: '8px', width: '100%' }} 
+                              />
+                            )}
+
+                            {/* เพิ่มช่องระบุ Fallback สำหรับ Gradient ในบล็อกเสริม */}
+                            {field.type === 'gradient' && (
+                              <input 
+                                type="text"
+                                value={field.options || ""} 
+                                onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'options', e.target.value)} 
+                                placeholder="สีตั้งต้น (Fallback)" 
+                                className="glass-input" 
                                 style={{ padding: '8px', fontSize: '0.85rem', marginTop: '8px', width: '100%' }} 
                               />
                             )}

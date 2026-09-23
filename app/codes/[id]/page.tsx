@@ -220,8 +220,16 @@ export default function CodeDetail() {
     const newBlock = { instanceId: `block_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`, blockId: blockDef.id, placeholder: blockDef.placeholder, htmlTemplate: blockDef.html, fields: blockDef.fields, values: {} as any };
     if (blockDef.fields && Array.isArray(blockDef.fields)) {
       blockDef.fields.forEach((f: any) => {
-        if (f.type === 'image' || f.type === 'image_url') newBlock.values[f.variableName] = { url: "", x: 50, y: 50, zoom: 100 };
-        else newBlock.values[f.variableName] = "";
+        if (f.type === 'image' || f.type === 'image_url') {
+          newBlock.values[f.variableName] = { url: "", x: 50, y: 50, zoom: 100 };
+        } else if (f.type === 'gradient') {
+          newBlock.values[f.variableName] = f.options || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
+        } else if (f.type === 'color' || f.type === 'dropdown') {
+          newBlock.values[f.variableName] = "";
+        } else {
+          // สำหรับข้อความ ให้ตั้งค่าเริ่มต้นเป็นชื่อตัวแปร เพื่อให้พรีวิวไม่ว่างเปล่า
+          newBlock.values[f.variableName] = f.variableName; 
+        }
       });
     }
     setActiveBlocks([...activeBlocks, newBlock]);
@@ -301,11 +309,11 @@ export default function CodeDetail() {
   const getFallbackColor = (field: any) => {
     const variation = code?.variations?.[activeVariation];
     let fallback = '#8b5cf6';
-    if (field.type === 'gradient') {
+    if (field?.type === 'gradient') {
       fallback = field.options || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
     }
 
-    if (variation && variation.replacements) {
+    if (variation && variation.replacements && field?.variableName) {
       const lines = variation.replacements.split('\n');
       const found = lines.find((l: string) => l.split('=')[0].trim() === field.variableName);
       if (found) {
@@ -418,10 +426,6 @@ export default function CodeDetail() {
               }
             } else {
               finalHtml = finalHtml.split(field.variableName).join("");
-              finalHtml = finalHtml.split(`${field.variableName}_URL`).join("");
-              finalHtml = finalHtml.split(`${field.variableName}_X`).join("50");
-              finalHtml = finalHtml.split(`${field.variableName}_Y`).join("50");
-              finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join("100");
               if (field.type === 'image_url') {
                   const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
                   const legacyRegex = new RegExp(`(?:url\\(['"]?)?${escapedVar}(['"]?\\))?\\s*center\\s*\\/?\\s*cover`, 'gi');
@@ -436,7 +440,7 @@ export default function CodeDetail() {
             }
           } else if (field.type === 'color' || field.type === 'gradient') {
             if (isVisible) {
-              let colorVal = val && val !== "" ? val : getFallbackColor(field);
+              const colorVal = val && val !== "" ? val : getFallbackColor(field);
               finalHtml = finalHtml.split(field.variableName).join(colorVal || "");
             } else {
               finalHtml = finalHtml.split(field.variableName).join("");
@@ -508,10 +512,6 @@ export default function CodeDetail() {
                   }
                 } else {
                   blockHtml = blockHtml.split(field.variableName).join("");
-                  blockHtml = blockHtml.split(`${field.variableName}_URL`).join("");
-                  blockHtml = blockHtml.split(`${field.variableName}_X`).join("50");
-                  blockHtml = blockHtml.split(`${field.variableName}_Y`).join("50");
-                  blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join("100");
                   if (field.type === 'image_url') {
                       const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
                       const legacyRegex = new RegExp(`(?:url\\(['"]?)?${escapedVar}(['"]?\\))?\\s*center\\s*\\/?\\s*cover`, 'gi');
@@ -527,7 +527,7 @@ export default function CodeDetail() {
               } else if (field.type === 'color' || field.type === 'gradient') {
                 if (isVisible) {
                   const val = block.values[field.variableName];
-                  let colorVal = val && val !== "" ? val : getFallbackColor(field);
+                  const colorVal = val && val !== "" ? val : getFallbackColor(field);
                   blockHtml = blockHtml.split(field.variableName).join(colorVal || "");
                 } else {
                   blockHtml = blockHtml.split(field.variableName).join("");
@@ -611,7 +611,7 @@ export default function CodeDetail() {
             font-family: sans-serif;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
           }
 
           /* กรอบหน้าต่างหลักที่ทำหน้าที่รับขนาดจาก iframe */
@@ -1304,7 +1304,6 @@ export default function CodeDetail() {
                           <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.8rem', color: '#713f12', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <li>โค้ดจะแสดงผลได้ดีที่สุดบนหน้าจอ Desktop (PC/Laptop) แต่จะไม่แตกหรือแหกหากใช้บนหน้าจออื่น ๆ</li>
                             <li>preview ใน editor นี้อาจมีความคลาดเคลื่อนของสเกลหรือตำแหน่งอยู่บ้าง หากนำไปใช้บนเว็บไซต์จะแสดงผลปกติ</li>
-                            <li>สามารถเพิ่มส่วนเสริม (Dynamic Blocks) ได้ที่โหมด <strong>✍️ ปรับแต่ง</strong></li>
                           </ul>
                         </div>
 

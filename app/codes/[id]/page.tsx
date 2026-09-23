@@ -91,7 +91,6 @@ export default function CodeDetail() {
     fetchCode();
   }, [codeId]);
 
-  // ฟังก์ชันดึงค่าตั้งต้นของ Dropdown
   const getDropdownFirstOption = (optionsStr: string) => {
     if (!optionsStr) return "";
     const opts = optionsStr.split(',').map((s: string) => s.trim()).filter(Boolean);
@@ -238,8 +237,12 @@ export default function CodeDetail() {
           newBlock.values[f.variableName] = { url: "", x: 50, y: 50, zoom: 100 };
         } else if (f.type === 'dropdown') {
           newBlock.values[f.variableName] = getDropdownFirstOption(f.options);
-        } else {
+        } else if (f.type === 'gradient') {
+          newBlock.values[f.variableName] = f.options || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
+        } else if (f.type === 'color') {
           newBlock.values[f.variableName] = "";
+        } else {
+          newBlock.values[f.variableName] = f.variableName;
         }
       });
     }
@@ -328,7 +331,7 @@ export default function CodeDetail() {
       const lines = variation.replacements.split('\n');
       const found = lines.find((l: string) => l.split('=')[0].trim() === field.variableName);
       if (found) {
-        return found.substring(found.indexOf('=') + 1).trim();
+        return found.substring(found.indexOf('=') + 1).trim() || fallback;
       }
     }
     return fallback;
@@ -395,9 +398,14 @@ export default function CodeDetail() {
       }
 
       if (code.customFields && Array.isArray(code.customFields)) {
-        code.customFields.forEach((field: any) => {
-          if (field.type === 'dropdown') return;
+        // 🔥 จัดเรียงให้ Field ที่เป็นค่า True (แสดงผล) ได้แปลงโค้ดก่อนเพื่อน!
+        const sortedMainFields = [...code.customFields].filter((f: any) => f.type !== 'dropdown').sort((a: any, b: any) => {
+          const aVis = checkConditionMatch(a, currentValuesToUse, code.customFields) ? 1 : 0;
+          const bVis = checkConditionMatch(b, currentValuesToUse, code.customFields) ? 1 : 0;
+          return bVis - aVis;
+        });
 
+        sortedMainFields.forEach((field: any) => {
           const isVisible = checkConditionMatch(field, currentValuesToUse, code.customFields);
 
           if (field.type === 'image' || field.type === 'image_url') {
@@ -453,7 +461,6 @@ export default function CodeDetail() {
               const val = currentValuesToUse[field.variableName];
               let colorVal = val && val !== "" ? val : getFallbackColor(field);
               
-              // 🔥 บังคับ Fallback ป้องกันการแหว่ง 100%
               if (field.type === 'gradient' && (!colorVal || colorVal === "" || colorVal === '#8b5cf6')) {
                 colorVal = field.options || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
               }
@@ -468,14 +475,11 @@ export default function CodeDetail() {
           } else {
             if (isVisible) {
               let textVal = currentValuesToUse[field.variableName];
-              
-              // 🔥 ถ้าว่างเปล่า ให้แสดงชื่อตัวแปร เพื่อรักษารูปทรงพรีวิว
-              if (!textVal || textVal === "") {
+              if (textVal === undefined || textVal === null || textVal === "") {
                 textVal = field.variableName;
               } else if (field.type === 'richtext' || field.type === 'roleplay') {
                 textVal = isForPreview ? parseContent(textVal, true) : textVal;
               }
-              
               finalHtml = finalHtml.split(field.variableName).join(textVal);
             } else {
               finalHtml = finalHtml.split(field.variableName).join("");
@@ -496,9 +500,14 @@ export default function CodeDetail() {
               if (val !== "") blockHtml = blockHtml.split(field.variableName).join(val);
             });
 
-            block.fields.forEach((field: any) => {
-              if (field.type === 'dropdown') return;
-              
+            // 🔥 จัดเรียงให้ Field ที่เป็นค่า True (แสดงผล) ได้แปลงโค้ดก่อนเพื่อน!
+            const sortedBlockFields = [...block.fields].filter((f: any) => f.type !== 'dropdown').sort((a: any, b: any) => {
+              const aVis = checkConditionMatch(a, block.values, block.fields) ? 1 : 0;
+              const bVis = checkConditionMatch(b, block.values, block.fields) ? 1 : 0;
+              return bVis - aVis;
+            });
+
+            sortedBlockFields.forEach((field: any) => {
               const isVisible = checkConditionMatch(field, block.values, block.fields);
 
               if (field.type === 'image' || field.type === 'image_url') {
@@ -554,7 +563,6 @@ export default function CodeDetail() {
                   const val = block.values[field.variableName];
                   let colorVal = val && val !== "" ? val : getFallbackColor(field);
                   
-                  // 🔥 บังคับ Fallback ป้องกันการแหว่ง 100% (สำหรับ Blocks)
                   if (field.type === 'gradient' && (!colorVal || colorVal === "" || colorVal === '#8b5cf6')) {
                     colorVal = field.options || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
                   }
@@ -569,14 +577,11 @@ export default function CodeDetail() {
               } else {
                 if (isVisible) {
                   let textVal = block.values[field.variableName];
-                  
-                  // 🔥 ถ้าว่างเปล่า ให้แสดงชื่อตัวแปร เพื่อรักษารูปทรงพรีวิว (สำหรับ Blocks)
-                  if (!textVal || textVal === "") {
+                  if (textVal === undefined || textVal === null || textVal === "") {
                     textVal = field.variableName;
                   } else if (field.type === 'richtext' || field.type === 'roleplay') {
                     textVal = isForPreview ? parseContent(textVal, true) : textVal;
                   }
-
                   blockHtml = blockHtml.split(field.variableName).join(textVal);
                 } else {
                   blockHtml = blockHtml.split(field.variableName).join("");
@@ -773,9 +778,8 @@ export default function CodeDetail() {
       const fallbackCol = getFallbackColor(field);
       let currentVal = val || fallbackCol;
       
-      // 🔥 เช็คและให้ค่า default ที่ปลอดภัย (ถ้ายังคงไม่ใช่ string สีที่ใช้ได้)
       if (!currentVal || (!currentVal.includes('gradient') && !currentVal.startsWith('#') && !currentVal.startsWith('rgb') && !currentVal.startsWith('hsl'))) {
-          currentVal = 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
+          currentVal = field.options || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
       }
       
       const isRadial = currentVal.includes('radial-gradient');
@@ -794,7 +798,6 @@ export default function CodeDetail() {
       const extractColors = (): string[] => {
         const matches = currentVal.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b|(rgb|hsl)a?\([^)]+\)|[a-zA-Z]+/gi) || [];
         const colors = matches.filter((c: string) => c.startsWith('#') || c.startsWith('rgb') || c.startsWith('hsl'));
-        // 🔥 ถ้าสกัดสีไม่ได้ ให้ส่งสีสำรองไป 2 สี ป้องกัน Array แหว่ง
         return colors.length >= 2 ? colors : ['#d8b4fe', '#bae6fd'];
       };
 
@@ -842,7 +845,7 @@ export default function CodeDetail() {
               type="text" 
               className="glass-input" 
               placeholder={`เช่น linear-gradient(90deg, #000, #fff)`} 
-              value={val || ''} 
+              value={currentVal} 
               onChange={e => onChange(e.target.value)} 
             />
           </div>
@@ -962,7 +965,11 @@ export default function CodeDetail() {
     
     if (field.type === 'richtext' || field.type === 'roleplay') {
       const isRp = field.type === 'roleplay';
-      const textVal = val || "";
+      let textVal = val;
+      if (textVal === undefined || textVal === null || textVal === "") {
+         textVal = field.variableName;
+      }
+
       return (
         <div key={refKey} className="field-group">
           <label className="field-label">{field.label}</label>

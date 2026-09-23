@@ -380,19 +380,28 @@ export default function CodeDetail() {
             if (isVisible && imgData.url && imgData.url.trim() !== '') {
               if (field.type === 'image_url') {
                   const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                  const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
+                  // 🔥 ทำให้ Regex ยืดหยุ่นเพื่อจับ url(...) เก่าที่มีอยู่ในเทมเพลต (ถ้ามี)
+                  const legacyRegex = new RegExp(`(?:url\\(['"]?)?${escapedVar}(['"]?\\))?\\s*center\\s*\\/?\\s*cover`, 'gi');
                   const urlCss = `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`;
                   
-                  if (legacyRegex.test(finalHtml)) {
-                    finalHtml = finalHtml.replace(legacyRegex, urlCss);
+                  let tempHtml = finalHtml.replace(legacyRegex, urlCss);
+                  
+                  if (tempHtml === finalHtml) {
+                    const urlOnlyRegex = new RegExp(`url\\(['"]?${escapedVar}['"]?\\)`, 'gi');
+                    tempHtml = tempHtml.replace(urlOnlyRegex, urlCss);
+                  }
+                  
+                  if (tempHtml !== finalHtml) {
+                    finalHtml = tempHtml;
                   } else {
                     finalHtml = finalHtml.split(field.variableName).join(urlCss);
-                    finalHtml = finalHtml.split(`${field.variableName}_URL`).join(imgData.url);
-                    finalHtml = finalHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
-                    finalHtml = finalHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
-                    finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
-                    finalHtml = finalHtml.split(`${field.variableName}_CSS`).join(urlCss);
                   }
+                  
+                  finalHtml = finalHtml.split(`${field.variableName}_URL`).join(imgData.url);
+                  finalHtml = finalHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
+                  finalHtml = finalHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
+                  finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
+                  finalHtml = finalHtml.split(`${field.variableName}_CSS`).join(urlCss);
               } else if (field.type === 'image') {
                   finalHtml = finalHtml.split(field.variableName).join(imgData.url);
                   finalHtml = finalHtml.split(`${field.variableName}_URL`).join(imgData.url);
@@ -402,20 +411,29 @@ export default function CodeDetail() {
               }
             } else {
               finalHtml = finalHtml.split(field.variableName).join("");
+              finalHtml = finalHtml.split(`${field.variableName}_URL`).join("");
+              finalHtml = finalHtml.split(`${field.variableName}_X`).join("50");
+              finalHtml = finalHtml.split(`${field.variableName}_Y`).join("50");
+              finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join("100");
               if (field.type === 'image_url') {
                   const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                  const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
-                  finalHtml = finalHtml.split(`${field.variableName}_URL`).join("");
-                  finalHtml = finalHtml.split(`${field.variableName}_X`).join("50");
-                  finalHtml = finalHtml.split(`${field.variableName}_Y`).join("50");
-                  finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join("100");
+                  const legacyRegex = new RegExp(`(?:url\\(['"]?)?${escapedVar}(['"]?\\))?\\s*center\\s*\\/?\\s*cover`, 'gi');
+                  let tempHtml = finalHtml.replace(legacyRegex, "");
+                  if (tempHtml === finalHtml) {
+                      const urlOnlyRegex = new RegExp(`url\\(['"]?${escapedVar}['"]?\\)`, 'gi');
+                      tempHtml = tempHtml.replace(urlOnlyRegex, "");
+                  }
+                  finalHtml = tempHtml;
                   finalHtml = finalHtml.split(`${field.variableName}_CSS`).join("");
-                  finalHtml = finalHtml.replace(legacyRegex, "");
               }
             }
           } else if (field.type === 'color' || field.type === 'gradient') {
             if (isVisible) {
-              const colorVal = val && val !== "" ? val : getFallbackColor(field.variableName);
+              let colorVal = val && val !== "" ? val : getFallbackColor(field.variableName);
+              // 🔥 มั่นใจว่าถ้าเป็น gradient และค่าว่าง จะดึงค่าสีไล่ระดับเริ่มต้นไปแทนที่ ไม่ใช่ส่งสีทึบไป ทำให้ CSS พัง
+              if (field.type === 'gradient' && (!val || val === "") && colorVal === '#8b5cf6') {
+                colorVal = 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
+              }
               finalHtml = finalHtml.split(field.variableName).join(colorVal || "");
             } else {
               finalHtml = finalHtml.split(field.variableName).join("");
@@ -455,22 +473,30 @@ export default function CodeDetail() {
                 const imgData = block.values[field.variableName] || { url: "", x: 50, y: 50, zoom: 100 };
 
                 if (isVisible && imgData.url && imgData.url.trim() !== '') {
-                  // 🌟 แยกระบบแปลงค่าอย่างชัดเจนสำหรับ Blocks ด้วย
                   if (field.type === 'image_url') {
                       const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                      const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
+                      // 🔥 ทำให้ Regex ยืดหยุ่นเพื่อจับ url(...) เก่าที่มีอยู่ในเทมเพลต (ถ้ามี)
+                      const legacyRegex = new RegExp(`(?:url\\(['"]?)?${escapedVar}(['"]?\\))?\\s*center\\s*\\/?\\s*cover`, 'gi');
                       const urlCss = `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`;
                       
-                      if (legacyRegex.test(blockHtml)) {
-                        blockHtml = blockHtml.replace(legacyRegex, urlCss);
+                      let tempHtml = blockHtml.replace(legacyRegex, urlCss);
+                      
+                      if (tempHtml === blockHtml) {
+                        const urlOnlyRegex = new RegExp(`url\\(['"]?${escapedVar}['"]?\\)`, 'gi');
+                        tempHtml = tempHtml.replace(urlOnlyRegex, urlCss);
+                      }
+                      
+                      if (tempHtml !== blockHtml) {
+                        blockHtml = tempHtml;
                       } else {
                         blockHtml = blockHtml.split(field.variableName).join(urlCss);
-                        blockHtml = blockHtml.split(`${field.variableName}_URL`).join(imgData.url);
-                        blockHtml = blockHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
-                        blockHtml = blockHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
-                        blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
-                        blockHtml = blockHtml.split(`${field.variableName}_CSS`).join(urlCss);
                       }
+
+                      blockHtml = blockHtml.split(`${field.variableName}_URL`).join(imgData.url);
+                      blockHtml = blockHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
+                      blockHtml = blockHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
+                      blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
+                      blockHtml = blockHtml.split(`${field.variableName}_CSS`).join(urlCss);
                   } else if (field.type === 'image') {
                       blockHtml = blockHtml.split(field.variableName).join(imgData.url);
                       blockHtml = blockHtml.split(`${field.variableName}_URL`).join(imgData.url);
@@ -480,21 +506,30 @@ export default function CodeDetail() {
                   }
                 } else {
                   blockHtml = blockHtml.split(field.variableName).join("");
+                  blockHtml = blockHtml.split(`${field.variableName}_URL`).join("");
+                  blockHtml = blockHtml.split(`${field.variableName}_X`).join("50");
+                  blockHtml = blockHtml.split(`${field.variableName}_Y`).join("50");
+                  blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join("100");
                   if (field.type === 'image_url') {
                       const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                      const legacyRegex = new RegExp(escapedVar + '\\)\\s*center\\s*\\/?\\s*cover', 'gi');
-                      blockHtml = blockHtml.split(`${field.variableName}_URL`).join("");
-                      blockHtml = blockHtml.split(`${field.variableName}_X`).join("50");
-                      blockHtml = blockHtml.split(`${field.variableName}_Y`).join("50");
-                      blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join("100");
+                      const legacyRegex = new RegExp(`(?:url\\(['"]?)?${escapedVar}(['"]?\\))?\\s*center\\s*\\/?\\s*cover`, 'gi');
+                      let tempHtml = blockHtml.replace(legacyRegex, "");
+                      if (tempHtml === blockHtml) {
+                          const urlOnlyRegex = new RegExp(`url\\(['"]?${escapedVar}['"]?\\)`, 'gi');
+                          tempHtml = tempHtml.replace(urlOnlyRegex, "");
+                      }
+                      blockHtml = tempHtml;
                       blockHtml = blockHtml.split(`${field.variableName}_CSS`).join("");
-                      blockHtml = blockHtml.replace(legacyRegex, "");
                   }
                 }
               } else if (field.type === 'color' || field.type === 'gradient') {
                 if (isVisible) {
                   const val = block.values[field.variableName];
-                  const colorVal = val && val !== "" ? val : getFallbackColor(field.variableName);
+                  let colorVal = val && val !== "" ? val : getFallbackColor(field.variableName);
+                  // 🔥 ดักจับค่าว่างของ gradient ในบล็อกเสริม
+                  if (field.type === 'gradient' && (!val || val === "") && colorVal === '#8b5cf6') {
+                    colorVal = 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
+                  }
                   blockHtml = blockHtml.split(field.variableName).join(colorVal || "");
                 } else {
                   blockHtml = blockHtml.split(field.variableName).join("");
@@ -578,7 +613,7 @@ export default function CodeDetail() {
             font-family: sans-serif;
             display: flex;
             justify-content: center;
-            align-items: flex-start;
+            align-items: center;
           }
 
           /* กรอบหน้าต่างหลักที่ทำหน้าที่รับขนาดจาก iframe */
@@ -698,7 +733,6 @@ export default function CodeDetail() {
     
     // 🌟 ระบบ Gradient (คืนค่ากลับเป็น Linear / Radial อย่างเดียว)
     if (field.type === 'gradient') {
-      // ดึง fallback เพื่อใช้เป็นค่าเริ่มต้น ถ้าว่าง
       const fallbackCol = getFallbackColor(field.variableName);
       let currentVal = val || fallbackCol;
       
@@ -1025,7 +1059,7 @@ export default function CodeDetail() {
           flex-direction: column;
         }
 
-        /* เอา padding มาใส่ชั้นใน เพื่อให้ Scrollbar โดนขังอยู่ข้างใน และเว้นระยะจากขอบบนล่าง */
+        /* เอา มาใส่ชั้นใน เพื่อให้ Scrollbar โดนขังอยู่ข้างใน และเว้นระยะจากขอบบนล่าง */
         .left-panel-inner { 
           flex: 1; 
           overflow-y: auto; 
@@ -1272,7 +1306,6 @@ export default function CodeDetail() {
                           <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.8rem', color: '#713f12', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <li>โค้ดจะแสดงผลได้ดีที่สุดบนหน้าจอ Desktop (PC/Laptop) แต่จะไม่แตกหรือแหกหากใช้บนหน้าจออื่น ๆ</li>
                             <li>preview ใน editor นี้อาจมีความคลาดเคลื่อนของสเกลหรือตำแหน่งอยู่บ้าง หากนำไปใช้บนเว็บไซต์จะแสดงผลปกติ</li>
-                            <li>สามารถเพิ่มส่วนเสริม (Dynamic Blocks) ได้ที่โหมด <strong>✍️ ปรับแต่ง</strong></li>
                           </ul>
                         </div>
 

@@ -88,7 +88,7 @@ export default function MerpeoplePage() {
     const ICON: Record<string, string> = {
       save:'<svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>',
       calc:'<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 12h2M12 12h2M8 16h2M12 16h2M16 12v4"/></svg>',
-      merfolk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-7l-3-3M12 15l3-3M15 8c0 1.5-1 3-3 3s-3-1.5-3-3 1.5-3 3-3 3 1.5 3 3zM4 22h16M2 12h2M20 12h2M12 2v2"/></svg>', // ไอคอนใหม่แยกเฉพาะหน้า Merpeople
+      merfolk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-7l-3-3M12 15l3-3M15 8c0 1.5-1 3-3 3s-3-1.5-3-3 1.5-3 3-3 3 1.5 3 3zM4 22h16M2 12h2M20 12h2M12 2v2"/></svg>',
       rank:'<svg viewBox="0 0 24 24"><path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5"/><path d="M3 16.5L12 21l9-4.5"/></svg>',
       amulet:'<svg viewBox="0 0 24 24"><path d="M6 4h12l3 5-9 11L3 9z"/><path d="M3 9h18M9 4l-1 5 4 11 4-11-1-5"/></svg>',
       spirit:'<svg viewBox="0 0 24 24"><circle cx="6.5" cy="10" r="1.8"/><circle cx="10" cy="6" r="1.8"/><circle cx="14" cy="6" r="1.8"/><circle cx="17.5" cy="10" r="1.8"/><path d="M12 12c-3 0-5 3-5 5 0 2 2 2.5 5 2.5s5-.5 5-2.5c0-2-2-5-5-5z"/></svg>',
@@ -379,13 +379,16 @@ export default function MerpeoplePage() {
       return;
     }
 
-  $('#view').innerHTML =
-    head(t) +
-    VIEWS[tab]() +
-    `<div class="foot">${esc(t.en)}</div>`;
+      $('#view').innerHTML =
+        head(t) +
+        VIEWS[tab]() +
+        `<div class="foot">${esc(t.en)}</div>`;
 
-  document.title = 'Merpeople - Elysian Curse 2026';
-}
+      document.title = 'Merpeople - Elysian Curse 2026';
+    }
+
+    $('#nav').innerHTML = TABS.map(x=>`<button type="button" data-tab="${x.id}" aria-current="${!m && x.id===tab}">${ICON[x.id]}<span>${x.label}</span></button>`).join('');
+  }
 
     let toastT: any;
     function toast(msg:string){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),2200); }

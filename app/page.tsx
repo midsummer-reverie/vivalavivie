@@ -208,6 +208,10 @@ export default function Home() {
                 <img className="my-menu-icon" src="https://iili.io/qHof9rF.md.png" alt="ELS48 GE" />
                 <span className="my-menu-label">ELS48 GE</span>
               </Link>
+              <Link href="/merpeople2026" className="my-menu-item">
+                <img className="my-menu-icon" src="https://iili.io/nc75EYB.png" alt="Merpeople" />
+                <span className="my-menu-label">The Merpeople</span>
+              </Link>
             </nav>
 
             <div className="my-chat-bubble"></div>

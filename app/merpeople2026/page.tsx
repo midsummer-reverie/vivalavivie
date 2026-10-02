@@ -443,6 +443,12 @@ export default function MerpeoplePage() {
         if (oldFoot) oldFoot.style.display = '';
         // ----------------------------------
 
+        // เพิ่มการเช็คค่า blob ป้องกัน Error ใน TypeScript
+        if (!blob) {
+          toast('บันทึกภาพไม่สำเร็จ (ไม่พบข้อมูลภาพ)');
+          return;
+        }
+
         const fileName = name.replace(/[^\w\u0E00-\u0E7F-]+/g,'_') + '.png';
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob); 

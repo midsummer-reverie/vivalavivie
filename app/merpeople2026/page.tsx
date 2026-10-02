@@ -371,7 +371,7 @@ export default function MerpeoplePage() {
         topbar.hidden = true; topbar.innerHTML = ''; calc.hidden = true;
         topbar.className = 'bar-top';
         const t = TABS.find(x=>x.id===tab);
-        $('#view').innerHTML = head(t) + VIEWS[tab]() + `<div class="foot">${esc(t.en)}</div>`;
+        $('#view').innerHTML = head(t) + VIEWS[tab]() + `<div class="foot">${esc(t?.en ?? "")}</div>`;
         document.title = 'Merpeople - Elysian Curse 2026';
       }
       $('#nav').innerHTML = TABS.map(x=>`<button type="button" data-tab="${x.id}" aria-current="${!m && x.id===tab}">${ICON[x.id]}<span>${x.label}</span></button>`).join('');

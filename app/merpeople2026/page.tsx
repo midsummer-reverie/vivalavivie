@@ -368,14 +368,24 @@ export default function MerpeoplePage() {
       } else {
         pgrid.className = 'pgrid fade-enter';
         cap.className = 'list';
-        topbar.hidden = true; topbar.innerHTML = ''; calc.hidden = true;
+        topbar.hidden = true;
+        topbar.innerHTML = '';
+        calc.hidden = true;
         topbar.className = 'bar-top';
-        const t = TABS.find(x=>x.id===tab);
-        $('#view').innerHTML = head(t) + VIEWS[tab]() + `<div class="foot">${esc(t?.en ?? "")}</div>`;
-        document.title = 'Merpeople - Elysian Curse 2026';
-      }
-      $('#nav').innerHTML = TABS.map(x=>`<button type="button" data-tab="${x.id}" aria-current="${!m && x.id===tab}">${ICON[x.id]}<span>${x.label}</span></button>`).join('');
+
+          const t = TABS.find(x => x.id === tab);
+
+      if (!t) {
+      return;
     }
+
+  $('#view').innerHTML =
+    head(t) +
+    VIEWS[tab]() +
+    `<div class="foot">${esc(t.en)}</div>`;
+
+  document.title = 'Merpeople - Elysian Curse 2026';
+}
 
     let toastT: any;
     function toast(msg:string){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),2200); }

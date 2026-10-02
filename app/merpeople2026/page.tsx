@@ -88,7 +88,7 @@ export default function MerpeoplePage() {
     const ICON: Record<string, string> = {
       save:'<svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>',
       calc:'<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 12h2M12 12h2M8 16h2M12 16h2M16 12v4"/></svg>',
-      merfolk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-7l-3-3M12 15l3-3M15 8c0 1.5-1 3-3 3s-3-1.5-3-3 1.5-3 3-3 3 1.5 3 3zM4 22h16M2 12h2M20 12h2M12 2v2"/></svg>',
+      merfolk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-7l-3-3M12 15l3-3M15 8c0 1.5-1 3-3 3s-3-1.5-3-3 1.5-3 3-3 3 1.5 3 3zM4 22h16M2 12h2M20 12h2M12 2v2"/></svg>', // ไอคอนใหม่แยกเฉพาะหน้า Merpeople
       rank:'<svg viewBox="0 0 24 24"><path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5"/><path d="M3 16.5L12 21l9-4.5"/></svg>',
       amulet:'<svg viewBox="0 0 24 24"><path d="M6 4h12l3 5-9 11L3 9z"/><path d="M3 9h18M9 4l-1 5 4 11 4-11-1-5"/></svg>',
       spirit:'<svg viewBox="0 0 24 24"><circle cx="6.5" cy="10" r="1.8"/><circle cx="10" cy="6" r="1.8"/><circle cx="14" cy="6" r="1.8"/><circle cx="17.5" cy="10" r="1.8"/><path d="M12 12c-3 0-5 3-5 5 0 2 2 2.5 5 2.5s5-.5 5-2.5c0-2-2-5-5-5z"/></svg>',
@@ -423,7 +423,10 @@ export default function MerpeoplePage() {
         });
         // -----------------------------------------------------------
 
-        const ratio = Math.max(1, Math.min(3, 12000 / node.scrollHeight));
+        // แก้ปัญหาภาพเว้นว่าง (Blank Image) บนมือถือ: 
+        // 1. ลด Ratio บนมือถือเพื่อไม่ให้เกิน Canvas Memory Limit ของ iOS
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const ratio = isMobile ? 1.5 : Math.max(1, Math.min(3, 12000 / node.scrollHeight));
         
         // --- ปรับแต่ง DOM ก่อนถ่ายภาพ ---
         const originalBorderRadius = node.style.borderRadius;
@@ -441,6 +444,11 @@ export default function MerpeoplePage() {
         if (pbody) pbody.appendChild(watermark);
         if (oldFoot) oldFoot.style.display = 'none';
         // ----------------------------------
+
+        // 2. ทริคสำหรับ iOS Safari: เรนเดอร์หลอก 1 ครั้งเพื่อโหลดฟอนต์/รูปภาพลง Canvas
+        if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            await htmlToImage.toBlob(node, { pixelRatio: 1, style: { margin: '0' } }).catch(() => {});
+        }
 
         const blob = await htmlToImage.toBlob(node, {
           pixelRatio: ratio, 
@@ -469,6 +477,26 @@ export default function MerpeoplePage() {
         }
 
         const fileName = name.replace(/[^\w\u0E00-\u0E7F-]+/g,'_') + '.png';
+
+        // --- แก้ปัญหาเซฟในมือถือแล้วเข้าแอป Books ---
+        if (isMobile && navigator.share) {
+            try {
+                const file = new File([blob], fileName, { type: 'image/png' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: fileName,
+                    });
+                    toast('แชร์หรือบันทึกภาพเรียบร้อย');
+                    return; // ถ้าแชร์สำเร็จจบการทำงาน
+                }
+            } catch (err: any) {
+                // ถ้า user กดยกเลิก ไม่ต้องทำอะไร
+                if (err.name === 'AbortError') return;
+            }
+        }
+        
+        // Desktop fallback หรือถ้า navigator.share พัง
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob); 
         a.download = fileName;

@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Script from "next/script";
 
-export default function MerpeoplePage() {
+export default function FairiesPage() {
   const initialized = useRef(false);
   // เพิ่ม State สำหรับควบคุมหน้าโหลด
   const [isLoading, setIsLoading] = useState(true);
@@ -20,51 +20,45 @@ export default function MerpeoplePage() {
         {rarity:'สูง',atk_bonus:4,def_bonus:3},{rarity:'ตำนาน',atk_bonus:7,def_bonus:10},
         {rarity:'เทพเจ้า',atk_bonus:15,def_bonus:15}],
       pacts:[
-        {power_name:'แมงกะพรุนกล่อง',description:'มีรยางค์ยาวที่สามารถรัดตัวเป้าหมาย และสามารถปล่อยพิษที่ทำให้เกิดอาการชา ไปจนถึงหายใจลำบากและหมดสติ หากเป้าหมายมีขนาดใหญ่หรือแข็งแกร่งมากประสิทธิภาพของพลังจะลดลง'},
-        {power_name:'ปลากระเบนไฟฟ้า',description:'ปล่อยคลื่นกระแสไฟฟ้าตรงหาเป้าหมาย กระแสไฟฟ้าที่แฝงไปกับคลื่นจะแล่นเข้าช็อตระบบประสาทส่วนกลางโดยตรง ทำให้กล้ามเนื้อหดตัวอย่างรุนแรงจนเกิดอาการชา อัมพาตเฉียบพลัน ขยับตัวไม่ได้'},
-        {power_name:'ปลาหมึกเลียนแบบ',description:'เลียนแบบการเคลื่อนไหวและรูปร่างของเป้าหมาย โดยการเปลี่ยนสี ผิวหนัง และรูปร่างให้มีลักษณะเดียวกับเป้าหมาย'},
-        {power_name:'กั้งตั๊กแตนเจ็ดสี',description:'มีความเร็วของหมัดเร็วถึงแปดสิบกิโลเมตรต่อชั่วโมง ความเร็วและความรุนแรงทำให้ศัตรูยากที่จะหลบหลีกใช้ทำลายเกราะหรือพื้นผิวที่มีความแข็งแรงมากได้ โดยการใช้หมัดตนเองจะไม่ได้รับความเสียหาย นอกจากนี้หากใช้ความสามารถในน้ำ หมัดที่ชกจะทำให้น้ำร้อนขึ้นมาจนเป็นฟองอากาศจำนวนมากไปแตกใส่ตัวศัตรู ทำให้ได้รับความเสียหายจากหมัดโดยตรงรวมไปถึงฟองอากาศ'}],
+        {power_name:'ภูตบุปผามายา',description:'สามารถจำแลงกายเป็นดอกไม้หรือพืชพรรณขนาดเล็กเพื่อพรางตัวจากศัตรูได้อย่างสมบูรณ์แบบ'},
+        {power_name:'ภูตพฤกษาฟื้นฟู',description:'เมื่อร่างกายสัมผัสกับพื้นดินและต้นไม้ อาการบาดเจ็บจะถูกรักษาให้หายเร็วขึ้นอย่างน่าอัศจรรย์'},
+        {power_name:'พสุธากัมปนาท',description:'สามารถสั่งให้รากไม้ใต้ดินสั่นสะเทือนเพื่อสร้างแผ่นดินไหวขนาดย่อม ทำลายการทรงตัวของศัตรู'},
+        {power_name:'เสียงกระซิบแห่งไพร',description:'สามารถฟังเสียงและเข้าใจภาษาของต้นไม้ เพื่อรับรู้เหตุการณ์ที่เกิดขึ้นในป่าลึกได้'}],
       amulets:[
-        {amulet_name:'สร้อยสีทันดร',abilities:['จะทำให้ร่างกายไม่มีทางเกิดอาการขาดน้ำได้ นอกจากว่าจะถูกไฟคลอกร่างกาย','ช่วยป้องกันไม่ให้เกิดเรื่องการโดนน้ำแล้วทำให้เปลี่ยนจากขาเป็นหางในทันที','สามารถเลือกเปลี่ยนจากขาเป็นหางได้เมื่ออยู่ในน้ำ']},
-        {amulet_name:'สร้อยวารีนิรันดร',abilities:[
-          'เมื่อชาวเงือกผู้สวมใส่กำลังตกอยู่ในอันตรายจากเปลวเพลิง จะสร้างเกราะกำบังน้ำรอบกายทันที แต่จะต้องใช้เวลาในการประจุพลังใหม่ 3 วัน',
-          'เพิ่มโอกาสในการโน้มน้าวและกลายเป็นเพื่อนกับสัตว์ได้ง่ายขึ้น',
-          'กลายร่างกลายเป็นมวลน้ำ ซึ่งแยกความหนาแน่นออกจากน้ำอื่น ๆ โดยสิ้นเชิง ใช้ได้ 1 ครั้ง/อิเวนต์\n\n**เมื่อสลายร่างแล้วจะต้องพยายามทำให้มวลน้ำนั้นอยู่เกาะติดกัน หากมวลน้ำแตกตัวหรือกลับคืนไม่ครบถ้วน จะส่งผลร้ายแรงเมื่อคืนกลับร่างเดิม',
-          'สามารถเปลี่ยนแปลงอุณหภูมิของน้ำที่ควบคุมอยู่ได้โดยฉับพลัน\n\nสามารถแช่แข็งให้กลายเป็นน้ำแข็งที่แข็งแกร่งดุจเหล็กเพื่อสร้างอาวุธชั่วคราว เช่น หอกน้ำแข็ง สะพานน้ำแข็ง หยุดการเคลื่อนไหวของศัตรู หรือเป็นโล่ป้องกันได้\nทำให้น้ำเดือดพล่านเพื่อสร้างความเสียหายทางกายภาพแก่ศัตรู หรือใช้เป็นโล่กำบังโดยที่ตนเองและพันธมิตรไม่ได้รับผลกระทบ',
-          'สามารถสร้างคมวารี กลั่นน้ำให้บางคล้ายกับใบดาบ เพื่อเฉือนตัดผ่านเป้าหมายได้ราวกับการตัดกระดาษ',
-          'พลังวารีคืนสภาพ สามารถล้างสถานะผิดปกติใด ๆ ไม่ว่าจะเป็นคำสาปหรือสถานะผิดปกติ ซึ่งเกิดจากผู้ที่อยู่ในระดับเดียวกันหรือต่ำกว่าตนเองได้ ใช้ได้ 1 ครั้งต่อบท']}],
-      ranks:[{"rank": "0.0", "rank_name": "-", "combat_abilities": {"คลื่นเสียงความถี่สูง": {"จำนวน (ตัว/โพสต์)": "5", "ทิศทาง/ความรุนแรง": "เป็นเสียงหวีดความถี่สูง"}, "ใช้เขี้ยวและกรงเล็บ (ตัว/โพสต์)": 5}, "utility_abilities": {"รักษาอาการบาดเจ็บของตนเองหรือผู้อื่น": {"ระดับอาการ": "เล็กน้อย", "จำนวน (คน/ครั้ง)": "1", "จำนวน (ครั้ง/วัน)": "1"}}}, {"rank": "1.0", "rank_name": "สุ้มเสียงธารา", "combat_abilities": {"คลื่นเสียงความถี่สูง": {"จำนวน (ครั้ง/วัน)": "3", "จำนวน (ตัว/โพสต์)": "8", "ทิศทาง/ความรุนแรง": "ไปด้านหน้า"}, "ใช้เขี้ยวและกรงเล็บ (ตัว/โพสต์)": 7}, "utility_abilities": {"ใช้เสียงสะท้อนสำรวจโดยรอบ (ครั้ง/วัน)": 2, "รักษาอาการบาดเจ็บของตนเองหรือผู้อื่น": {"ระดับอาการ": "เล็กน้อย", "จำนวน (คน/ครั้ง)": "1", "จำนวน (ครั้ง/วัน)": "1"}}}, {"rank": "2.0", "rank_name": "มัจฉานคร", "combat_abilities": {"การโจมตีระเบิดรอบตัว": {"ลักษณะ": "เปล่งเสียงความถี่สูงแบบฉับพลัน", "จำนวน (ครั้ง/วัน)": "3", "จำนวน (ตัว/โพสต์)": "6", "ผลกระทบต่อศัตรู": "สร้างความเจ็บปวด รบกวนประสาทสัมผัสของศัตรู"}, "คลื่นเสียงความถี่สูง": {"จำนวน (ครั้ง/วัน)": "4", "จำนวน (ตัว/โพสต์)": "10", "ทิศทาง/ความรุนแรง": "รุนแรงมากขึ้น"}, "ใช้เขี้ยวและกรงเล็บ (ตัว/โพสต์)": 9}, "utility_abilities": {"เสียงเพรียกจากไซเรน (ขอคำใบ้)": {"ประสิทธิภาพคำใบ้": "ไม่มีประโยชน์ - ต่ำ", "จำนวน(ครั้ง/คน/อิเวนต์)": "1"}, "ใช้เสียงสะท้อนสำรวจโดยรอบ (ครั้ง/วัน)": 3, "รักษาอาการบาดเจ็บของตนเองหรือผู้อื่น": {"ระดับอาการ": "เล็กน้อย", "จำนวน (คน/ครั้ง)": "1", "จำนวน (ครั้ง/วัน)": "1"}}}, {"rank": "3.0", "rank_name": "อาภรณ์นที", "combat_abilities": {"การโจมตีระเบิดรอบตัว": {"ลักษณะ": "ระเบิดคลื่นเสียง ระยะใกล้", "จำนวน (ครั้ง/วัน)": "3", "จำนวน (ตัว/โพสต์)": "8", "ผลกระทบต่อศัตรู": "สร้างแรงกระแทกจนศัตรูกระเด็นออกจากตำแหน่ง"}, "คลื่นเสียงความถี่สูง": {"จำนวน (ครั้ง/วัน)": "5", "จำนวน (ตัว/โพสต์)": "12", "ทิศทาง/ความรุนแรง": "สร้างความเสียหายต่อร่างกายโดยตรง"}, "ใช้เขี้ยวและกรงเล็บ (ตัว/โพสต์)": 12}, "utility_abilities": {"เสียงเพรียกจากไซเรน (ขอคำใบ้)": {"ประสิทธิภาพคำใบ้": "ต่ำ - ปานกลาง", "จำนวน(ครั้ง/คน/อิเวนต์)": "1"}, "สะกดจิตหรือโน้มน้าวใจเป้าหมาย": {"จำนวน (คน/ครั้ง)": "1", "จำนวน (ครั้ง/วัน)": "2", "ลักษณะการใช้งาน": "แฝงพลังลงไปในน้ำเสียงเพื่อโน้มน้าวความรู้สึก การตัดสินใจของเป้าหมาย"}, "ใช้เสียงสะท้อนสำรวจโดยรอบ (ครั้ง/วัน)": 4, "รักษาอาการบาดเจ็บของตนเองหรือผู้อื่น": {"ระดับอาการ": "ปานกลาง", "จำนวน (คน/ครั้ง)": "1", "จำนวน (ครั้ง/วัน)": "1"}}}, {"rank": "4.0", "rank_name": "วารีมัสยา", "combat_abilities": {"โจมตีด้วยกระแสน้ำ": {"ลักษณะ": "กวาดศัตรูเป็นแนว / ผลักเป้าหมายที่เหลือออกจากตำแหน่ง", "จำนวน (ครั้ง/วัน)": "4", "จำนวน (ตัว/โพสต์)": "8"}, "โจมตีด้วยแรงดันน้ำ": {"ลักษณะ": "พุ่งออกไปเจาะ/กระแทกร่างศัตรู", "จำนวน (ครั้ง/วัน)": "4", "จำนวน (ตัว/โพสต์)": "10"}, "การโจมตีระเบิดรอบตัว": {"ลักษณะ": "ระเบิดคลื่นเสียง ระยะใกล้", "จำนวน (ครั้ง/วัน)": "3", "จำนวน (ตัว/โพสต์)": "8", "ผลกระทบต่อศัตรู": "สร้างแรงกระแทกจนศัตรูกระเด็นออกจากตำแหน่ง"}, "คลื่นเสียงความถี่สูง": {"จำนวน (ครั้ง/วัน)": "6", "จำนวน (ตัว/โพสต์)": "15", "ทิศทาง/ความรุนแรง": "พลังทำลายสูง"}, "สร้างเกราะป้องกัน (ครั้ง/วัน)": "3", "ใช้เขี้ยวและกรงเล็บ (ตัว/โพสต์)": 16}, "utility_abilities": {"ควบคุมมวลน้ำ": "เล็กน้อย", "สร้างน้ำขึ้นจากพลัง": "เล็กน้อย", "เสียงเพรียกจากไซเรน (ขอคำใบ้)": {"ประสิทธิภาพคำใบ้": "ต่ำ - ปานกลาง", "จำนวน(ครั้ง/คน/อิเวนต์)": "1"}, "สะกดจิตหรือโน้มน้าวใจเป้าหมาย": {"จำนวน (คน/ครั้ง)": "1", "จำนวน (ครั้ง/วัน)": "2", "ลักษณะการใช้งาน": "สะกดจิตผ่านเสียง", "ระยะเวลาที่มีผล(ชม.)": "1"}, "ใช้เสียงสะท้อนสำรวจโดยรอบ (ครั้ง/วัน)": 5, "รักษาอาการบาดเจ็บของตนเองหรือผู้อื่น": {"ระดับอาการ": "ปานกลาง", "จำนวน (คน/ครั้ง)": "1", "จำนวน (ครั้ง/วัน)": "1"}, "มองดูสิ่งของ คน วัตถุที่เคยเห็นผ่านผิวน้ำ (ครั้ง/วัน)": 1}}, {"rank": "5.0", "rank_name": "มีนาทองคำ", "combat_abilities": {"โจมตีด้วยกระแสน้ำ": {"ลักษณะ": "ใช้โอบรัดร่างกายศัตรู\nเพิ่มแรงดันเพื่อบีบรัด กระแทก หรือเหวี่ยงเป้าหมายได้", "จำนวน (ครั้ง/วัน)": "4", "จำนวน (ตัว/โพสต์)": "10"}, "โจมตีด้วยแรงดันน้ำ": {"ลักษณะ": "ระเบิดออกไปรอบตัวเป็นวงกว้าง", "จำนวน (ครั้ง/วัน)": "4", "จำนวน (ตัว/โพสต์)": "12"}, "การโจมตีระเบิดรอบตัว": {"ลักษณะ": "ระเบิดแรงดันน้ำ", "จำนวน (ครั้ง/วัน)": "4", "จำนวน (ตัว/โพสต์)": "12", "ผลกระทบต่อศัตรู": "สร้างแรงกระแทกรุนแรงต่อศัตรูบริเวณใกล้เคียง"}, "คลื่นเสียงความถี่สูง": {"จำนวน (ครั้ง/วัน)": "7", "จำนวน (ตัว/โพสต์)": "20", "ทิศทาง/ความรุนแรง": "สร้างแรงสั่นสะเทือนต่อร่างกายของเป้าหมายโดยตรง"}, "สร้างเกราะป้องกัน (ครั้ง/วัน)": "4", "ใช้เขี้ยวและกรงเล็บ (ตัว/โพสต์)": 20, "ส่งคลื่นเสียงผ่านมวลน้ำ ทำให้แหล่งน้ำสั่นสะเทือนรุนแรง": {"จำนวน (ครั้ง/วัน)": "4", "จำนวน (ตัว/โพสต์)": "15"}}, "utility_abilities": {"ควบคุมมวลน้ำ": "ปานกลาง", "สร้างภาพลวงตา": {"จำนวน (คน/ครั้ง)": "1", "จำนวน (ครั้ง/วัน)": "2"}, "สร้างน้ำขึ้นจากพลัง": "มากขึ้น", "เสียงเพรียกจากไซเรน (ขอคำใบ้)": {"ประสิทธิภาพคำใบ้": "ปานกลาง - ปานกลางค่อนสูง", "จำนวน(ครั้ง/คน/อิเวนต์)": "1"}, "สะกดจิตหรือโน้มน้าวใจเป้าหมาย": {"จำนวน (คน/ครั้ง)": "1", "จำนวน (ครั้ง/วัน)": "3", "ลักษณะการใช้งาน": "สะกดจิตผ่านเสียง", "ระยะเวลาที่มีผล(ชม.)": "2"}, "ใช้เสียงสะท้อนสำรวจโดยรอบ (ครั้ง/วัน)": 6, "รักษาอาการบาดเจ็บของตนเองหรือผู้อื่น": {"ระดับอาการ": "ปานกลางค่อนไปสาหัส", "จำนวน (คน/ครั้ง)": "1", "จำนวน (ครั้ง/วัน)": "1"}, "มองดูสิ่งของ คน วัตถุที่เคยเห็นผ่านผิวน้ำ (ครั้ง/วัน)": 2}}],
+        {amulet_name:'สร้อยผีเสื้อพฤกษา',abilities:['แฟรี่ที่สวมใส่จะได้รับพลังแห่งพืชพรรณซึ่งคอยเสริมพลังเวทมนตร์ตลอดเวลา','ป้องกันผู้สวมใส่จากแวมไพร์ แวมไพร์ตนใดที่พยายามเข้ามาทำร้ายจะถูกพลังแห่งแสงขับไล่ออกไปแต่ไม่ถึงกับบาดเจ็บ แวมไพร์ที่มีพลังแก่กล้ายังสามารถฝืนพลังแห่งแสงนั้นได้']},
+        {amulet_name:'สร้อยประกายพฤกษ์',abilities:[
+          'ผู้สวมใส่จะมีรัศมีกายที่เปล่งปลั่งแต่ยังสามารถควบคุมรัศมีนั้นไม่ให้เป็นอันตรายต่อแวมไพร์ได้ การไม่ควบคุมจะทำให้แวมไพร์ที่พยายามเข้ามาใกล้ปวดแสบปวดร้อนแสนสาหัส',
+          'เพิ่มโอกาสในการโน้มน้าวและกลายเป็นเพื่อนกับสัตว์ได้อย่างง่ายดายขึ้น',
+          'พืชพันธุ์ใด ๆ ที่ผู้สวมใส่ปลูกจะออกผลงอกงามและมีคุณภาพสูงมากกว่าปกติ (ใช้งานในเนื้อเรื่องเท่านั้น)',
+          'สร้างศัสตราแห่งพฤกษา ด้วยการหยิบยืมกิ่งไม้หรือใบไม้ มาแปลงสภาพพร้อมถ่ายโอนพลังจากสร้อยลงไป ให้ส่วนประกอบเหล่านั้นหลอมรวมเป็นอาวุธหรือโล่ที่แข็งแกร่งเป็นการชั่วคราว',
+          'หากเกิดอันตรายถึงชีวิต พลังในสร้อยจะตื่นขึ้นและกางม่านพลังงานแสงในรูปแบบดักแด้สีทองขึ้นมาห่อหุ้มร่างกายผู้สวมใส่ไว้ ดักแด้นี้จะป้องกันการโจมตีทุกรูปแบบชั่วขณะ (คล้ายเป็นอมตะชั่วคราว) และจะแผ่รังสีความร้อนสูงออกมาเผาไหม้ศัตรูที่พยายามเข้ามาโจมตีในระยะประชิด',
+          'สามารถปล่อยละอองแสงสีทองและเขียวกระจายออกไปรอบตัว ซึ่งมีฤทธิ์ต่อระบบประสาท ทำให้เป้าหมายเกิดอาการง่วงซึม เคลื่อนไหวช้าลงอย่างมาก หรือหลับใหลไปชั่วขณะ (กำหนดเป้าหมายได้)',
+          'สามารถสื่อสารกับผู้ครอบครองสร้อยประกายพฤกษ์ในระยะไกลได้ผ่านเครือข่ายคล้ายเห็ดรา']}],
+      ranks:[{"rank_level": "0", "rank_name": "-", "combat_abilities": {"ยิงบอลแสงเข้าโจมตี": {"จำนวน (ตัว/โพสต์)": "5"}, "ปล่อยแสงวาบฉับพลันเพื่อก่อกวนศัตรู": {"จำนวน (ตัว/ครั้ง)": "3", "จำนวน (ครั้ง/วัน)": "2", "ผลกระทบต่อศัตรู": "ทำให้มองเห็นพร่ามัวและเสียจังหวะ"}}, "utility_abilities": {}}, {"rank_level": "1", "rank_name": "ประกายแสงแรก", "combat_abilities": {"ยิงบอลแสงเข้าโจมตี": {"จำนวน (ตัว/โพสต์)": "7"}, "ลำแสงพุ่งเข้าโจมตีศัตรู": {"จำนวน (ตัว/ครั้ง)": "10", "จำนวน (ครั้ง/วัน)": "2"}, "ปล่อยแสงวาบรุนแรงเพื่อก่อกวนศัตรู": {"จำนวน (ตัว/ครั้ง)": "5", "จำนวน (ครั้ง/วัน)": "2", "ผลกระทบต่อศัตรู": "ทำให้การมองเห็นพร่ามัวและลดความแม่นยำ"}}, "utility_abilities": {"ใช้พลังแห่งแสงเยียวยาอาการบาดเจ็บ": {"ระดับอาการ": "เล็กน้อย", "จำนวน (คน/วัน)": "1"}, "ฟื้นฟูตนเอง (เมื่ออยู่ใกล้พืชพรรณ)": "บาดเจ็บเล็กน้อย"}}, {"rank_level": "2", "rank_name": "ภูตน้อยในดงพฤกษ์", "combat_abilities": {"ยิงบอลแสงเข้าโจมตี": {"จำนวน (ตัว/โพสต์)": "9"}, "ลำแสงพุ่งเข้าโจมตีเป็นแนว": {"จำนวน (ตัว/ครั้ง)": "12", "จำนวน (ครั้ง/วัน)": "2"}, "กระจายกลีบดอกเรืองแสงก่อกวนศัตรู": {"จำนวน (ตัว/ครั้ง)": "8", "จำนวน (ครั้ง/วัน)": "2", "ผลกระทบต่อศัตรู": "รบกวนการมองเห็นและสมาธิ"}, "สร้างม่านแสงบดบังทัศนวิสัย": {"จำนวน (ครั้ง/วัน)": "2"}}, "utility_abilities": {"ใช้พลังแห่งแสงเยียวยาอาการบาดเจ็บ": {"ระดับอาการ": "เล็กน้อยถึงปานกลาง", "จำนวน (คน/วัน)": "3"}, "ฟื้นฟูตนเอง (เมื่ออยู่ใกล้พืชพรรณ)": "บาดเจ็บปานกลาง", "มอบพรแห่งพฤกษา (ให้พ่อมดแม่มด)": {"จำนวน (ครั้ง/วัน)": "1"}}}, {"rank_level": "3", "rank_name": "แสงสว่างแห่งพงไพร", "combat_abilities": {"ยิงบอลแสงเข้าโจมตี": {"จำนวน (ตัว/โพสต์)": "12"}, "ลำแสงพลังรุนแรง": {"จำนวน (ตัว/ครั้ง)": "15", "จำนวน (ครั้ง/วัน)": "3"}, "ระเบิดพลังแสงรอบตัว": {"จำนวน (ตัว/ครั้ง)": "8", "จำนวน (ครั้ง/วัน)": "2", "ผลกระทบต่อศัตรู": "มองเห็นพร่ามัวและเสียจังหวะ"}, "พืชพรรณพุ่งจู่โจมศัตรู": {"จำนวน (ตัว/ครั้ง)": "12", "จำนวน (ครั้ง/วัน)": "3"}, "สร้างเถาวัลย์พันธนาการศัตรู": {"จำนวน (ตัว/ครั้ง)": "8", "จำนวน (ครั้ง/วัน)": "3"}}, "utility_abilities": {"ใช้พลังแห่งแสงเยียวยาอาการบาดเจ็บ": {"ระดับอาการ": "ปานกลาง", "จำนวน (คน/วัน)": "3"}, "สร้างพืชพรรณปกคลุมพื้นที่": {"ลักษณะ": "ชะลอการเคลื่อนไหวและบังคับทิศทางศัตรู", "จำนวน (ครั้ง/วัน)": "2"}, "ใช้เถาวัลย์ช่วยเหลือพันธมิตร": {"จำนวน (คน/ครั้ง)": "2", "จำนวน (ครั้ง/วัน)": "2"}, "สร้างเกราะจากพลังแสง": {"ป้องกัน (คน/ครั้ง)": "4", "จำนวน (ครั้ง/วัน)": "2"}, "ล่องหน": {"ระยะเวลา (ชม./วัน)": "3"}, "ฟื้นฟูตนเอง (เมื่ออยู่ใกล้พืชพรรณ)": "บาดเจ็บปานกลาง", "มอบพรแห่งพฤกษา (ให้พ่อมดแม่มด)": {"จำนวน (ครั้ง/วัน)": "2"}}}, {"rank_level": "4", "rank_name": "ละอองมนตรา", "combat_abilities": {"ยิงบอลแสงเข้าโจมตี": {"จำนวน (ตัว/โพสต์)": "16"}, "ลำแสงพลังรุนแรง": {"จำนวน (ตัว/ครั้ง)": "20", "จำนวน (ครั้ง/วัน)": "3"}, "ระเบิดพลังแสงรอบตัว": {"จำนวน (ตัว/ครั้ง)": "10", "จำนวน (ครั้ง/วัน)": "3"}, "พืชพรรณพุ่งจู่โจมศัตรู": {"จำนวน (ตัว/ครั้ง)": "15", "จำนวน (ครั้ง/วัน)": "3"}, "สร้างเถาวัลย์พันธนาการศัตรู": {"จำนวน (ตัว/ครั้ง)": "12", "จำนวน (ครั้ง/วัน)": "3"}}, "utility_abilities": {"ใช้พลังแห่งแสงเยียวยาอาการบาดเจ็บ": {"ระดับอาการ": "ปานกลางค่อนสาหัส", "จำนวน (คน/วัน)": "5"}, "สร้างพืชพรรณปกคลุมพื้นที่": {"ลักษณะ": "ชะลอการเคลื่อนไหวและบังคับทิศทางศัตรู", "จำนวน (ครั้ง/วัน)": "3"}, "ใช้เถาวัลย์ช่วยเหลือพันธมิตร": {"จำนวน (คน/ครั้ง)": "3", "จำนวน (ครั้ง/วัน)": "2"}, "สร้างเกราะจากพลังแสง": {"ป้องกัน (คน/ครั้ง)": "5", "จำนวน (ครั้ง/วัน)": "3"}, "ล่องหน": {"ระยะเวลา (ชม./วัน)": "5"}, "สร้างภาพลวงตา": {"จำนวน (ครั้ง/วัน)": "1", "ระยะเวลาที่มีผล (ชม.)": "3"}, "ฟื้นฟูตนเอง (เมื่ออยู่ใกล้พืชพรรณ)": "ปานกลางค่อนสาหัส", "มอบพรแห่งพฤกษา (ให้พ่อมดแม่มด)": {"จำนวน (ครั้ง/วัน)": "3"}}}, {"rank_level": "5", "rank_name": "ปีกพฤกษาสวรรค์", "combat_abilities": {"ยิงบอลแสงเข้าโจมตี": {"จำนวน (ตัว/โพสต์)": "20"}, "ลำแสงพลังรุนแรง": {"จำนวน (ตัว/ครั้ง)": "25", "จำนวน (ครั้ง/วัน)": "4"}, "ระเบิดพลังแสงรอบตัว": {"จำนวน (ตัว/ครั้ง)": "15", "จำนวน (ครั้ง/วัน)": "3"}, "พืชพรรณพุ่งจู่โจมศัตรู": {"จำนวน (ตัว/ครั้ง)": "20", "จำนวน (ครั้ง/วัน)": "4"}, "สร้างเถาวัลย์พันธนาการศัตรู": {"จำนวน (ตัว/ครั้ง)": "15", "จำนวน (ครั้ง/วัน)": "3"}}, "utility_abilities": {"ใช้พลังแห่งแสงเยียวยาอาการบาดเจ็บ": {"ระดับอาการ": "สาหัส", "จำนวน (คน/วัน)": "5"}, "สร้างพืชพรรณปกคลุมพื้นที่": {"ลักษณะ": "ชะลอการเคลื่อนไหวและบังคับทิศทางศัตรู", "จำนวน (ครั้ง/วัน)": "3"}, "ใช้เถาวัลย์ช่วยเหลือพันธมิตร": {"จำนวน (คน/ครั้ง)": "5", "จำนวน (ครั้ง/วัน)": "3"}, "สร้างเกราะจากพลังแสง": {"ป้องกัน (คน/ครั้ง)": "5", "จำนวน (ครั้ง/วัน)": "3"}, "วงดอกไม้หรือเถาวัลย์ป้องกันพื้นที่": {"ป้องกัน (คน/ครั้ง)": "5", "จำนวน (ครั้ง/วัน)": "2"}, "ล่องหน": {"ระยะเวลา (ชม./วัน)": "6"}, "สร้างภาพลวงตา": {"จำนวน (ครั้ง/วัน)": "1", "ระยะเวลาที่มีผล (ชม.)": "7"}, "พลังจิตเคลื่อนย้ายสิ่งของ (รัศมี 3 เมตร)": {"จำนวน (ครั้ง/วัน)": "3"}, "ควบคุมสภาพอากาศ (รัศมี 20 เมตร)": {"จำนวน (ครั้ง/วัน)": "1"}, "แปลงร่างเป็นสัตว์ป่า": {"ระยะเวลา (ชม./วัน)": "3"}, "ฟื้นฟูตนเอง (เมื่ออยู่ใกล้พืชพรรณ)": "สาหัส", "มอบพรแห่งพฤกษา (ให้พ่อมดแม่มด)": {"จำนวน (ครั้ง/วัน)": "4"}}}],
       conditions:[
-        {skill_name:'มองดูสิ่งของ คน วัตถุที่เคยเห็นผ่านผิวน้ำ', condition_text:'ต้องร่ายคาถา อควาสเปคูลุม ออสเทนเด ทุกครั้งที่ใช้'}
+        {skill_name:'มอบพรแห่งพฤกษา', condition_text:'สามารถช่วยเหลือพ่อมดแม่มดในการตามหาวัตถุดิบสมุนไพรสำหรับปรุงยาได้ด้วยพรแห่งพฤกษา พรแห่งพฤกษาจะทำให้พ่อมดแม่มดสามารถเก็บสมุนไพรได้มากขึ้น 2 เท่า เป็นจำนวน 3 โพสต์'}
       ],
-      merfolk:[
-        ['Rowena T. Frost',5,'#0067a5','สร้อยวารีนิรันดร','Melisandre','ฝูงผีเสื้อจรกาหนอนยี่โถ','เทพเจ้า',null],
-        ['Violette C. Leclaire',5,'#9b90c8','สร้อยวารีนิรันดร','Cepheus','เสือขาว','ตำนาน','แมงกะพรุนกล่อง'],
-        ['Lucine F. Varner',5,'#AB978E','สร้อยวารีนิรันดร','Lestyn','วาฬเพชฌฆาต','ตำนาน','ปลากระเบนไฟฟ้า'],
-        ['Ralph E. Aquaborne',5,'#00A36C','สร้อยวารีนิรันดร','Rome','กวางเรนเดียร์เผือก','เทพเจ้า','ปลาหมึกเลียนแบบ'],
-        ['Floyd R. Frost',5,'#4e0000','สร้อยวารีนิรันดร','Nalu','วาฬเพชฌฆาต','ตำนาน','กั้งตั๊กแตนเจ็ดสี'],
-        ['Genevieve V. Frost',4,'#f5bf55','สร้อยวารีนิรันดร','Wyntellaferianmerinder Tristanelliste','วาฬเพชฌฆาต','ตำนาน',null],
-        ['Royce K. Aquaborne',4,'#23395D','สร้อยสีทันดร',null,null,null,null],
-        ['Ray Marmoris',4,'#6495ED','สร้อยวารีนิรันดร','Sage','เสือโคร่ง','สูง',null],
-        ['Marine Pearlquoise',4,'#708090','สร้อยวารีนิรันดร',null,null,null,null],
-        ['Blaze C. Seymour',3,'#abb6c8',null,null,null,null,null],
-        ['Quorlan Sam',3,'#708090','สร้อยวารีนิรันดร','Cuptunmomotaro','เสือขาว','ตำนาน',null],
-        ['Allison Schauss',3,'#550000','สร้อยวารีนิรันดร',null,null,null,null],
-        ['Beryl C. Seymour',3,'#708090',null,null,null,null,null],
-        ['Zane Marmoris',2,'#ffffff',null,null,null,null,null],
-        ['Madelynn Aquaborne',2,'#ffffff',null,null,null,null,null]
-      ].map((a,i)=>({id:i+1,name:a[0],rank:String(Number(a[1])),tail_color:a[2],amulet_name:a[3],spirit_animal_name:a[4],spirit_animal_type:a[5],spirit_animal_rarity:a[6],pact_power_name:a[7],image_url:i===0?'https://i.pinimg.com/1200x/20/5b/e6/205be65c45cf9d5267136083a2daba68.jpg':null}))
+      fairies:[
+        ['Ashlyn Gonzalez',5,'#7fff00','สร้อยประกายพฤกษ์','Elara','ผีเสื้อจรกา','เทพเจ้า','ภูตพฤกษาฟื้นฟู'],
+        ['Honeybeel Moonfae',4,'#ffb6c1','สร้อยประกายพฤกษ์','Bumble','กระต่ายป่า','ตำนาน','พสุธากัมปนาท'],
+        ['Zephyr Laine',3,'#98fb98','สร้อยผีเสื้อพฤกษา',null,null,null,null],
+        ['Reiju Z. Velaqueous',2,'#87cefa','สร้อยผีเสื้อพฤกษา',null,null,null,null]
+      ].map((a,i)=>({id:i+1,name:a[0],rank_level:String(Number(a[1])),wing_color:a[2],amulet_name:a[3],spirit_animal_name:a[4],spirit_animal_type:a[5],spirit_animal_rarity:a[6],pact_power_name:a[7],image_url:i===0?'https://i.pinimg.com/1200x/30/84/c7/3084c7a5fba0c5a278161bd4e9185a75.jpg':null}))
     };
 
     /* ==================================================================== */
     const GROUP_NAMES = { combat:'ต่อสู้', other:'อื่น ๆ' };
     const SKILL_ORDER = [
-      'โจมตีด้วยกระแสน้ำ','โจมตีด้วยแรงดันน้ำ','การโจมตีระเบิดรอบตัว','คลื่นเสียงความถี่สูง','ส่งคลื่นเสียงผ่านมวลน้ำ','ใช้เขี้ยวและกรงเล็บ','สร้างเกราะป้องกัน',
-      'ควบคุมมวลน้ำ','สร้างน้ำขึ้นจากพลัง','สร้างภาพลวงตา','สะกดจิต','เสียงเพรียกจากไซเรน','ใช้เสียงสะท้อน','มองดูสิ่งของ','รักษาอาการบาดเจ็บ'
+      'ยิงบอลแสงเข้าโจมตี','ลำแสงพุ่งเข้าโจมตี','ระเบิดพลังแสงรอบตัว','พืชพรรณพุ่งจู่โจมศัตรู','สร้างเถาวัลย์พันธนาการ',
+      'ปล่อยแสงวาบ','กระจายกลีบดอก','สร้างม่านแสง','สร้างพืชพรรณปกคลุมพื้นที่','ใช้เถาวัลย์ช่วยเหลือพันธมิตร','สร้างเกราะจากพลังแสง','วงดอกไม้หรือเถาวัลย์ป้องกันพื้นที่',
+      'ใช้พลังแห่งแสงเยียวยา','มอบพรแห่งพฤกษา','สร้างภาพลวงตา','ล่องหน','พลังจิตเคลื่อนย้ายสิ่งของ','ควบคุมสภาพอากาศ','แปลงร่างเป็นสัตว์ป่า','ฟื้นฟูตนเอง'
     ];
-    const COUNT_ORDER = ['ครั้ง/วัน','ตัว/โพสต์'];   
+    // เพิ่ม 'ตัว/ครั้ง' เข้าไปให้เรียงลำดับถูก
+    const COUNT_ORDER = ['ครั้ง/วัน','ตัว/โพสต์','ตัว/ครั้ง'];   
     const PLAIN_LABELS = ['ลักษณะ','ลักษณะการใช้งาน','ทิศทาง/ความรุนแรง']; 
-    const POWER_UNIT = 'ตัว/โพสต์';                 
+    
+    // ตั้งค่าหน่วยที่จะให้ดึงเป็น "พลัง" ใส่ช่องกรอกอัตโนมัติ (รองรับทั้ง 2 แบบ)
+    const POWER_UNITS = ['ตัว/โพสต์', 'ตัว/ครั้ง'];                 
 
     const $ = (s: string) => document.querySelector(s) as HTMLElement;
     const esc = (s: any) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c] || c));
@@ -88,31 +82,31 @@ export default function MerpeoplePage() {
     const ICON: Record<string, string> = {
       save:'<svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>',
       calc:'<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 12h2M12 12h2M8 16h2M12 16h2M16 12v4"/></svg>',
-      merfolk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-7l-3-3M12 15l3-3M15 8c0 1.5-1 3-3 3s-3-1.5-3-3 1.5-3 3-3 3 1.5 3 3zM4 22h16M2 12h2M20 12h2M12 2v2"/></svg>', // ไอคอนใหม่แยกเฉพาะหน้า Merpeople
+      fairies:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-2-3-2-8c0-3.5 2-6 2-6s2 2.5 2 6c0 5-2 8-2 8z"/><path d="M10 14c-3.5 0-7-2-7-6s4-4 7-4"/><path d="M14 14c3.5 0 7-2 7-6s-4-4-7-4"/><path d="M10 20c-3.5 0-7-1-7-4s3-3 7-3"/><path d="M14 20c3.5 0 7-1 7-4s-3-3-7-3"/></svg>', 
       rank:'<svg viewBox="0 0 24 24"><path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5"/><path d="M3 16.5L12 21l9-4.5"/></svg>',
       amulet:'<svg viewBox="0 0 24 24"><path d="M6 4h12l3 5-9 11L3 9z"/><path d="M3 9h18M9 4l-1 5 4 11 4-11-1-5"/></svg>',
       spirit:'<svg viewBox="0 0 24 24"><circle cx="6.5" cy="10" r="1.8"/><circle cx="10" cy="6" r="1.8"/><circle cx="14" cy="6" r="1.8"/><circle cx="17.5" cy="10" r="1.8"/><path d="M12 12c-3 0-5 3-5 5 0 2 2 2.5 5 2.5s5-.5 5-2.5c0-2-2-5-5-5z"/></svg>',
       pact:'<svg viewBox="0 0 24 24"><path d="M3 9c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 15c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg>'
     };
     const TABS = [
-      {id:'merfolk', label:'ชาวเงือก', title:'รายชื่อชาวเงือก', en:'Merpeople'},
+      {id:'fairies', label:'แฟรี่', title:'รายชื่อแฟรี่', en:'Fairies'},
       {id:'rank', label:'ระดับขั้น', title:'ความสามารถตามระดับขั้น', en:'Ranks'},
       {id:'amulet', label:'เครื่องราง', title:'เครื่องรางประจำเผ่าพันธุ์', en:'Amulets'},
       {id:'spirit', label:'สัตว์แฝง', title:'โบนัสสัตว์แฝงตามระดับความหายาก', en:'Spirit Animals'},
-      {id:'pact', label:'พันธสัญญา', title:'พันธสัญญาแห่งชีวิตใต้สมุทร', en:'Oceanbond Powers'}
+      {id:'pact', label:'พันธสัญญา', title:'พันธสัญญาแห่งชีวิตในพงไพร', en:'Wildbound Powers'}
     ];
 
-    let DATA: any, tab = 'merfolk', rankFilter = 'all';
+    let DATA: any, tab = 'fairies', rankFilter = 'all';
     let M: any = {};
 
     function index(){
-      DATA.merfolk.sort((a:any,b:any)=>Number(b.rank)-Number(a.rank)||a.id-b.id);
-      DATA.ranks.sort((a:any,b:any)=>Number(b.rank)-Number(a.rank));
-      M.rank = Object.fromEntries(DATA.ranks.map((r:any)=>[rk(r.rank),r]));
+      DATA.fairies.sort((a:any,b:any)=>Number(b.rank_level)-Number(a.rank_level)||a.id-b.id);
+      DATA.ranks.sort((a:any,b:any)=>Number(b.rank_level)-Number(a.rank_level));
+      M.rank = Object.fromEntries(DATA.ranks.map((r:any)=>[rk(r.rank_level),r]));
       M.amulet = Object.fromEntries(DATA.amulets.map((a:any)=>[a.amulet_name,a]));
       M.rarity = Object.fromEntries(DATA.rarities.map((r:any)=>[r.rarity,r]));
       M.pact = Object.fromEntries(DATA.pacts.map((p:any)=>[p.power_name,p]));
-      M.person = Object.fromEntries(DATA.merfolk.map((p:any)=>[p.id,p]));
+      M.person = Object.fromEntries(DATA.fairies.map((p:any)=>[p.id,p]));
       DATA.conditions = DATA.conditions || [];
       
       // อ่านค่าจาก URL ตอนโหลดเพื่อเปิดหน้าเดิม
@@ -126,7 +120,7 @@ export default function MerpeoplePage() {
     const condsOf = (name: string) => DATA.conditions.filter((c:any)=>c.skill_name && (name===c.skill_name || name.startsWith(c.skill_name) || c.skill_name.startsWith(name)));
 
     const IMG_ATTR = 'referrerpolicy="no-referrer" crossOrigin="anonymous" decoding="async"';
-    const avatar = (m:any) => `<span class="av" style="background:${esc(m.tail_color)}">${m.image_url?`<img src="${esc(m.image_url)}" alt="" loading="lazy" ${IMG_ATTR}>`:''}</span>`;
+    const avatar = (m:any) => `<span class="av" style="background:${esc(m.wing_color)}">${m.image_url?`<img src="${esc(m.image_url)}" alt="" loading="lazy" ${IMG_ATTR}>`:''}</span>`;
     
     // ปรับให้ใช้ allowHtmlTags แทน esc ธรรมดา
     const inline = (t:string) => allowHtmlTags(t).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/__(.+?)__/g,'<u>$1</u>');
@@ -161,7 +155,9 @@ export default function MerpeoplePage() {
       } else if(val!=null && String(val).trim()!=='') s.details.push({label:'', text:String(val)});
       s.counts.sort((a:any,b:any)=>orderIdx(COUNT_ORDER,a.unit)-orderIdx(COUNT_ORDER,b.unit));
       s.details.sort((a:any,b:any)=>(a.label?1:0)-(b.label?1:0));
-      const p = s.counts.find((c:any)=>c.unit===POWER_UNIT && !c.label);
+      
+      // ดึงค่าพลังอัตโนมัติจากหน่วย "ตัว/โพสต์" หรือ "ตัว/ครั้ง"
+      const p = s.counts.find((c:any)=>POWER_UNITS.includes(c.unit) && !c.label);
       if(p) s.power = p.value;
       return s;
     }
@@ -195,11 +191,11 @@ export default function MerpeoplePage() {
       return `<div class="head"><h1>${esc(t.en)}</h1><p>${esc(t.title)}</p></div>${orn}`;
     }
 
-    function viewMerfolk(){
-      const ranks = [...new Set(DATA.merfolk.map((m:any)=>rk(m.rank)))];
+    function viewFairies(){
+      const ranks = [...new Set(DATA.fairies.map((m:any)=>rk(m.rank_level)))];
       const chips = ['all',...ranks].map(r=>`<button class="chip" type="button" data-filter="${r}" aria-pressed="${rankFilter===r}">${r==='all'?'ทั้งหมด':'Rank '+r}</button>`).join('');
       const list = ranks.filter(r=>rankFilter==='all'||rankFilter===r).map(r=>{
-        const people = DATA.merfolk.filter((m:any)=>rk(m.rank)===r);
+        const people = DATA.fairies.filter((m:any)=>rk(m.rank_level)===r);
         return `<section class="group"><div class="group-h"><span class="n">${r}</span><span class="t">${esc(rname(M.rank[r as string]?.rank_name))}</span></div>
           <div class="grid">${people.map((m:any)=>`
             <button class="mcard" type="button" data-open="${m.id}">${avatar(m)}
@@ -213,12 +209,12 @@ export default function MerpeoplePage() {
     }
     function viewRank(){
       return `<div class="pcols">`+DATA.ranks.map((r:any)=>`<div class="panel">
-        <div class="who"><div class="rk"><b>${rk(r.rank)}</b>Rank</div><h3>${esc(rname(r.rank_name))}</h3></div>
+        <div class="who"><div class="rk"><b>${rk(r.rank_level)}</b>Rank</div><h3>${esc(rname(r.rank_name))}</h3></div>
         ${skillBlock(r)}</div>`).join('')+`</div>`;
     }
     function viewAmulet(){
       return `<div class="pcols">`+DATA.amulets.map((a:any)=>{
-        const wearers = DATA.merfolk.filter((m:any)=>m.amulet_name===a.amulet_name);
+        const wearers = DATA.fairies.filter((m:any)=>m.amulet_name===a.amulet_name);
         return `<div class="panel"><h3>${esc(a.amulet_name)}</h3><div class="sub">${a.abilities.length} ความสามารถ</div>
           <div style="margin-top:8px">${a.abilities.map(abilityHTML).join('')}</div>
           <div class="sec-h" style="margin-top:16px;">ผู้สวมใส่ (${wearers.length})</div>
@@ -227,7 +223,7 @@ export default function MerpeoplePage() {
     }
     function viewSpirit(){
       return `<div class="pcols">`+DATA.rarities.slice().sort((a:any,b:any)=>(b.atk_bonus+b.def_bonus)-(a.atk_bonus+a.def_bonus)).map((r:any)=>{
-        const owners = DATA.merfolk.filter((m:any)=>m.spirit_animal_rarity===r.rarity);
+        const owners = DATA.fairies.filter((m:any)=>m.spirit_animal_rarity===r.rarity);
         return `<div class="panel"><div>${rarityTag(r.rarity)}</div>
           <div class="two">
             <div class="stat">โจมตี<b>+${r.atk_bonus}</b><div class="bar atk"><i style="width:${r.atk_bonus/15*100}%"></i></div></div>
@@ -241,7 +237,7 @@ export default function MerpeoplePage() {
     }
     function viewPact(){
       return `<div class="pcols">`+DATA.pacts.map((p:any)=>{
-        const owners = DATA.merfolk.filter((m:any)=>m.pact_power_name===p.power_name);
+        const owners = DATA.fairies.filter((m:any)=>m.pact_power_name===p.power_name);
         return `<div class="panel"><h3>${esc(p.power_name)}</h3>
           <div style="margin-top:8px">${richBlock(p.description)}</div>
           <div style="margin-top:auto; padding-top:16px;">
@@ -249,17 +245,17 @@ export default function MerpeoplePage() {
           </div></div>`;
       }).join('')+`</div>`;
     }
-    const VIEWS:any = {merfolk:viewMerfolk,rank:viewRank,amulet:viewAmulet,spirit:viewSpirit,pact:viewPact};
+    const VIEWS:any = {fairies:viewFairies,rank:viewRank,amulet:viewAmulet,spirit:viewSpirit,pact:viewPact};
 
     function viewPerson(m:any){
-      const r = M.rank[rk(m.rank)], am = M.amulet[m.amulet_name], ra = M.rarity[m.spirit_animal_rarity], pc = M.pact[m.pact_power_name];
+      const r = M.rank[rk(m.rank_level)], am = M.amulet[m.amulet_name], ra = M.rarity[m.spirit_animal_rarity], pc = M.pact[m.pact_power_name];
       const hero = m.image_url
         ? `<div class="hero"><img src="${esc(m.image_url)}" alt="${esc(m.name)}" ${IMG_ATTR}>`
-        : `<div class="hero noimg"><span class="glow" style="background:${esc(m.tail_color)}"></span>`;
+        : `<div class="hero noimg"><span class="glow" style="background:${esc(m.wing_color)}"></span>`;
       return hero + `<div class="hero-t"><h2>${esc(m.name)}</h2>
-          <div class="rk"><b>${rk(m.rank)}</b><span style="font-family: var(--sans);">${esc(rname(r?.rank_name))}</span></div></div></div>
+          <div class="rk"><b>${rk(m.rank_level)}</b><span style="font-family: var(--sans);">${esc(rname(r?.rank_name))}</span></div></div></div>
         <div class="pbody">
-        <div class="owners"><span class="tag swatch"><i style="background:${esc(m.tail_color)}"></i>สีหาง ${esc(m.tail_color)}</span></div>
+        <div class="owners"><span class="tag swatch"><i style="background:${esc(m.wing_color)}"></i>สีปีก ${esc(m.wing_color)}</span></div>
         ${orn}
         <div class="sec-h">ความสามารถ</div>
         ${skillBlock(r)}
@@ -272,23 +268,23 @@ export default function MerpeoplePage() {
           :'<div class="none">ยังไม่มีสัตว์แฝง</div>'}
         <div class="sec-h" style="margin-top:22px">พันธสัญญา</div>
         ${pc?`<b>${esc(pc.power_name)}</b><div style="margin-top:4px">${richBlock(pc.description)}</div>`:'<div class="none">ยังไม่มีพันธสัญญา</div>'}
-        <div class="foot">Merpeople</div></div>`;
+        <div class="foot">Fairies</div></div>`;
     }
 
-    const CALC_EXCLUDE = ['สร้างเกราะป้องกัน'];   
+    const CALC_EXCLUDE = ['สร้างเกราะป้องกัน', 'เยียวยา', 'สร้างพืชพรรณปกคลุมพื้นที่', 'ใช้เถาวัลย์ช่วยเหลือ', 'มอบพรแห่งพฤกษา', 'ล่องหน', 'สร้างภาพลวงตา', 'พลังจิตเคลื่อนย้ายสิ่งของ', 'ควบคุมสภาพอากาศ', 'แปลงร่างเป็นสัตว์ป่า', 'ฟื้นฟูตนเอง', 'วงดอกไม้หรือเถาวัลย์ป้องกันพื้นที่'];   
     const calcSkills = (r:any) => skillsOf(r).combat.filter((s:any)=>!CALC_EXCLUDE.some(x=>s.name.startsWith(x)));
     let CALC:any = {pid:null, skills:{}, amulet:false, spirit:false, buffs:[]};
     function calcReset(m:any){
       CALC = {pid:m.id, skills:{}, amulet:false, spirit:false, buffs:[]};
-      calcSkills(M.rank[rk(m.rank)]).forEach((s:any)=>{ CALC.skills[s.id] = {on:false, power: s.power!=null ? String(s.power) : ''}; });
+      calcSkills(M.rank[rk(m.rank_level)]).forEach((s:any)=>{ CALC.skills[s.id] = {on:false, power: s.power!=null ? String(s.power) : ''}; });
     }
     function calcRun(m:any){
       const ra = M.rarity[m.spirit_animal_rarity], steps = [];
       let base = 0;
-      calcSkills(M.rank[rk(m.rank)]).forEach((s:any)=>{ const c = CALC.skills[s.id]; if(c && c.on) base += toNum(c.power); });
+      calcSkills(M.rank[rk(m.rank_level)]).forEach((s:any)=>{ const c = CALC.skills[s.id]; if(c && c.on) base += toNum(c.power); });
       steps.push(['พลังจากสกิลที่เลือก', base]);
       let cur = base;
-      if(CALC.amulet){ cur *= 2; steps.push(['×2 จากเครื่องรางอัพเกรดเมื่ออยู่ใกล้แหล่งน้ำ', cur]); }
+      if(CALC.amulet){ cur *= 2; steps.push(['×2 จากเครื่องรางอัพเกรดเมื่ออยู่ใกล้แหล่งพืชพรรณ', cur]); }
       CALC.buffs.forEach((b:any)=>{
         if(String(b.v).trim()==='') return;
         const v = toNum(b.v);
@@ -305,10 +301,9 @@ export default function MerpeoplePage() {
         + `<div class="total"><span>พลังโจมตีรวม</span><b>${fmt(total)}</b></div>`;
     }
     function calcHTML(m:any){
-      const sk = calcSkills(M.rank[rk(m.rank)]), ra = M.rarity[m.spirit_animal_rarity];
-      // ตรวจสอบว่าชาวเงือกมีสร้อยวารีนิรันดร์หรือไม่ เพื่อปิดการใช้งานสวิตช์ถ้าไม่มี
+      const sk = calcSkills(M.rank[rk(m.rank_level)]), ra = M.rarity[m.spirit_animal_rarity];
       const hasSpirit = !!(m.spirit_animal_name && ra);
-      const hasAmulet = (m.amulet_name === 'สร้อยวารีนิรันดร');
+      const hasAmulet = (m.amulet_name === 'สร้อยประกายพฤกษ์');
 
       return `<h3>${ICON.calc}คำนวณพลังโจมตี</h3>
         <p class="hint">เลือกสกิลที่จะใช้ในโพสต์นั้น ๆ สามารถเลือกเพิ่มบัฟจากเผ่าอื่นด้วยตัวเองได้</p>
@@ -320,7 +315,7 @@ export default function MerpeoplePage() {
         <div class="sec-h" style="margin-top:18px">ตัวเลือก</div>
         
         <label class="sw ${hasAmulet?'':'off'}"><input type="checkbox" data-c="amulet" ${CALC.amulet&&hasAmulet?'checked':''} ${hasAmulet?'':'disabled'}><span class="tg"></span>
-          <span class="sw-t">×2 จากเครื่องรางอัพเกรดเมื่ออยู่ใกล้แหล่งน้ำ<small>${hasAmulet?'สร้อยวารีนิรันดร':(m.amulet_name?esc(m.amulet_name):'ไม่มีเครื่องราง')}</small></span></label>
+          <span class="sw-t">×2 จากเครื่องรางอัพเกรดเมื่ออยู่ใกล้แหล่งพืชพรรณ<small>${hasAmulet?'สร้อยประกายพฤกษ์':(m.amulet_name?esc(m.amulet_name):'ไม่มีเครื่องราง')}</small></span></label>
           
         <label class="sw line ${hasSpirit?'':'off'}"><input type="checkbox" data-c="spirit" ${CALC.spirit&&hasSpirit?'checked':''} ${hasSpirit?'':'disabled'}><span class="tg"></span>
           <span class="sw-t">ใช้สัตว์แฝง<small>${hasSpirit?`บวก ATK +${ra.atk_bonus}`:'ไม่มีสัตว์แฝง'}</small></span></label>
@@ -363,7 +358,7 @@ export default function MerpeoplePage() {
         $('#view').innerHTML = viewPerson(m);
         if(CALC.pid !== m.id) calcReset(m);
         calc.hidden = false; renderCalc();
-        document.title = m.name + ' · Merpeople - Elysian Curse 2026';
+        document.title = m.name + ' · Fairy - Elysian Curse 2026';
         window.scrollTo(0,0);
       } else {
         pgrid.className = 'pgrid fade-enter';
@@ -384,7 +379,7 @@ export default function MerpeoplePage() {
         VIEWS[tab]() +
         `<div class="foot">${esc(t.en)}</div>`;
 
-      document.title = 'Merpeople - Elysian Curse 2026';
+      document.title = 'Fairy - Elysian Curse 2026';
     }
 
     $('#nav').innerHTML = TABS.map(x=>`<button type="button" data-tab="${x.id}" aria-current="${!m && x.id===tab}">${ICON[x.id]}<span>${x.label}</span></button>`).join('');
@@ -436,7 +431,7 @@ export default function MerpeoplePage() {
 
         const watermark = document.createElement('div');
         watermark.innerHTML = '© vivalavivie 2026';
-        watermark.style.cssText = 'text-align: center; color: rgba(127,169,255,0.7); padding: 16px; font-size: 13px; font-family: var(--sans); border-top: 1px dashed rgba(180,205,255,0.2); margin-top: 10px; letter-spacing: 0.5px;';
+        watermark.style.cssText = 'text-align: center; color: rgba(57, 132, 82, 0.7); padding: 16px; font-size: 13px; font-family: var(--sans); border-top: 1px dashed rgba(180,205,255,0.2); margin-top: 10px; letter-spacing: 0.5px;';
         
         const pbody = node.querySelector('.pbody');
         const oldFoot = node.querySelector('.foot') as HTMLElement | null;
@@ -453,7 +448,7 @@ export default function MerpeoplePage() {
         const blob = await htmlToImage.toBlob(node, {
           pixelRatio: ratio, 
           cacheBust: true, 
-          backgroundColor: '#0b1538',
+          backgroundColor: '#05140b',
           style: {
             margin: '0',
           }
@@ -535,7 +530,7 @@ export default function MerpeoplePage() {
       else if(d.filter){ rankFilter = d.filter; render(); }
       else if(d.open){ if(!personId()) listScroll = window.scrollY; location.hash = '#/m/' + d.open; }
       else if(d.act==='back'){ if(history.length>1) history.back(); else location.hash=''; }
-      else if(d.act==='save'){ const m = M.person[personId() as number]; saveNode($('#capture'), m ? m.name : 'merfolk'); }
+      else if(d.act==='save'){ const m = M.person[personId() as number]; saveNode($('#capture'), m ? m.name : 'fairies'); }
     });
     
     document.addEventListener('input', e=>{
@@ -576,7 +571,7 @@ export default function MerpeoplePage() {
 
     (async function(){
       try{
-        const r = await fetch('/api/merpeople2026'); if(!r.ok) throw new Error(String(r.status));
+        const r = await fetch('/api/fairy2026'); if(!r.ok) throw new Error(String(r.status));
         DATA = await r.json();
       }catch(e){
         DATA = FALLBACK; $('#demo').hidden = false;
@@ -592,7 +587,7 @@ export default function MerpeoplePage() {
     <>
       {/* ========================================== */}
       {/* เปลี่ยนภาพไอคอนของแท็บ (Favicon) เฉพาะหน้านี้ ตรงนี้ครับ */}
-      <link rel="icon" type="image/jpeg" href="https://iili.io/nc75EYB.png" />
+      <link rel="icon" type="image/jpeg" href="https://iili.io/nchwsNs.png" />
       {/* ========================================== */}
       
       <style dangerouslySetInnerHTML={{ __html: `
@@ -601,12 +596,12 @@ export default function MerpeoplePage() {
         @import url('https://midsummer-reverie.github.io/font-face/ophelia.css');
 
         :root{
-          --bg0:#050a1f; --bg1:#0c1840;
-          --text:#eef3ff; --muted:#9db0dc; --ice:#bcd6ff; --frost:#7fa9ff;
-          --line:rgba(180,205,255,.26); --line-soft:rgba(180,205,255,.14);
-          --amber:#f2a65a; --amber-d:#c9772c;
-          --panel:linear-gradient(160deg,rgba(150,180,255,.17),rgba(70,100,210,.09));
-          --card-bg:linear-gradient(165deg,#12235e 0%,#0b1538 55%,#08102b 100%);
+          --bg0:#05140b; --bg1:#0b2e17;
+          --text:#eefeff; --muted:#9dcba9; --ice:#bcfacb; --frost:#7fffaa;
+          --line:rgba(180,255,200,.26); --line-soft:rgba(180,255,200,.14);
+          --amber:#f2d15a; --amber-d:#c9a62c;
+          --panel:linear-gradient(160deg,rgba(150,255,180,.12),rgba(70,210,100,.05));
+          --card-bg:linear-gradient(165deg,#124a22 0%,#0b2615 55%,#081c10 100%);
           --sans:'Google Sans','Noto Sans Thai',system-ui,-apple-system,'Segoe UI',sans-serif;
           --display:'ophelia','Noto Serif Thai',Georgia,serif;
         }
@@ -620,12 +615,12 @@ export default function MerpeoplePage() {
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
         html{scroll-padding-top:env(safe-area-inset-top,0px)}
         
-        /* สไตล์สำหรับหน้าโหลดเฉพาะ Merpeople */
+        /* สไตล์สำหรับหน้าโหลดเฉพาะ Fairies */
         .merfolk-loader {
           position: fixed;
           inset: 0;
           z-index: 99999;
-          background: radial-gradient(circle at 50% 40%, #0c1840, #050a1f 80%);
+          background: radial-gradient(circle at 50% 40%, #0b2e17, #05140b 80%);
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -641,12 +636,12 @@ export default function MerpeoplePage() {
         .merfolk-loader .ring {
           width: 64px;
           height: 64px;
-          border: 3px solid rgba(180, 205, 255, 0.1);
+          border: 3px solid rgba(180, 255, 200, 0.1);
           border-top-color: var(--frost);
           border-radius: 50%;
           animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
           margin-bottom: 20px;
-          box-shadow: 0 0 20px rgba(127, 169, 255, 0.2);
+          box-shadow: 0 0 20px rgba(127, 255, 169, 0.2);
         }
         .merfolk-loader p {
           font-size: 15px;
@@ -658,14 +653,14 @@ export default function MerpeoplePage() {
         }
         @keyframes pulseText {
           0%, 100% { opacity: 0.6; }
-          50% { opacity: 1; text-shadow: 0 0 10px rgba(188, 214, 255, 0.5); }
+          50% { opacity: 1; text-shadow: 0 0 10px rgba(188, 255, 214, 0.5); }
         }
 
         .merfolk-wrapper {
           margin:0;min-height:100dvh;color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.65;
           background:
-            radial-gradient(900px 520px at 88% -8%,rgba(86,136,255,.38),transparent 62%),
-            radial-gradient(700px 520px at -5% 42%,rgba(60,175,225,.18),transparent 62%),
+            radial-gradient(900px 520px at 88% -8%,rgba(86,255,136,.18),transparent 62%),
+            radial-gradient(700px 520px at -5% 42%,rgba(60,225,175,.08),transparent 62%),
             linear-gradient(180deg,var(--bg1),var(--bg0) 70%);
           background-attachment:fixed;
           padding:env(safe-area-inset-top,0px) 0 0;
@@ -674,13 +669,13 @@ export default function MerpeoplePage() {
         .merfolk-wrapper::before{
           content:"";position:fixed;inset:0;pointer-events:none;opacity:.7;
           background-image:
-            radial-gradient(1.5px 1.5px at 12% 18%,#cfe0ff,transparent),
+            radial-gradient(1.5px 1.5px at 12% 18%,#cfffce,transparent),
             radial-gradient(1px 1px at 78% 12%,#fff,transparent),
-            radial-gradient(1.5px 1.5px at 62% 34%,#a9c4ff,transparent),
+            radial-gradient(1.5px 1.5px at 62% 34%,#a9ffc4,transparent),
             radial-gradient(1px 1px at 28% 52%,#fff,transparent),
-            radial-gradient(1.5px 1.5px at 90% 64%,#cfe0ff,transparent),
+            radial-gradient(1.5px 1.5px at 90% 64%,#cfffce,transparent),
             radial-gradient(1px 1px at 8% 82%,#fff,transparent),
-            radial-gradient(1.5px 1.5px at 48% 90%,#a9c4ff,transparent);
+            radial-gradient(1.5px 1.5px at 48% 90%,#a9ffc4,transparent);
         }
         
         [hidden]{display:none!important}
@@ -708,7 +703,7 @@ export default function MerpeoplePage() {
         .hex{
           --c:12px;border:0;padding:9px 20px 9px 16px;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;
           font-weight:600;font-size:14px;color:#2a1604;
-          background:linear-gradient(180deg,#ffc58a,var(--amber) 55%,var(--amber-d));
+          background:linear-gradient(180deg,#ffeba8,var(--amber) 55%,var(--amber-d));
           clip-path:polygon(var(--c) 0,calc(100% - var(--c)) 0,100% 50%,calc(100% - var(--c)) 100%,var(--c) 100%,0 50%);
           min-height:42px;transition:filter .15s;
         }
@@ -718,8 +713,8 @@ export default function MerpeoplePage() {
 
         .chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 14px;scrollbar-width:none}
         .chips::-webkit-scrollbar{display:none}
-        .chip{flex:none;white-space:nowrap;display:inline-flex;align-items:center;border:1px solid var(--line);background:rgba(120,150,235,.1);border-radius:999px;padding:6px 15px;font-size:13px;color:var(--ice);min-height:36px}
-        .chip[aria-pressed="true"]{background:var(--ice);color:#0a1740;border-color:var(--ice);font-weight:600}
+        .chip{flex:none;white-space:nowrap;display:inline-flex;align-items:center;border:1px solid var(--line);background:rgba(120,235,150,.1);border-radius:999px;padding:6px 15px;font-size:13px;color:var(--ice);min-height:36px}
+        .chip[aria-pressed="true"]{background:var(--ice);color:#081c10;border-color:var(--ice);font-weight:600}
 
         .group{margin:0 0 24px}
         .group-h{display:flex;align-items:center;gap:12px;margin:0 0 10px}
@@ -744,17 +739,17 @@ export default function MerpeoplePage() {
         .mcard-info { flex: 1; min-width: 0; } 
         .mcard .nm{display:block;font-weight:600;font-size:16px;line-height:1.35;color:#fff;overflow-wrap:break-word}
         .mcard .meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px}
-        .tag{display:inline-flex;align-items:center;white-space:nowrap;font-size:12px;line-height:1.5;padding:2px 10px;border-radius:999px;border:1px solid var(--line);color:var(--ice);background:rgba(120,150,235,.1)}
-        .tag.r-ธรรมดา{color:#c3cfe6;border-color:#8793ad}
-        .tag.r-กลาง{color:#8fe3d6;border-color:#4cae9f}
-        .tag.r-สูง{color:#c9b3ff;border-color:#8c6fdb}
-        .tag.r-ตำนาน{color:#ffd48a;border-color:#d6a043}
-        .tag.r-เทพเจ้า{color:#fff;border-color:#fff;background:linear-gradient(90deg,rgba(255,226,160,.35),rgba(170,210,255,.35));box-shadow:0 0 10px rgba(255,236,190,.35)}
+        .tag{display:inline-flex;align-items:center;white-space:nowrap;font-size:12px;line-height:1.5;padding:2px 10px;border-radius:999px;border:1px solid var(--line);color:var(--ice);background:rgba(120,235,150,.1)}
+        .tag.r-ธรรมดา{color:#c3e6cf;border-color:#87ad93}
+        .tag.r-กลาง{color:#8fe3b2;border-color:#4cae69}
+        .tag.r-สูง{color:#b3ffc9;border-color:#6fdb8c}
+        .tag.r-ตำนาน{color:#ffea8a;border-color:#d6bc43}
+        .tag.r-เทพเจ้า{color:#fff;border-color:#fff;background:linear-gradient(90deg,rgba(255,246,160,.35),rgba(170,255,210,.35));box-shadow:0 0 10px rgba(255,246,190,.35)}
         .tag.pact{color:#ffd9a8;border-color:rgba(242,166,90,.6);background:rgba(242,166,90,.1)}
         .none{color:var(--muted);font-size:13px}
 
         .who{display:flex;align-items:center;gap:14px}
-        .av{flex:none;width:52px;height:52px;border-radius:50%;overflow:hidden;border:2px solid rgba(255,255,255,.7);box-shadow:0 0 0 3px rgba(130,170,255,.18),0 0 14px rgba(120,170,255,.25)}
+        .av{flex:none;width:52px;height:52px;border-radius:50%;overflow:hidden;border:2px solid rgba(255,255,255,.7);box-shadow:0 0 0 3px rgba(130,255,170,.18),0 0 14px rgba(120,255,170,.25)}
         .av img{width:100%;height:100%;object-fit:cover;object-position:50% 18%;display:block}
         .rk{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:16px;line-height:1.2;color:var(--ice)}
         .rk b{font-family:var(--sans);font-size:32px;font-weight:500;color:#fff;margin:0;line-height:1}
@@ -766,7 +761,7 @@ export default function MerpeoplePage() {
         .ab p:last-child{margin:0}
         .note{font-size:13.5px;padding:6px 12px;border-radius:0 10px 10px 0;margin:6px 0 0}
         .note.warn{color:#ffd9a8;background:rgba(242,166,90,.1);border-left:3px solid var(--amber)}
-        .note.trait{color:#d6e6ff;background:rgba(127,169,255,.12);border-left:3px solid var(--frost)}
+        .note.trait{color:#d6ffd6;background:rgba(127,255,169,.12);border-left:3px solid var(--frost)}
         strong{font-weight:700;color:#fff}
         u{text-decoration-thickness:1.5px;text-underline-offset:3px}
         .ab .sec{color:var(--ice)}
@@ -783,7 +778,7 @@ export default function MerpeoplePage() {
         .sk-h{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px}
         .sk-n{flex:1 1 auto;font-weight:600;color:#fff;line-height:1.45}
         .sk-c{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px}
-        .cn{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;padding:2px 11px;border-radius:999px;border:1px solid var(--line);background:rgba(120,150,235,.1);font-size:13.5px;line-height:1.5;color:#fff}
+        .cn{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;padding:2px 11px;border-radius:999px;border:1px solid var(--line);background:rgba(120,235,150,.1);font-size:13.5px;line-height:1.5;color:#fff}
         .cn em{font-style:normal;color:var(--frost);font-size:12px}
         .cn b{font-weight:600}
         .cn small{font-weight:400;color:var(--muted);font-size:12px}
@@ -792,39 +787,39 @@ export default function MerpeoplePage() {
         .sk-d p + p{margin-top:4px}
         .sk-d em{font-style:normal;color:var(--frost);font-size:12px;margin-right:4px}
 
-        .bar{height:6px;border-radius:6px;background:rgba(150,180,255,.15);overflow:hidden;margin-top:4px}
+        .bar{height:6px;border-radius:6px;background:rgba(150,255,180,.15);overflow:hidden;margin-top:4px}
         .bar i{display:block;height:100%;border-radius:6px}
         .bar.atk i{background:linear-gradient(90deg,#ff9a7a,#ffd08a)}
-        .bar.def i{background:linear-gradient(90deg,#6fa8ff,#9fe3ff)}
+        .bar.def i{background:linear-gradient(90deg,#8ceb8c,#bcfacb)}
         .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
         .stat{font-size:13px;color:var(--muted)}
         .stat b{color:#fff;font-size:16px;margin-left:4px}
         .owners{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-        .owner{display:inline-flex;align-items:center;white-space:nowrap;border:1px solid var(--line);background:rgba(120,150,235,.1);color:var(--ice);border-radius:999px;padding:4px 13px;font-size:13px;min-height:32px}
+        .owner{display:inline-flex;align-items:center;white-space:nowrap;border:1px solid var(--line);background:rgba(120,235,150,.1);color:var(--ice);border-radius:999px;padding:4px 13px;font-size:13px;min-height:32px}
         .owner:hover{border-color:var(--ice)}
         .foot{margin-top:18px;text-align:center;font-family:var(--display);font-size:13px;color:var(--muted);letter-spacing:.12em}
 
         .nav{
           position:fixed;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom,0px));
           width:min(560px,calc(100% - 20px));display:flex;justify-content:space-between;gap:2px;padding:6px;z-index:20;
-          background:rgba(14,28,78,.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+          background:rgba(8,28,16,.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
           border:1px solid var(--line);border-radius:999px;box-shadow:0 10px 30px rgba(0,0,0,.4);
         }
         .nav button{flex:1;background:none;border:0;border-radius:999px;padding:7px 2px 6px;display:flex;flex-direction:column;align-items:center;gap:1px;color:var(--muted);font-size:11px;line-height:1.3}
         .nav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-        .nav button[aria-current="true"]{color:#fff;background:linear-gradient(180deg,rgba(130,170,255,.35),rgba(90,130,240,.18));box-shadow:inset 0 0 0 1px var(--line)}
+        .nav button[aria-current="true"]{color:#fff;background:linear-gradient(180deg,rgba(130,255,170,.35),rgba(90,240,130,.18));box-shadow:inset 0 0 0 1px var(--line)}
 
         .pgrid{display:block}
         #capture.list{background:none;border:0;padding:0}
         #capture.person{background:var(--card-bg);border:1px solid var(--line);border-radius:26px;overflow:hidden;padding:0 0 18px;max-width:600px;margin:0 auto}
         .bar-top{display:flex;justify-content:space-between;align-items:center;max-width:600px;margin:0 auto 12px}
-        .back{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:rgba(14,28,78,.9);border-radius:999px;padding:8px 16px 8px 12px;font-size:14px;color:var(--ice);min-height:42px}
+        .back{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:rgba(8,28,16,.9);border-radius:999px;padding:8px 16px 8px 12px;font-size:14px;color:var(--ice);min-height:42px}
         .back svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-        .hero{position:relative;aspect-ratio:4/5;max-height:640px;width:100%;overflow:hidden;background:#0b1538}
+        .hero{position:relative;aspect-ratio:4/5;max-height:640px;width:100%;overflow:hidden;background:#081c10}
         .hero img{width:100%;height:100%;object-fit:cover;object-position:50% 15%;display:block}
         .hero.noimg{aspect-ratio:auto;height:190px;display:grid;place-items:center}
-        .hero.noimg .glow{width:96px;height:96px;border-radius:50%;border:3px solid rgba(255,255,255,.75);box-shadow:0 0 0 8px rgba(130,170,255,.15),0 0 40px rgba(120,170,255,.4)}
-        .hero::after{content:"";position:absolute;inset:auto 0 0 0;height:55%;background:linear-gradient(180deg,transparent,#0b1538 92%)}
+        .hero.noimg .glow{width:96px;height:96px;border-radius:50%;border:3px solid rgba(255,255,255,.75);box-shadow:0 0 0 8px rgba(130,255,170,.15),0 0 40px rgba(120,255,170,.4)}
+        .hero::after{content:"";position:absolute;inset:auto 0 0 0;height:55%;background:linear-gradient(180deg,transparent,#081c10 92%)}
         .hero-t{position:absolute;left:18px;right:18px;bottom:6px;z-index:2}
         .hero-t h2{margin:0 0 4px;font-family:var(--display);font-weight:400;font-size:clamp(22px,6.4vw,32px);line-height:1.2;color:#fff;overflow-wrap:break-word;text-shadow:0 2px 14px rgba(0,0,0,.6)}
         .pbody{padding:0 18px}
@@ -843,16 +838,16 @@ export default function MerpeoplePage() {
         #calc h3{display:flex;align-items:center;gap:8px;font-size:18px}
         #calc h3 svg{width:20px;height:20px;stroke:var(--frost);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
         .hint{color:var(--muted);font-size:13px;margin:2px 0 0}
-        .num{width:100%;min-height:44px;background:rgba(8,16,43,.7);border:1px solid var(--line);border-radius:12px;color:#fff;padding:0 12px;font:inherit;font-size:16px}
+        .num{width:100%;min-height:44px;background:rgba(8,28,16,.7);border:1px solid var(--line);border-radius:12px;color:#fff;padding:0 12px;font:inherit;font-size:16px}
         .num:disabled{opacity:.4}
-        .num::placeholder{color:rgba(157,176,220,.6)}
+        .num::placeholder{color:rgba(157,220,176,.6)}
         .cs{display:grid;grid-template-columns:1fr 104px;gap:10px;align-items:center;border-top:1px solid var(--line-soft);padding:2px 0}
         .sec-h + .cs{border-top:0}
         .sw{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;cursor:pointer}
         .sw.line{border-top:1px solid var(--line-soft)}
         .sw input{position:absolute;opacity:0;pointer-events:none}
-        .sw .tg{flex:none;order:-1;width:46px;height:26px;border-radius:99px;background:rgba(150,180,255,.2);border:1px solid var(--line);position:relative;transition:background .15s}
-        .sw .tg::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#dfe9ff;transition:transform .15s}
+        .sw .tg{flex:none;order:-1;width:46px;height:26px;border-radius:99px;background:rgba(150,255,180,.2);border:1px solid var(--line);position:relative;transition:background .15s}
+        .sw .tg::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#dfffe9;transition:transform .15s}
         .sw input:checked + .tg{background:var(--frost)}
         .sw input:checked + .tg::after{transform:translateX(20px);background:#fff}
         .sw input:focus-visible + .tg{outline:2px solid var(--ice);outline-offset:2px}
@@ -862,34 +857,31 @@ export default function MerpeoplePage() {
         .bf{display:grid;grid-template-columns:auto 1fr 44px;gap:8px;align-items:center;margin-bottom:8px}
         .seg{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden}
         .seg button{border:0;background:none;width:44px;min-height:44px;font-size:20px;line-height:1;color:var(--muted)}
-        .seg button[aria-pressed="true"]{background:var(--ice);color:#0a1740;font-weight:700}
+        .seg button[aria-pressed="true"]{background:var(--ice);color:#081c10;font-weight:700}
         .ico{min-height:44px;border:1px solid var(--line);background:none;border-radius:12px;color:var(--muted);display:grid;place-items:center}
         .ico svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round}
         .add{margin-top:2px;border:1px dashed var(--line);background:none;border-radius:12px;min-height:44px;width:100%;color:var(--ice)}
         .out{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
         .st{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:3px 0;font-size:14px;color:var(--muted)}
         .st b{color:var(--text);font-weight:500}
-        .total{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:12px 14px;border-radius:16px;background:linear-gradient(160deg,rgba(130,170,255,.28),rgba(80,120,240,.12));border:1px solid var(--line)}
+        .total{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:12px 14px;border-radius:16px;background:linear-gradient(160deg,rgba(130,255,170,.28),rgba(80,240,120,.12));border:1px solid var(--line)}
         .total span{color:var(--ice)}
-        .total b{font-family:var(--sans);font-weight:500;font-size:40px;line-height:1.1;color:#fff;text-shadow:0 0 18px rgba(130,170,255,.6)}
+        .total b{font-family:var(--sans);font-weight:500;font-size:40px;line-height:1.1;color:#fff;text-shadow:0 0 18px rgba(130,255,170,.6)}
 
         #demo{margin:0 0 12px;padding:8px 14px;border-radius:12px;background:rgba(242,166,90,.12);border:1px solid rgba(242,166,90,.4);color:#ffd9a8;font-size:13px}
-        #toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:#eaf1ff;color:#0a1740;padding:8px 18px;border-radius:999px;font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .2s}
+        #toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:#eaffef;color:#081c10;padding:8px 18px;border-radius:999px;font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .2s}
         #toast.on{opacity:1}
         @media(prefers-reduced-motion:reduce){*{transition:none!important}}
       `}} />
 
-      {/* 3. โครงสร้าง HTML (ใช้ className แทน class ตามแบบฉบับ React) */}
       <div className="merfolk-wrapper">
-        
-        {/* หน้าโหลดเฉพาะ Merpeople (จะค่อยๆ จางหายไปเมื่อโหลดเสร็จ) */}
         <div className={`merfolk-loader ${!isLoading ? 'fade-out' : ''}`}>
           <div className="ring"></div>
           <p>กำลังโหลดข้อมูล...</p>
         </div>
 
         <div className="wrap">
-          <div id="demo" hidden>กำลังแสดงข้อมูลตัวอย่าง เพราะยังเชื่อมต่อฐานข้อมูลไม่ได้ (/api/merpeople2026)</div>
+          <div id="demo" hidden>กำลังแสดงข้อมูลตัวอย่าง เพราะยังเชื่อมต่อฐานข้อมูลไม่ได้ (/api/fairy2026)</div>
           <div className="bar-top" id="top" hidden></div>
           <div className="pgrid" id="pgrid">
             <div id="capture"><div id="view"></div></div>

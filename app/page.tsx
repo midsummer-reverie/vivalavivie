@@ -212,6 +212,10 @@ export default function Home() {
                 <img className="my-menu-icon" src="https://iili.io/nc75EYB.png" alt="Merpeople" />
                 <span className="my-menu-label">The Merpeople</span>
               </Link>
+              <Link href="/fairy2026" className="my-menu-item">
+                <img className="my-menu-icon" src="https://iili.io/nchwsNs.png" alt="Fairy" />
+                <span className="my-menu-label">Fairy House</span>
+              </Link>
             </nav>
 
             <div className="my-chat-bubble"></div>

@@ -88,7 +88,7 @@ export default function MerpeoplePage() {
     const ICON: Record<string, string> = {
       save:'<svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>',
       calc:'<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 12h2M12 12h2M8 16h2M12 16h2M16 12v4"/></svg>',
-      merfolk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-7l-3-3M12 15l3-3M15 8c0 1.5-1 3-3 3s-3-1.5-3-3 1.5-3 3-3 3 1.5 3 3zM4 22h16M2 12h2M20 12h2M12 2v2"/></svg>', // ไอคอนใหม่แยกเฉพาะหน้า Merpeople
+      merfolk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-7l-3-3M12 15l3-3M15 8c0 1.5-1 3-3 3s-3-1.5-3-3 1.5-3 3-3 3 1.5 3 3zM4 22h16M2 12h2M20 12h2M12 2v2"/></svg>',
       rank:'<svg viewBox="0 0 24 24"><path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5"/><path d="M3 16.5L12 21l9-4.5"/></svg>',
       amulet:'<svg viewBox="0 0 24 24"><path d="M6 4h12l3 5-9 11L3 9z"/><path d="M3 9h18M9 4l-1 5 4 11 4-11-1-5"/></svg>',
       spirit:'<svg viewBox="0 0 24 24"><circle cx="6.5" cy="10" r="1.8"/><circle cx="10" cy="6" r="1.8"/><circle cx="14" cy="6" r="1.8"/><circle cx="17.5" cy="10" r="1.8"/><path d="M12 12c-3 0-5 3-5 5 0 2 2 2.5 5 2.5s5-.5 5-2.5c0-2-2-5-5-5z"/></svg>',
@@ -403,10 +403,25 @@ export default function MerpeoplePage() {
         if(document.fonts?.ready) await document.fonts.ready;
         
         const imgs = node.querySelectorAll('img');
+        
+        // --- ส่วนที่ 1: ตรวจจับและซ่อนภาพที่เสีย เพื่อไม่ให้ html-to-image พัง ---
+        const brokenImgs: HTMLImageElement[] = [];
         await Promise.all(Array.from(imgs).map((img: any) => {
-          if (img.complete) return Promise.resolve();
-          return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+          if (img.complete) {
+            if (img.naturalWidth === 0) brokenImgs.push(img);
+            return Promise.resolve();
+          }
+          return new Promise(resolve => { 
+            img.onload = resolve; 
+            img.onerror = () => { brokenImgs.push(img); resolve(null); }; 
+          });
         }));
+
+        // ซ่อนภาพชั่วคราว
+        brokenImgs.forEach((img: HTMLImageElement) => {
+          img.style.display = 'none';
+        });
+        // -----------------------------------------------------------
 
         const ratio = Math.max(1, Math.min(3, 12000 / node.scrollHeight));
         
@@ -441,9 +456,13 @@ export default function MerpeoplePage() {
         node.style.border = originalBorder;
         if (pbody && watermark.parentNode === pbody) pbody.removeChild(watermark);
         if (oldFoot) oldFoot.style.display = '';
+        
+        // นำภาพที่ซ่อนกลับมาแสดงใหม่
+        brokenImgs.forEach((img: HTMLImageElement) => {
+          img.style.display = '';
+        });
         // ----------------------------------
 
-        // เพิ่มการเช็คค่า blob ป้องกัน Error ใน TypeScript
         if (!blob) {
           toast('บันทึกภาพไม่สำเร็จ (ไม่พบข้อมูลภาพ)');
           return;
@@ -563,6 +582,13 @@ export default function MerpeoplePage() {
           --sans:'Google Sans','Noto Sans Thai',system-ui,-apple-system,'Segoe UI',sans-serif;
           --display:'ophelia','Noto Serif Thai',Georgia,serif;
         }
+        
+        /* แก้ปัญหาสีขาวตอน Overscroll ในมือถือ */
+        html, body {
+          background-color: var(--bg0);
+          margin: 0;
+        }
+        
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
         html{scroll-padding-top:env(safe-area-inset-top,0px)}
         

@@ -283,15 +283,29 @@ export default function FairiesPage() {
       let base = 0;
       calcSkills(M.rank[rk(m.rank_level)]).forEach((s:any)=>{ const c = CALC.skills[s.id]; if(c && c.on) base += toNum(c.power); });
       steps.push(['พลังจากสกิลที่เลือก', base]);
+      
       let cur = base;
-      if(CALC.amulet){ cur *= 2; steps.push(['×2 จากเครื่องรางอัพเกรดเมื่ออยู่ใกล้แหล่งพืชพรรณ', cur]); }
+
+      // 1. บวกสัตว์แฝงก่อน
+      if(CALC.spirit && ra){ 
+        cur += ra.atk_bonus; 
+        steps.push([`สัตว์แฝง + ${ra.atk_bonus}`, cur]); 
+      }
+
+      // 2. ค่อยคูณเครื่องราง (ผลคือพลังสกิลและสัตว์แฝงจะโดนคูณ 2 ไปด้วยกัน)
+      if(CALC.amulet){ 
+        cur *= 2; 
+        steps.push(['×2 จากเครื่องรางอัพเกรดเมื่ออยู่ใกล้แหล่งพืชพรรณ', cur]); 
+      }
+
+      // 3. คิดบัพเสริมจากผู้อื่นเป็นลำดับสุดท้าย
       CALC.buffs.forEach((b:any)=>{
         if(String(b.v).trim()==='') return;
         const v = toNum(b.v);
         cur = b.op==='+' ? cur+v : cur*v;
         steps.push([`บัพ ${b.op} ${fmt(v)}`, cur]);
       });
-      if(CALC.spirit && ra){ cur += ra.atk_bonus; steps.push([`สัตว์แฝง + ${ra.atk_bonus}`, cur]); }
+      
       return {steps, total:cur};
     }
     function calcOut(){

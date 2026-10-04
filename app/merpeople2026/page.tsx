@@ -259,7 +259,7 @@ export default function MerpeoplePage() {
       return hero + `<div class="hero-t"><h2>${esc(m.name)}</h2>
           <div class="rk"><b>${rk(m.rank)}</b><span style="font-family: var(--sans);">${esc(rname(r?.rank_name))}</span></div></div></div>
         <div class="pbody">
-        <div class="owners"><span class="tag swatch"><i style="background:${esc(m.tail_color)}"></i>สีหาง ${esc(m.tail_color)}</span></div>
+        <div class="owners"><span class="tag swatch" style="text-transform: uppercase;><i style="background:${esc(m.tail_color)}"></i>สีหาง ${esc(m.tail_color)}</span></div>
         ${orn}
         <div class="sec-h">ความสามารถ</div>
         ${skillBlock(r)}

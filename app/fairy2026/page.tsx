@@ -255,7 +255,7 @@ export default function FairiesPage() {
       return hero + `<div class="hero-t"><h2>${esc(m.name)}</h2>
           <div class="rk"><b>${rk(m.rank_level)}</b><span style="font-family: var(--sans);">${esc(rname(r?.rank_name))}</span></div></div></div>
         <div class="pbody">
-        <div class="owners"><span class="tag swatch"><i style="background:${esc(m.wing_color)}"></i>สีปีก ${esc(m.wing_color)}</span></div>
+        <div class="owners"><span class="tag swatch" style="text-transform: uppercase;"><i style="background:${esc(m.wing_color)}"></i>สีปีก ${esc(m.wing_color)}</span></div>
         ${orn}
         <div class="sec-h">ความสามารถ</div>
         ${skillBlock(r)}
@@ -823,7 +823,7 @@ export default function FairiesPage() {
         .hero-t{position:absolute;left:18px;right:18px;bottom:6px;z-index:2}
         .hero-t h2{margin:0 0 4px;font-family:var(--display);font-weight:400;font-size:clamp(22px,6.4vw,32px);line-height:1.2;color:#fff;overflow-wrap:break-word;text-shadow:0 2px 14px rgba(0,0,0,.6)}
         .pbody{padding:0 18px}
-        .swatch{display:inline-flex;align-items:center;gap:8px}
+        .swatch{display:inline-flex;align-items:center;gap:8px;text-transform: uppercase}
         .swatch i{width:14px;height:14px;border-radius:50%;border:1.5px solid rgba(255,255,255,.8)}
 
         @media(min-width:900px){

@@ -107,6 +107,10 @@ export default function FairiesPage() {
       M.rarity = Object.fromEntries(DATA.rarities.map((r:any)=>[r.rarity,r]));
       M.pact = Object.fromEntries(DATA.pacts.map((p:any)=>[p.power_name,p]));
       M.person = Object.fromEntries(DATA.fairies.map((p:any)=>[p.id,p]));
+      
+      // เพิ่ม id 9999 สำหรับการคำนวณส่วนกลาง
+      M.person[9999] = { id: 9999, name: 'คำนวณพลังส่วนกลาง', rank_level: '5', wing_color: '#05140b', spirit_animal_rarity: 'เทพเจ้า', amulet_name: 'สร้อยประกายพฤกษ์' };
+
       DATA.conditions = DATA.conditions || [];
       
       // อ่านค่าจาก URL ตอนโหลดเพื่อเปิดหน้าเดิม
@@ -167,8 +171,8 @@ export default function FairiesPage() {
       const obj = (v:any) => typeof v==='string' ? (()=>{ try{return JSON.parse(v)}catch(e){return {}} })() : (v||{});
       [['combat',obj(r.combat_abilities)],['other',obj(r.utility_abilities)]].forEach(([g,o])=>{
         out[g as string] = Object.entries(o as Record<string,any>).map(([k,v])=>parseSkill(k,v))
-          .sort((a,b)=>orderIdx(SKILL_ORDER,a.name)-orderIdx(SKILL_ORDER,b.name))
-          .map((s,i)=>({...s,id:g+String(i)}));
+          .sort((a:any,b:any)=>orderIdx(SKILL_ORDER,a.name)-orderIdx(SKILL_ORDER,b.name))
+          .map((s:any,i:number)=>({...s,id:g+String(i)}));
       });
       return out;
     }
@@ -184,7 +188,7 @@ export default function FairiesPage() {
     }
     function skillBlock(r:any){
       const s = skillsOf(r);
-      return ['combat','other'].filter(g=>s[g].length).map(g=>`<div class="sec-h">${GROUP_NAMES[g as keyof typeof GROUP_NAMES]}</div>${skillRows(s[g])}`).join('')
+      return ['combat','other'].filter(g=>s[g as keyof typeof s].length).map(g=>`<div class="sec-h">${GROUP_NAMES[g as keyof typeof GROUP_NAMES]}</div>${skillRows(s[g as keyof typeof s])}`).join('')
         || '<div class="none">ไม่มีข้อมูล</div>';
     }
     function head(t:any){
@@ -194,8 +198,19 @@ export default function FairiesPage() {
     function viewFairies(){
       const ranks = [...new Set(DATA.fairies.map((m:any)=>rk(m.rank_level)))];
       const chips = ['all',...ranks].map(r=>`<button class="chip" type="button" data-filter="${r}" aria-pressed="${rankFilter===r}">${r==='all'?'ทั้งหมด':'Rank '+r}</button>`).join('');
+      
+      // ป้ายประกาศแบนเนอร์ก้อนเล็ก มินิมอล ไม่มีไอค่อน บรรทัดเดียว
+      const hubBanner = `
+        <div class="hub-btn-wrap">
+            <button type="button" class="hub-btn" data-open="9999">
+                คำนวณพลังส่วนกลาง
+            </button>
+        </div>
+      `;
+
       const list = ranks.filter(r=>rankFilter==='all'||rankFilter===r).map(r=>{
-        const people = DATA.fairies.filter((m:any)=>rk(m.rank_level)===r);
+        const people = DATA.fairies.filter((m:any)=>rk(m.rank_level)===r && m.id !== 9999);
+        if(!people.length) return '';
         return `<section class="group"><div class="group-h"><span class="n">${r}</span><span class="t">${esc(rname(M.rank[r as string]?.rank_name))}</span></div>
           <div class="grid">${people.map((m:any)=>`
             <button class="mcard" type="button" data-open="${m.id}">${avatar(m)}
@@ -205,7 +220,7 @@ export default function FairiesPage() {
               </span>
             </button>`).join('')}</div></section>`;
       }).join('');
-      return `<div class="chips">${chips}</div>${list}`;
+      return hubBanner + `<div class="chips">${chips}</div>${list}`;
     }
     function viewRank(){
       return `<div class="pcols">`+DATA.ranks.map((r:any)=>`<div class="panel">
@@ -214,7 +229,7 @@ export default function FairiesPage() {
     }
     function viewAmulet(){
       return `<div class="pcols">`+DATA.amulets.map((a:any)=>{
-        const wearers = DATA.fairies.filter((m:any)=>m.amulet_name===a.amulet_name);
+        const wearers = DATA.fairies.filter((m:any)=>m.amulet_name===a.amulet_name && m.id !== 9999);
         return `<div class="panel"><h3>${esc(a.amulet_name)}</h3><div class="sub">${a.abilities.length} ความสามารถ</div>
           <div style="margin-top:8px">${a.abilities.map(abilityHTML).join('')}</div>
           <div class="sec-h" style="margin-top:16px;">ผู้สวมใส่ (${wearers.length})</div>
@@ -223,7 +238,7 @@ export default function FairiesPage() {
     }
     function viewSpirit(){
       return `<div class="pcols">`+DATA.rarities.slice().sort((a:any,b:any)=>(b.atk_bonus+b.def_bonus)-(a.atk_bonus+a.def_bonus)).map((r:any)=>{
-        const owners = DATA.fairies.filter((m:any)=>m.spirit_animal_rarity===r.rarity);
+        const owners = DATA.fairies.filter((m:any)=>m.spirit_animal_rarity===r.rarity && m.id !== 9999);
         return `<div class="panel"><div>${rarityTag(r.rarity)}</div>
           <div class="two">
             <div class="stat">โจมตี<b>+${r.atk_bonus}</b><div class="bar atk"><i style="width:${r.atk_bonus/15*100}%"></i></div></div>
@@ -237,7 +252,7 @@ export default function FairiesPage() {
     }
     function viewPact(){
       return `<div class="pcols">`+DATA.pacts.map((p:any)=>{
-        const owners = DATA.fairies.filter((m:any)=>m.pact_power_name===p.power_name);
+        const owners = DATA.fairies.filter((m:any)=>m.pact_power_name===p.power_name && m.id !== 9999);
         return `<div class="panel"><h3>${esc(p.power_name)}</h3>
           <div style="margin-top:8px">${richBlock(p.description)}</div>
           <div style="margin-top:auto; padding-top:16px;">
@@ -248,6 +263,16 @@ export default function FairiesPage() {
     const VIEWS:any = {fairies:viewFairies,rank:viewRank,amulet:viewAmulet,spirit:viewSpirit,pact:viewPact};
 
     function viewPerson(m:any){
+      // หน้าคำนวณพลังส่วนกลางแบบไร้รูป บังคับฟอนต์ Sans ล้วน
+      if (m.id === 9999) {
+          return `
+            <div class="pbody hub-view" style="padding-top: 24px; min-height: 100vh;">
+              <h2 style="font-family: var(--sans) !important; font-size: 28px; color: #fff; margin:0 0 6px;">คำนวณพลังส่วนกลาง</h2>
+              <p style="color: var(--muted); margin:0 0 24px; font-size: 14px;">(สามารถเลือกข้อมูลเองได้ในกรณีถูกลดขั้นในอิเวนต์)</p>
+              <div id="hubCalcArea"></div>
+            </div>`;
+      }
+
       const r = M.rank[rk(m.rank_level)], am = M.amulet[m.amulet_name], ra = M.rarity[m.spirit_animal_rarity], pc = M.pact[m.pact_power_name];
       const hero = m.image_url
         ? `<div class="hero"><img src="${esc(m.image_url)}" alt="${esc(m.name)}" ${IMG_ATTR}>`
@@ -273,15 +298,22 @@ export default function FairiesPage() {
 
     const CALC_EXCLUDE = ['สร้างม่านแสงบดบังทัศนวิสัยศัตรู','สร้างเกราะป้องกัน', 'เยียวยา', 'สร้างพืชพรรณปกคลุมพื้นที่', 'ใช้เถาวัลย์ช่วยเหลือ', 'มอบพรแห่งพฤกษา', 'ล่องหน', 'สร้างภาพลวงตา', 'พลังจิตเคลื่อนย้ายสิ่งของ', 'ควบคุมสภาพอากาศ', 'แปลงร่างเป็นสัตว์ป่า', 'ฟื้นฟูตนเอง', 'วงดอกไม้หรือเถาวัลย์ป้องกันพื้นที่'];   
     const calcSkills = (r:any) => skillsOf(r).combat.filter((s:any)=>!CALC_EXCLUDE.some(x=>s.name.startsWith(x)));
-    let CALC:any = {pid:null, skills:{}, amulet:false, spirit:false, buffs:[]};
+    let CALC:any = {pid:null, skills:{}, amulet:false, spirit:false, buffs:[], hubRank:'5', hubAmulet:'สร้อยประกายพฤกษ์', hubSpirit:'เทพเจ้า'};
+    
     function calcReset(m:any){
-      CALC = {pid:m.id, skills:{}, amulet:false, spirit:false, buffs:[]};
-      calcSkills(M.rank[rk(m.rank_level)]).forEach((s:any)=>{ CALC.skills[s.id] = {on:false, power: s.power!=null ? String(s.power) : ''}; });
+      CALC = {pid:m.id, skills:{}, amulet:false, spirit:false, buffs:[], hubRank: CALC.hubRank || '5', hubAmulet: CALC.hubAmulet || 'สร้อยประกายพฤกษ์', hubSpirit: CALC.hubSpirit || 'เทพเจ้า'};
+      let targetRank = m.id === 9999 ? CALC.hubRank : rk(m.rank_level);
+      calcSkills(M.rank[targetRank]).forEach((s:any)=>{ CALC.skills[s.id] = {on:false, power: s.power!=null ? String(s.power) : ''}; });
     }
+    
     function calcRun(m:any){
-      const ra = M.rarity[m.spirit_animal_rarity], steps = [];
+      let isHub = m.id === 9999;
+      const targetRarity = isHub ? CALC.hubSpirit : m.spirit_animal_rarity;
+      const ra = M.rarity[targetRarity], steps = [];
+      const targetRank = isHub ? CALC.hubRank : rk(m.rank_level);
+
       let base = 0;
-      calcSkills(M.rank[rk(m.rank_level)]).forEach((s:any)=>{ const c = CALC.skills[s.id]; if(c && c.on) base += toNum(c.power); });
+      calcSkills(M.rank[targetRank]).forEach((s:any)=>{ const c = CALC.skills[s.id]; if(c && c.on) base += toNum(c.power); });
       steps.push(['พลังจากสกิลที่เลือก', base]);
       
       let cur = base;
@@ -289,13 +321,14 @@ export default function FairiesPage() {
       // 1. บวกสัตว์แฝงก่อน
       if(CALC.spirit && ra){ 
         cur += ra.atk_bonus; 
-        steps.push([`สัตว์แฝง + ${ra.atk_bonus}`, cur]); 
+        steps.push([`สัตว์แฝง (${targetRarity}) + ${ra.atk_bonus}`, cur]); 
       }
 
       // 2. ค่อยคูณเครื่องราง (ผลคือพลังสกิลและสัตว์แฝงจะโดนคูณ 2 ไปด้วยกัน)
       if(CALC.amulet){ 
         cur *= 2; 
-        steps.push(['×2 จากเครื่องรางอัพเกรดเมื่ออยู่ใกล้แหล่งพืชพรรณ', cur]); 
+        let amText = isHub ? CALC.hubAmulet : 'เครื่องรางอัพเกรดเมื่ออยู่ใกล้แหล่งพืชพรรณ';
+        steps.push([`×2 จาก ${amText}`, cur]); 
       }
 
       // 3. คิดบัพเสริมจากผู้อื่นเป็นลำดับสุดท้าย
@@ -308,19 +341,55 @@ export default function FairiesPage() {
       
       return {steps, total:cur};
     }
+    
     function calcOut(){
       const m = M.person[CALC.pid]; if(!m || !$('#calcOut')) return;
       const {steps,total} = calcRun(m);
-      $('#calcOut').innerHTML = steps.map(s=>`<div class="st"><span>${esc(s[0])}</span><b>${fmt(s[1])}</b></div>`).join('')
+      $('#calcOut').innerHTML = steps.map((s:any)=>`<div class="st"><span>${esc(s[0])}</span><b>${fmt(s[1])}</b></div>`).join('')
         + `<div class="total"><span>พลังโจมตีรวม</span><b>${fmt(total)}</b></div>`;
     }
+    
     function calcHTML(m:any){
-      const sk = calcSkills(M.rank[rk(m.rank_level)]), ra = M.rarity[m.spirit_animal_rarity];
-      const hasSpirit = !!(m.spirit_animal_name && ra);
-      const hasAmulet = (m.amulet_name === 'สร้อยประกายพฤกษ์');
+      let isHub = m.id === 9999;
+      let targetRank = isHub ? CALC.hubRank : rk(m.rank_level);
+      const sk = calcSkills(M.rank[targetRank]);
+      
+      const ra = isHub ? M.rarity[CALC.hubSpirit] : M.rarity[m.spirit_animal_rarity];
+      const hasSpirit = isHub ? (CALC.hubSpirit !== 'none') : !!(m.spirit_animal_name && ra);
+      const hasAmulet = isHub ? (CALC.hubAmulet !== 'none') : (m.amulet_name === 'สร้อยประกายพฤกษ์');
 
-      return `<h3>${ICON.calc}คำนวณพลังโจมตี</h3>
+      let hubControls = '';
+      if(isHub){
+          hubControls = `
+            <div class="hub-ctrls">
+                <div class="ctrl-grp">
+                    <label>ระดับขั้น (Rank)</label>
+                    <select data-c="hubRank" class="num select-css">
+                        ${Object.keys(M.rank).sort((a:any,b:any)=>Number(b)-Number(a)).map(r => `<option value="${r}" ${r===CALC.hubRank?'selected':''}>Rank ${r}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="ctrl-grp">
+                    <label>ความหายากสัตว์แฝง</label>
+                    <select data-c="hubSpirit" class="num select-css">
+                        <option value="none">ไม่มีสัตว์แฝง</option>
+                        ${DATA.rarities.slice().sort((a:any,b:any)=>(b.atk_bonus)-(a.atk_bonus)).map((r:any) => `<option value="${r.rarity}" ${r.rarity===CALC.hubSpirit?'selected':''}>${r.rarity} (+${r.atk_bonus})</option>`).join('')}
+                    </select>
+                </div>
+                <div class="ctrl-grp">
+                    <label>เครื่องรางที่ครอบครอง</label>
+                    <select data-c="hubAmulet" class="num select-css">
+                        <option value="none">ไม่มีเครื่องราง</option>
+                        <option value="สร้อยประกายพฤกษ์" ${CALC.hubAmulet==='สร้อยประกายพฤกษ์'?'selected':''}>สร้อยประกายพฤกษ์ (x2)</option>
+                    </select>
+                </div>
+            </div>
+            <hr style="border-color:var(--line-soft); margin:18px 0;">
+          `;
+      }
+
+      return `${isHub?'':`<h3>${ICON.calc}คำนวณพลังโจมตี</h3>`}
         <p class="hint">เลือกสกิลที่จะใช้ในโพสต์นั้น ๆ สามารถเลือกเพิ่มบัฟจากเผ่าอื่นด้วยตัวเองได้</p>
+        ${hubControls}
         <div class="sec-h" style="margin-top:14px">สกิลที่ใช้ (ต่อสู้)</div>
         ${sk.length?sk.map((s:any)=>{ const c = CALC.skills[s.id] || {on:false,power:''}; return `
           <div class="cs"><label class="sw"><input type="checkbox" data-c="skill" data-id="${esc(s.id)}" ${c.on?'checked':''}><span class="tg"></span>
@@ -329,10 +398,10 @@ export default function FairiesPage() {
         <div class="sec-h" style="margin-top:18px">ตัวเลือก</div>
         
         <label class="sw ${hasAmulet?'':'off'}"><input type="checkbox" data-c="amulet" ${CALC.amulet&&hasAmulet?'checked':''} ${hasAmulet?'':'disabled'}><span class="tg"></span>
-          <span class="sw-t">×2 จากเครื่องรางอัพเกรดเมื่ออยู่ใกล้แหล่งพืชพรรณ<small>${hasAmulet?'สร้อยประกายพฤกษ์':(m.amulet_name?esc(m.amulet_name):'ไม่มีเครื่องราง')}</small></span></label>
+          <span class="sw-t">×2 จากเครื่องรางอัพเกรดเมื่ออยู่ใกล้แหล่งพืชพรรณ<small>${hasAmulet?(isHub?CALC.hubAmulet:'สร้อยประกายพฤกษ์'):(m.amulet_name?esc(m.amulet_name):'ไม่มีเครื่องราง')}</small></span></label>
           
         <label class="sw line ${hasSpirit?'':'off'}"><input type="checkbox" data-c="spirit" ${CALC.spirit&&hasSpirit?'checked':''} ${hasSpirit?'':'disabled'}><span class="tg"></span>
-          <span class="sw-t">ใช้สัตว์แฝง<small>${hasSpirit?`บวก ATK +${ra.atk_bonus}`:'ไม่มีสัตว์แฝง'}</small></span></label>
+          <span class="sw-t">ใช้สัตว์แฝง<small>${hasSpirit?`บวก ATK +${ra?.atk_bonus}`:'ไม่มีสัตว์แฝง'}</small></span></label>
           
         <div class="sec-h" style="margin-top:18px">บัพจากคนอื่น</div>
         ${CALC.buffs.map((b:any,i:number)=>`<div class="bf">
@@ -344,9 +413,16 @@ export default function FairiesPage() {
         <button class="add" type="button" data-c="addbuff">+ เพิ่มบัพ</button>
         <div class="out" id="calcOut"></div>`;
     }
+    
     function renderCalc(){
       const m = M.person[CALC.pid]; if(!m) return;
-      $('#calc').innerHTML = calcHTML(m); calcOut();
+      
+      if(m.id === 9999) {
+          $('#hubCalcArea').innerHTML = calcHTML(m);
+      } else {
+          $('#calc').innerHTML = calcHTML(m); 
+      }
+      calcOut();
     }
 
     let listScroll = 0;
@@ -357,47 +433,60 @@ export default function FairiesPage() {
       const cap = $('#capture'), calc = $('#calc');
       const pgrid = $('#pgrid');
       const topbar = $('#top');
+
+      if (!pgrid || !topbar || !cap || !calc || !$('#view') || !$('#nav')) return;
       
       pgrid.classList.remove('fade-enter');
       topbar.classList.remove('fade-enter');
       void pgrid.offsetWidth; 
 
       if (m){
-        pgrid.className = 'pgrid two fade-enter';
-        cap.className = 'person';
+        // หากเป็นหน้าคำนวณส่วนกลาง (id 9999) ให้เปิดกว้างเต็มจอ และไม่มีแถบด้านขวา
+        pgrid.className = m.id === 9999 ? 'pgrid fade-enter' : 'pgrid two fade-enter';
+        cap.className = m.id === 9999 ? 'person hub-full' : 'person';
         topbar.className = 'bar-top fade-enter';
-        topbar.innerHTML = `<button class="back" type="button" data-act="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>กลับ</button>
-          <button class="hex" type="button" data-act="save">${ICON.save}บันทึกภาพ</button>`;
+        
+        // ถ้าเป็นหน้าคำนวณส่วนกลาง ไม่ต้องมีปุ่มเซฟภาพ
+        if(m.id === 9999) {
+            topbar.innerHTML = `<button class="back" type="button" data-act="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>กลับ</button>`;
+        } else {
+            topbar.innerHTML = `<button class="back" type="button" data-act="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>กลับ</button>
+              <button class="hex" type="button" data-act="save">${ICON.save}บันทึกภาพ</button>`;
+        }
+
         topbar.hidden = false;
         $('#view').innerHTML = viewPerson(m);
         if(CALC.pid !== m.id) calcReset(m);
-        calc.hidden = false; renderCalc();
+        calc.hidden = (m.id === 9999); // ปิด sidebar ด้านขวาถ้าเป็นหน้า 9999
+        renderCalc();
         document.title = m.name + ' · Fairy - Elysian Curse 2026';
         window.scrollTo(0,0);
       } else {
         pgrid.className = 'pgrid fade-enter';
         cap.className = 'list';
-        topbar.hidden = true;
-        topbar.innerHTML = '';
+        topbar.hidden = false;
+        
+        // ปุ่มกลับไปหน้าหลัก (Home)
+        topbar.innerHTML = `<a href="/" class="back" style="text-decoration:none;"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>หน้าหลัก</a>`;
+        topbar.className = 'bar-top fade-enter';
         calc.hidden = true;
-        topbar.className = 'bar-top';
 
-          const t = TABS.find(x => x.id === tab);
+        const t = TABS.find(x => x.id === tab);
 
-      if (!t) {
-      return;
+        if (!t) {
+            return;
+        }
+
+        $('#view').innerHTML =
+          head(t) +
+          VIEWS[tab]() +
+          `<div class="foot">${esc(t.en)}</div>`;
+
+        document.title = 'Fairy - Elysian Curse 2026';
+      }
+
+      $('#nav').innerHTML = TABS.map(x=>`<button type="button" data-tab="${x.id}" aria-current="${!m && x.id===tab}">${ICON[x.id] || ICON.calc}<span>${x.label}</span></button>`).join('');
     }
-
-      $('#view').innerHTML =
-        head(t) +
-        VIEWS[tab]() +
-        `<div class="foot">${esc(t.en)}</div>`;
-
-      document.title = 'Fairy - Elysian Curse 2026';
-    }
-
-    $('#nav').innerHTML = TABS.map(x=>`<button type="button" data-tab="${x.id}" aria-current="${!m && x.id===tab}">${ICON[x.id]}<span>${x.label}</span></button>`).join('');
-  }
 
     let toastT: any;
     function toast(msg:string){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),2200); }
@@ -433,9 +522,9 @@ export default function FairiesPage() {
         // -----------------------------------------------------------
 
         // แก้ปัญหาภาพเว้นว่าง (Blank Image) บนมือถือ: 
-        // 1. ลด Ratio บนมือถือเพื่อไม่ให้เกิน Canvas Memory Limit ของ iOS
+        // ขยาย Ratio บนมือถือเพื่อภาพชัดเจนขึ้น
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        const ratio = isMobile ? 1.5 : Math.max(1, Math.min(3, 12000 / node.scrollHeight));
+        const ratio = isMobile ? 2.5 : Math.max(2, Math.min(4, 16000 / node.scrollHeight));
         
         // --- ปรับแต่ง DOM ก่อนถ่ายภาพ ---
         const originalBorderRadius = node.style.borderRadius;
@@ -559,6 +648,16 @@ export default function FairiesPage() {
     document.addEventListener('change', e=>{
       const target = e.target as HTMLInputElement;
       const d = target.dataset; if(!d || !d.c) return;
+
+      if(d.c==='hubRank') {
+          CALC.hubRank = target.value;
+          calcReset(M.person[9999]);
+          renderCalc();
+          return;
+      }
+      if(d.c==='hubSpirit') { CALC.hubSpirit = target.value; renderCalc(); return; }
+      if(d.c==='hubAmulet') { CALC.hubAmulet = target.value; renderCalc(); return; }
+
       if(d.c==='skill'){
         CALC.skills[d.id as string].on = target.checked;
         const inp = document.querySelector(`input[data-c="power"][data-id="${CSS.escape(d.id as string)}"]`) as HTMLInputElement;
@@ -585,6 +684,7 @@ export default function FairiesPage() {
 
     (async function(){
       try{
+        // เปลี่ยน endpoint เป็นของแฟรี่ (ถ้ามี) หรือใช้ FALLBACK ดั้งเดิม
         const r = await fetch('/api/fairy2026'); if(!r.ok) throw new Error(String(r.status));
         DATA = await r.json();
       }catch(e){
@@ -826,8 +926,20 @@ export default function FairiesPage() {
         .pgrid{display:block}
         #capture.list{background:none;border:0;padding:0}
         #capture.person{background:var(--card-bg);border:1px solid var(--line);border-radius:26px;overflow:hidden;padding:0 0 18px;max-width:600px;margin:0 auto}
+        
+        /* สไตล์สำหรับหน้า Hub ส่วนกลางโดยเฉพาะ */
+        #capture.person.hub-full { max-width: 860px !important; margin: 0 auto; background: none !important; border: none !important; box-shadow: none !important; padding: 0 16px; }
+        .hub-view * { font-family: var(--sans) !important; }
+        .hub-btn-wrap { text-align: center; margin-bottom: 24px; }
+        .hub-btn { display: inline-block; padding: 10px 24px; border-radius: 999px; border: 1px solid var(--line); background: rgba(8,28,16,0.6); color: var(--ice); font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: background 0.2s, border-color 0.2s; }
+        .hub-btn:hover { background: rgba(130,255,170,0.15); border-color: var(--frost); }
+        .hub-ctrls { background:rgba(8,28,16,.4); border-radius:16px; padding:16px; margin-top:16px; border:1px solid var(--line-soft); }
+        .ctrl-grp { margin-bottom:12px; } .ctrl-grp:last-child { margin-bottom:0; }
+        .ctrl-grp label { display:block; color:var(--muted); font-size:13px; margin-bottom:4px; }
+        .select-css { appearance:none; background-image:url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239dcba9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat:no-repeat; background-position:right 12px center; background-size:16px; padding-right:40px; }
+
         .bar-top{display:flex;justify-content:space-between;align-items:center;max-width:600px;margin:0 auto 12px}
-        .back{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:rgba(8,28,16,.9);border-radius:999px;padding:8px 16px 8px 12px;font-size:14px;color:var(--ice);min-height:42px}
+        .back{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:rgba(8,28,16,.9);border-radius:999px;padding:8px 16px 8px 12px;font-size:14px;color:var(--ice);min-height:42px; text-decoration:none;}
         .back svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
         .hero{position:relative;aspect-ratio:4/5;max-height:640px;width:100%;overflow:hidden;background:#081c10}
         .hero img{width:100%;height:100%;object-fit:cover;object-position:50% 15%;display:block}
@@ -843,7 +955,7 @@ export default function FairiesPage() {
         @media(min-width:900px){
           .pgrid.two{display:grid;grid-template-columns:minmax(0,600px) minmax(0,1fr);gap:24px;align-items:start}
           .pgrid.two #capture.person{margin:0}
-          .bar-top{margin-left:0}
+          .bar-top{margin:0 0 25px}
           #calc{position:static;top:calc(16px + env(safe-area-inset-top,0px))}
         }
 
@@ -855,6 +967,7 @@ export default function FairiesPage() {
         .num{width:100%;min-height:44px;background:rgba(8,28,16,.7);border:1px solid var(--line);border-radius:12px;color:#fff;padding:0 12px;font:inherit;font-size:16px}
         .num:disabled{opacity:.4}
         .num::placeholder{color:rgba(157,220,176,.6)}
+        
         .cs{display:grid;grid-template-columns:1fr 104px;gap:10px;align-items:center;border-top:1px solid var(--line-soft);padding:2px 0}
         .sec-h + .cs{border-top:0}
         .sw{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;cursor:pointer}

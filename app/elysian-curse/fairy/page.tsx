@@ -467,7 +467,7 @@ export default function FairiesPage() {
         topbar.hidden = false;
         
         // ปุ่มกลับไปหน้าหลัก (Home)
-        topbar.innerHTML = `<a href="/" class="back" style="text-decoration:none;"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>หน้าหลัก</a>`;
+        topbar.innerHTML = `<a href="/elysian-curse" class="back" style="text-decoration:none;"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>หน้าหลัก</a>`;
         topbar.className = 'bar-top fade-enter';
         calc.hidden = true;
 

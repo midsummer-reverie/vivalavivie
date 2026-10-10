@@ -508,7 +508,7 @@ export default function WizardsPage() {
             </div><hr style="border-color:var(--line-soft); margin:18px 0;">`;
       }
 
-      let html = `${isHub?'':`<h3>${ICON.calc}คำนวณพลังโจมตีตรา</h3>`}
+      let html = `${isHub?'':`<h3>${ICON.calc}คำนวณพลังโจมตี</h3>`}
         <p class="hint">เลือกสกิลต่อสู้ ธาตุ และบัฟอื่น ๆ </p>${hubControls}`;
 
       html += `

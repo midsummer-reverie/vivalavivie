@@ -401,7 +401,7 @@ export default function HumansPage() {
         topbar.innerHTML = `<a href="/elysian-curse" class="back" style="text-decoration:none;"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>หน้าหลัก</a>`;
         topbar.className = 'bar-top fade-enter'; calc.hidden = true;
         const t = TABS.find(x => x.id === tab); if (!t) return;
-        $('#view').innerHTML = head(t) + VIEWS[tab]() + `<div class="foot">${esc(t.en)}</div>`; document.title = 'Human - Elysian Curse';
+        $('#view').innerHTML = head(t) + VIEWS[tab]() + `<div class="foot">${esc(t.en)}</div>`; document.title = 'Sapien - Elysian Curse';
       }
       $('#nav').innerHTML = TABS.map(x=>`<button type="button" data-tab="${x.id}" aria-current="${!m && x.id===tab}">${ICON[x.id] || ICON.calc}<span>${x.label}</span></button>`).join('');
     }

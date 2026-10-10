@@ -208,13 +208,9 @@ export default function Home() {
                 <img className="my-menu-icon" src="https://iili.io/qHof9rF.md.png" alt="ELS48 GE" />
                 <span className="my-menu-label">ELS48 GE</span>
               </Link>
-              <Link href="/merpeople2026" className="my-menu-item">
-                <img className="my-menu-icon" src="https://iili.io/nc75EYB.png" alt="Merpeople" />
-                <span className="my-menu-label">The Merpeople</span>
-              </Link>
-              <Link href="/fairy2026" className="my-menu-item">
-                <img className="my-menu-icon" src="https://iili.io/nchwsNs.png" alt="Fairy" />
-                <span className="my-menu-label">Fairy House</span>
+              <Link href="/elysian-curse" className="my-menu-item">
+                <img className="my-menu-icon" src="https://iili.io/nMW9OAu.png" alt="Elysian Curse" />
+                <span className="my-menu-label">Elysian Curse</span>
               </Link>
             </nav>
 

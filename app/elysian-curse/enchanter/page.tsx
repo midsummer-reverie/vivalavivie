@@ -582,7 +582,7 @@ export default function WizardsPage() {
 
       html += `<div class="sec-h" style="margin-top:18px">สกิลความสามัคคี (พ่อมดแม่มด 9 คนขึ้นไป โรลเพลย์ต่อเนื่องกันโดยไม่มีบุคคลอื่นมาคั่น)</div>`;
       html += `<div class="cs cs-fixed">
-          <label class="sw"><input type="checkbox" data-c="meteorToggle" ${CALC.meteorOn ? 'checked' : ''}><span class="tg"></span><span class="sw-t" style="color:#ffb74d;">Meteor <small>มหาเวททำลายล้าง</small></span></label>
+          <label class="sw"><input type="checkbox" data-c="meteorToggle" ${CALC.meteorOn ? 'checked' : ''}><span class="tg"></span><span class="sw-t" style="color:#ffb74d;">Meteor <small>เพิ่มแต้มทั้งหมด</small></span></label>
           <div class="fixed-val ${CALC.meteorOn ? '' : 'off'}" style="color:#ffb74d;"><b>+1000</b> <small>ATK</small></div>
         </div>`;
         

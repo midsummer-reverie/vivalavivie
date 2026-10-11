@@ -1,8 +1,156 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+
+// ============================================================
+// 🖥️ ScaledPreview: จำลองหน้าจอ Desktop จริง แล้วย่อทั้ง iframe
+// ทำให้ vw / vh / % / px ย่อตามสัดส่วนเดียวกัน เหมือนที่เห็นบนเว็บจริง
+// ============================================================
+const BOARD_WIDTH = 900; // ความกว้างบอร์ดจริงบนเว็บ
+const REF_WIDTHS = [1920, 1440, 1280]; // ความกว้างหน้าจอ Desktop ที่ให้เลือกจำลอง
+
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
+function ScaledPreview({ html }: { html: string }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const [refWidth, setRefWidth] = useState(1280); // จอจำลองเริ่มต้น
+  const [zoom, setZoom] = useState(100);
+  const [fitted, setFitted] = useState(false); // ซ่อนกรอบจนกว่าจะซูมแบบ "พอดีบอร์ด" ครั้งแรกเสร็จ กันภาพกระตุก
+
+  // จุดกึ่งกลางของมุมมองแนวนอน (สัดส่วน 0-1 ของความกว้างจอจำลอง) ใช้ซูมเข้าตรงกลาง
+  const centerRatio = useRef(0.5);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setSize({ w: entry.contentRect.width, h: entry.contentRect.height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const clampZoom = (v: number) => Math.min(200, Math.max(25, Math.round(v)));
+  const scale = zoom / 100;
+  const sizerW = refWidth * scale;
+  const sizerWRef = useRef(sizerW);
+  sizerWRef.current = sizerW;
+
+  // พอดีบอร์ด = ให้บอร์ด (900px) กว้างเต็มกรอบ / ทั้งจอ = เห็นหน้าจอจำลองทั้งความกว้าง
+  const fitBoardZoom = size.w ? clampZoom((size.w / BOARD_WIDTH) * 100) : 100;
+  const fitScreenZoom = size.w ? clampZoom((size.w / refWidth) * 100) : 100;
+
+  // ค่าเริ่มต้น: เมื่อเปิดพรีวิวและวัดขนาดกรอบได้ ให้ซูมแบบ "พอดีบอร์ด" ครั้งเดียว
+  useEffect(() => {
+    if (fitted || !size.w) return;
+    centerRatio.current = 0.5;
+    setZoom(clampZoom((size.w / BOARD_WIDTH) * 100));
+    setFitted(true);
+  }, [size.w, fitted]);
+
+  // ซูม/เปลี่ยนจอ/ปรับขนาดกรอบ แล้วคงจุดกึ่งกลางเดิมไว้ (แนวนอน)
+  useIsoLayoutEffect(() => {
+    const el = wrapRef.current;
+    if (!el || !size.w) return;
+    const cw = el.clientWidth;
+    el.scrollLeft = sizerW > cw ? Math.max(0, centerRatio.current * sizerW - cw / 2) : 0;
+  }, [sizerW, size.w]);
+
+  const handleScroll = () => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const cw = el.clientWidth;
+    centerRatio.current = sizerWRef.current > cw ? (el.scrollLeft + cw / 2) / sizerWRef.current : 0.5;
+  };
+
+  // สูง = ความสูงกรอบ / scale เพื่อให้ vh สัมพันธ์กับสิ่งที่เห็น
+  const iframeHeight = size.h ? size.h / scale : 0;
+
+  const srcDoc = useMemo(() => `<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  ::-webkit-scrollbar{width:6px;height:6px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:rgba(168,85,247,.4);border-radius:10px}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(168,85,247,.6)}
+  html,body{margin:0;padding:0;min-height:100%;background:#131313;font-family:sans-serif}
+  body{display:flex;justify-content:center;align-items:flex-start}
+  #board{width:${BOARD_WIDTH}px;max-width:100%;padding:40px 20px;box-sizing:border-box}
+  #board img,#board video{max-width:100%;height:auto}
+</style></head>
+<body><div id="board">${html}</div>
+<script>
+  // ซูมแล้วให้จุดกึ่งกลางแนวตั้งของมุมมองคงที่ (iframe ถูกปรับความสูงตามระดับซูม)
+  (function(){
+    var cy = window.innerHeight / 2 + window.scrollY;
+    window.addEventListener('scroll', function(){ cy = window.scrollY + window.innerHeight / 2; }, { passive: true });
+    window.addEventListener('resize', function(){ window.scrollTo(window.scrollX, Math.max(0, cy - window.innerHeight / 2)); });
+  })();
+</script>
+</body></html>`, [html]);
+
+  const lightBtn = (active: boolean): React.CSSProperties => ({ color: active ? undefined : '#d4d4d8' });
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, minWidth: 0, width: '100%', overflow: 'hidden' }}>
+      <div style={{ padding: '6px 10px', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', background: '#1c1c1c', flexShrink: 0 }}>
+        <span style={{ color: '#a1a1aa', fontSize: '0.75rem' }}>จอ:</span>
+        {REF_WIDTHS.map(w => (
+          <button key={w} className={`toggle-btn ${refWidth === w ? 'active' : ''}`} style={lightBtn(refWidth === w)} onClick={() => setRefWidth(w)}>
+            {w}px
+          </button>
+        ))}
+
+        <div style={{ width: 1, height: 16, background: '#3f3f46', margin: '0 4px' }} />
+
+        <span style={{ color: '#a1a1aa', fontSize: '0.75rem' }}>ซูม:</span>
+        <button className="toggle-btn" style={{ color: '#d4d4d8' }} onClick={() => setZoom(z => clampZoom(z - 5))} title="ซูมออก">−</button>
+        <input
+          type="range" min={25} max={200} step={5} value={zoom}
+          onChange={e => setZoom(Number(e.target.value))}
+          style={{ width: 110, accentColor: '#a855f7' }}
+        />
+        <button className="toggle-btn" style={{ color: '#d4d4d8' }} onClick={() => setZoom(z => clampZoom(z + 5))} title="ซูมเข้า">+</button>
+        <span style={{ color: '#e4e4e7', fontSize: '0.75rem', minWidth: 36, textAlign: 'right' }}>{zoom}%</span>
+        <button className={`toggle-btn ${zoom === 100 ? 'active' : ''}`} style={lightBtn(zoom === 100)} onClick={() => setZoom(100)}>100%</button>
+        <button className={`toggle-btn ${zoom === fitBoardZoom ? 'active' : ''}`} style={lightBtn(zoom === fitBoardZoom)} onClick={() => { centerRatio.current = 0.5; setZoom(fitBoardZoom); }} title="ให้บอร์ดกว้างเต็มกรอบ (ตัวโค้ดใหญ่ที่สุด)">พอดีบอร์ด</button>
+        <button className={`toggle-btn ${zoom === fitScreenZoom ? 'active' : ''}`} style={lightBtn(zoom === fitScreenZoom)} onClick={() => { centerRatio.current = 0.5; setZoom(fitScreenZoom); }} title="เห็นหน้าจอจำลองทั้งความกว้าง">ทั้งจอ</button>
+      </div>
+
+      <div
+        ref={wrapRef}
+        className="custom-scrollbar"
+        onScroll={handleScroll}
+        style={{ flex: 1, minHeight: 0, minWidth: 0, width: '100%', overflowX: 'auto', overflowY: 'hidden', background: '#131313', visibility: fitted ? 'visible' : 'hidden' }}
+      >
+        <div style={{ position: 'relative', width: sizerW, height: size.h, margin: '0 auto' }}>
+          <iframe
+            title="Live Preview"
+            srcDoc={srcDoc}
+            sandbox="allow-scripts allow-popups"
+            style={{
+              position: 'absolute', top: 0, left: 0, border: 0, background: '#131313',
+              width: refWidth,
+              height: iframeHeight,
+              transform: `scale(${scale})`,
+              transformOrigin: 'top left',
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Helpers (ไม่ต้องใช้ state จึงอยู่นอก component)
+// ============================================================
+const rep = (s: string, key: string, val: any) => (key ? s.split(key).join(String(val ?? "")) : s);
+const escapeRegex = (s: string) => s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 
 export default function CodeDetail() {
   const params = useParams<{ id: string }>();
@@ -23,10 +171,10 @@ export default function CodeDetail() {
   const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview');
   const [copied, setCopied] = useState(false);
 
-  // 🌟 State หลักที่อัปเดตทันทีที่พิมพ์
+  // State หลักที่อัปเดตทันทีที่พิมพ์
   const [fieldValues, setFieldValues] = useState<{ [key: string]: any }>({});
   
-  // 🌟 State ที่ชะลอการอัปเดต (Debounced) เพื่อไม่ให้พรีวิวกระพริบตอนพิมพ์
+  // State ที่ชะลอการอัปเดต (Debounced) เพื่อไม่ให้พรีวิวกระพริบตอนพิมพ์
   const [debouncedFieldValues, setDebouncedFieldValues] = useState<{ [key: string]: any }>({});
   
   const [activeBlocks, setActiveBlocks] = useState<any[]>([]);
@@ -73,13 +221,8 @@ export default function CodeDetail() {
 
             setCode(foundCode);
 
-            if (!foundCode.isLocked) {
-              setIsUnlocked(true);
-            } else if (foundCode.isCommission) {
-              setIsUnlocked(false); 
-            } else {
-              setIsUnlocked(false);
-            }
+            // ถ้าไม่ล็อก ปลดล็อกเลย / ถ้าล็อกต้องกรอกรหัส
+            setIsUnlocked(!foundCode.isLocked);
 
             initFieldValues(foundCode);
             loadDraftsFromStorage(codeId);
@@ -238,11 +381,11 @@ export default function CodeDetail() {
         } else if (f.type === 'dropdown') {
           newBlock.values[f.variableName] = getDropdownFirstOption(f.options);
         } else if (f.type === 'gradient') {
-          newBlock.values[f.variableName] = f.options || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
+          newBlock.values[f.variableName] = "";
         } else if (f.type === 'color') {
           newBlock.values[f.variableName] = "";
         } else {
-          newBlock.values[f.variableName] = f.variableName;
+          newBlock.values[f.variableName] = "";
         }
       });
     }
@@ -351,12 +494,13 @@ export default function CodeDetail() {
     return colorStr;
   };
 
-  const checkConditionMatch = (field: any, allValues: any, contextFields: any[]) => {
+  // 🔧 รับ fallbackValues เป็นพารามิเตอร์ (ไม่อ่าน state ตรง ๆ แล้ว) เพื่อให้ useMemo deps ถูกต้อง
+  const checkConditionMatch = (field: any, allValues: any, contextFields: any[], fallbackValues: any = {}) => {
     if (!field.conditionVar || field.conditionVar.trim() === "") return true;
     
-    let parentVal = allValues[field.conditionVar];
+    let parentVal = allValues?.[field.conditionVar];
     if (parentVal === undefined) {
-      parentVal = fieldValues[field.conditionVar] || "";
+      parentVal = fallbackValues?.[field.conditionVar] ?? "";
     }
     
     if (parentVal === field.conditionVal) return true;
@@ -380,223 +524,105 @@ export default function CodeDetail() {
     return false;
   };
 
+  // 🔧 ฟังก์ชันกลางสำหรับแทนค่าฟิลด์ (ใช้ทั้งฟิลด์หลักและ Blocks แทนโค้ดที่ซ้ำกันเดิม)
+  const applyFields = (html: string, fields: any[], values: any, isForPreview: boolean, fallbackValues: any): string => {
+    let out = html;
+    const list = Array.isArray(fields) ? fields : [];
+    const byLenDesc = (a: any, b: any) => b.variableName.length - a.variableName.length;
+
+    // 1) Dropdown ก่อน (ชื่อยาวก่อน กันชื่อซ้อนทับกัน เช่น TITLE กับ TITLE2)
+    list.filter(f => f.type === 'dropdown').sort(byLenDesc).forEach(field => {
+      const val = values?.[field.variableName] || "";
+      if (val !== "") out = rep(out, field.variableName, val);
+    });
+
+    // 2) ฟิลด์อื่น ๆ: เรียงชื่อยาวก่อน แล้วถ้าชื่อเท่ากัน (ฟิลด์เงื่อนไขที่ใช้ตัวแปรเดียวกัน) ให้ตัวที่แสดงผลได้แทนก่อน
+    const sorted = list.filter(f => f.type !== 'dropdown').sort((a, b) => {
+      const lenDiff = byLenDesc(a, b);
+      if (lenDiff !== 0) return lenDiff;
+      const aVis = checkConditionMatch(a, values, fields, fallbackValues) ? 1 : 0;
+      const bVis = checkConditionMatch(b, values, fields, fallbackValues) ? 1 : 0;
+      return bVis - aVis;
+    });
+
+    sorted.forEach(field => {
+      const name: string = field.variableName;
+      const isVisible = checkConditionMatch(field, values, fields, fallbackValues);
+
+      if (field.type === 'image' || field.type === 'image_url') {
+        const imgData = values?.[name] || { url: "", x: 50, y: 50, zoom: 100 };
+        const hasUrl = isVisible && imgData.url && imgData.url.trim() !== '';
+        const urlCss = hasUrl ? `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%` : "";
+        const escaped = escapeRegex(name);
+        const legacyRegex = new RegExp(`(?:url\\(['"]?)?${escaped}(['"]?\\))?\\s*center\\s*\\/?\\s*cover`, 'gi');
+        const urlOnlyRegex = new RegExp(`url\\(['"]?${escaped}['"]?\\)`, 'gi');
+
+        // 🔧 แทนตัวแปรที่มี suffix (_URL, _X, ...) ก่อนตัวแปรหลักเสมอ ไม่งั้น VAR_URL จะกลายเป็น "<url>_URL"
+        out = rep(out, `${name}_CSS`, urlCss);
+        out = rep(out, `${name}_URL`, hasUrl ? imgData.url : "");
+        out = rep(out, `${name}_X`, hasUrl ? imgData.x : "");
+        out = rep(out, `${name}_Y`, hasUrl ? imgData.y : "");
+        out = rep(out, `${name}_ZOOM`, hasUrl ? imgData.zoom : "");
+
+        if (field.type === 'image_url') {
+          // ใช้ function replacer เพื่อกันตัวอักษรพิเศษอย่าง $ ใน URL
+          let temp = out.replace(legacyRegex, () => urlCss);
+          if (temp === out) temp = temp.replace(urlOnlyRegex, () => urlCss);
+          out = temp !== out ? temp : rep(out, name, urlCss);
+        } else {
+          out = rep(out, name, hasUrl ? imgData.url : "");
+        }
+
+      } else if (field.type === 'color' || field.type === 'gradient') {
+        if (isVisible) {
+          // ยังไม่กรอก = ไม่ใส่สี (ไม่มีสีตัวอย่าง)
+          out = rep(out, name, values?.[name] || "");
+        } else {
+          out = rep(out, name, "");
+        }
+
+      } else {
+        if (isVisible) {
+          let textVal = values?.[name];
+          if (textVal === undefined || textVal === null || textVal === "") {
+            textVal = name;
+          } else if (field.type === 'richtext' || field.type === 'roleplay') {
+            textVal = isForPreview ? parseContent(textVal, true) : textVal;
+          }
+          out = rep(out, name, textVal);
+        } else {
+          out = rep(out, name, "");
+        }
+      }
+    });
+
+    return out;
+  };
+
   const getRenderedHtml = (isForPreview: boolean = false) => {
     if (!code || !code.htmlCode) return "";
-    let finalHtml = code.htmlCode;
+    let finalHtml: string = code.htmlCode;
     
     const currentValuesToUse = isForPreview ? debouncedFieldValues : fieldValues;
     const currentBlocksToUse = isForPreview ? debouncedActiveBlocks : activeBlocks;
     
     if (editMode === 'customize') {
-      if (code.customFields && Array.isArray(code.customFields)) {
-        code.customFields.filter((f: any) => f.type === 'dropdown').forEach((field: any) => {
-          const val = currentValuesToUse[field.variableName] || "";
-          if (val !== "") {
-            finalHtml = finalHtml.split(field.variableName).join(val);
-          }
-        });
-      }
-
-      if (code.customFields && Array.isArray(code.customFields)) {
-        // 🔥 จัดเรียงให้ Field ที่เป็นค่า True (แสดงผล) ได้แปลงโค้ดก่อนเพื่อน!
-        const sortedMainFields = [...code.customFields].filter((f: any) => f.type !== 'dropdown').sort((a: any, b: any) => {
-          const aVis = checkConditionMatch(a, currentValuesToUse, code.customFields) ? 1 : 0;
-          const bVis = checkConditionMatch(b, currentValuesToUse, code.customFields) ? 1 : 0;
-          return bVis - aVis;
-        });
-
-        sortedMainFields.forEach((field: any) => {
-          const isVisible = checkConditionMatch(field, currentValuesToUse, code.customFields);
-
-          if (field.type === 'image' || field.type === 'image_url') {
-            const imgData = currentValuesToUse[field.variableName] || { url: "", x: 50, y: 50, zoom: 100 };
-            
-            if (isVisible && imgData.url && imgData.url.trim() !== '') {
-              if (field.type === 'image_url') {
-                  const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                  const legacyRegex = new RegExp(`(?:url\\(['"]?)?${escapedVar}(['"]?\\))?\\s*center\\s*\\/?\\s*cover`, 'gi');
-                  const urlCss = `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`;
-                  
-                  let tempHtml = finalHtml.replace(legacyRegex, urlCss);
-                  
-                  if (tempHtml === finalHtml) {
-                    const urlOnlyRegex = new RegExp(`url\\(['"]?${escapedVar}['"]?\\)`, 'gi');
-                    tempHtml = tempHtml.replace(urlOnlyRegex, urlCss);
-                  }
-                  
-                  if (tempHtml !== finalHtml) {
-                    finalHtml = tempHtml;
-                  } else {
-                    finalHtml = finalHtml.split(field.variableName).join(urlCss);
-                  }
-                  
-                  finalHtml = finalHtml.split(`${field.variableName}_URL`).join(imgData.url);
-                  finalHtml = finalHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
-                  finalHtml = finalHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
-                  finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
-                  finalHtml = finalHtml.split(`${field.variableName}_CSS`).join(urlCss);
-              } else if (field.type === 'image') {
-                  finalHtml = finalHtml.split(field.variableName).join(imgData.url);
-                  finalHtml = finalHtml.split(`${field.variableName}_URL`).join(imgData.url);
-                  finalHtml = finalHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
-                  finalHtml = finalHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
-                  finalHtml = finalHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
-              }
-            } else {
-              finalHtml = finalHtml.split(field.variableName).join("");
-              if (field.type === 'image_url') {
-                  const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                  const legacyRegex = new RegExp(`(?:url\\(['"]?)?${escapedVar}(['"]?\\))?\\s*center\\s*\\/?\\s*cover`, 'gi');
-                  let tempHtml = finalHtml.replace(legacyRegex, "");
-                  if (tempHtml === finalHtml) {
-                      const urlOnlyRegex = new RegExp(`url\\(['"]?${escapedVar}['"]?\\)`, 'gi');
-                      tempHtml = tempHtml.replace(urlOnlyRegex, "");
-                  }
-                  finalHtml = tempHtml;
-                  finalHtml = finalHtml.split(`${field.variableName}_CSS`).join("");
-              }
-            }
-          } else if (field.type === 'color' || field.type === 'gradient') {
-            if (isVisible) {
-              const val = currentValuesToUse[field.variableName];
-              let colorVal = val && val !== "" ? val : getFallbackColor(field);
-              
-              if (field.type === 'gradient' && (!colorVal || colorVal === "" || colorVal === '#8b5cf6')) {
-                colorVal = field.options || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
-              }
-              if (field.type === 'color' && (!colorVal || colorVal === "")) {
-                colorVal = '#8b5cf6';
-              }
-              
-              finalHtml = finalHtml.split(field.variableName).join(colorVal);
-            } else {
-              finalHtml = finalHtml.split(field.variableName).join("");
-            }
-          } else {
-            if (isVisible) {
-              let textVal = currentValuesToUse[field.variableName];
-              if (textVal === undefined || textVal === null || textVal === "") {
-                textVal = field.variableName;
-              } else if (field.type === 'richtext' || field.type === 'roleplay') {
-                textVal = isForPreview ? parseContent(textVal, true) : textVal;
-              }
-              finalHtml = finalHtml.split(field.variableName).join(textVal);
-            } else {
-              finalHtml = finalHtml.split(field.variableName).join("");
-            }
-          }
-        });
-      }
+      finalHtml = applyFields(finalHtml, code.customFields, currentValuesToUse, isForPreview, currentValuesToUse);
 
       if (currentBlocksToUse.length > 0) {
         const blocksByPlaceholder: { [key: string]: string[] } = {};
         
         currentBlocksToUse.forEach(block => {
-          let blockHtml = block.htmlTemplate;
-          
-          if (block.fields && Array.isArray(block.fields)) {
-            block.fields.filter((f: any) => f.type === 'dropdown').forEach((field: any) => {
-              const val = block.values[field.variableName] || "";
-              if (val !== "") blockHtml = blockHtml.split(field.variableName).join(val);
-            });
-
-            // 🔥 จัดเรียงให้ Field ที่เป็นค่า True (แสดงผล) ได้แปลงโค้ดก่อนเพื่อน!
-            const sortedBlockFields = [...block.fields].filter((f: any) => f.type !== 'dropdown').sort((a: any, b: any) => {
-              const aVis = checkConditionMatch(a, block.values, block.fields) ? 1 : 0;
-              const bVis = checkConditionMatch(b, block.values, block.fields) ? 1 : 0;
-              return bVis - aVis;
-            });
-
-            sortedBlockFields.forEach((field: any) => {
-              const isVisible = checkConditionMatch(field, block.values, block.fields);
-
-              if (field.type === 'image' || field.type === 'image_url') {
-                const imgData = block.values[field.variableName] || { url: "", x: 50, y: 50, zoom: 100 };
-
-                if (isVisible && imgData.url && imgData.url.trim() !== '') {
-                  if (field.type === 'image_url') {
-                      const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                      const legacyRegex = new RegExp(`(?:url\\(['"]?)?${escapedVar}(['"]?\\))?\\s*center\\s*\\/?\\s*cover`, 'gi');
-                      const urlCss = `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%`;
-                      
-                      let tempHtml = blockHtml.replace(legacyRegex, urlCss);
-                      
-                      if (tempHtml === blockHtml) {
-                        const urlOnlyRegex = new RegExp(`url\\(['"]?${escapedVar}['"]?\\)`, 'gi');
-                        tempHtml = tempHtml.replace(urlOnlyRegex, urlCss);
-                      }
-                      
-                      if (tempHtml !== blockHtml) {
-                        blockHtml = tempHtml;
-                      } else {
-                        blockHtml = blockHtml.split(field.variableName).join(urlCss);
-                      }
-
-                      blockHtml = blockHtml.split(`${field.variableName}_URL`).join(imgData.url);
-                      blockHtml = blockHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
-                      blockHtml = blockHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
-                      blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
-                      blockHtml = blockHtml.split(`${field.variableName}_CSS`).join(urlCss);
-                  } else if (field.type === 'image') {
-                      blockHtml = blockHtml.split(field.variableName).join(imgData.url);
-                      blockHtml = blockHtml.split(`${field.variableName}_URL`).join(imgData.url);
-                      blockHtml = blockHtml.split(`${field.variableName}_X`).join(imgData.x.toString());
-                      blockHtml = blockHtml.split(`${field.variableName}_Y`).join(imgData.y.toString());
-                      blockHtml = blockHtml.split(`${field.variableName}_ZOOM`).join(imgData.zoom.toString());
-                  }
-                } else {
-                  blockHtml = blockHtml.split(field.variableName).join("");
-                  if (field.type === 'image_url') {
-                      const escapedVar = field.variableName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                      const legacyRegex = new RegExp(`(?:url\\(['"]?)?${escapedVar}(['"]?\\))?\\s*center\\s*\\/?\\s*cover`, 'gi');
-                      let tempHtml = blockHtml.replace(legacyRegex, "");
-                      if (tempHtml === blockHtml) {
-                          const urlOnlyRegex = new RegExp(`url\\(['"]?${escapedVar}['"]?\\)`, 'gi');
-                          tempHtml = tempHtml.replace(urlOnlyRegex, "");
-                      }
-                      blockHtml = tempHtml;
-                      blockHtml = blockHtml.split(`${field.variableName}_CSS`).join("");
-                  }
-                }
-              } else if (field.type === 'color' || field.type === 'gradient') {
-                if (isVisible) {
-                  const val = block.values[field.variableName];
-                  let colorVal = val && val !== "" ? val : getFallbackColor(field);
-                  
-                  if (field.type === 'gradient' && (!colorVal || colorVal === "" || colorVal === '#8b5cf6')) {
-                    colorVal = field.options || 'linear-gradient(90deg, #d8b4fe, #bae6fd)';
-                  }
-                  if (field.type === 'color' && (!colorVal || colorVal === "")) {
-                    colorVal = '#8b5cf6';
-                  }
-
-                  blockHtml = blockHtml.split(field.variableName).join(colorVal);
-                } else {
-                  blockHtml = blockHtml.split(field.variableName).join("");
-                }
-              } else {
-                if (isVisible) {
-                  let textVal = block.values[field.variableName];
-                  if (textVal === undefined || textVal === null || textVal === "") {
-                    textVal = field.variableName;
-                  } else if (field.type === 'richtext' || field.type === 'roleplay') {
-                    textVal = isForPreview ? parseContent(textVal, true) : textVal;
-                  }
-                  blockHtml = blockHtml.split(field.variableName).join(textVal);
-                } else {
-                  blockHtml = blockHtml.split(field.variableName).join("");
-                }
-              }
-            });
-          }
+          const blockHtml = applyFields(block.htmlTemplate || "", block.fields, block.values, isForPreview, currentValuesToUse);
           if (!blocksByPlaceholder[block.placeholder]) blocksByPlaceholder[block.placeholder] = [];
           blocksByPlaceholder[block.placeholder].push(blockHtml);
         });
-        Object.keys(blocksByPlaceholder).forEach(ph => finalHtml = finalHtml.split(ph).join(blocksByPlaceholder[ph].join('\n')));
+        Object.keys(blocksByPlaceholder).forEach(ph => { finalHtml = rep(finalHtml, ph, blocksByPlaceholder[ph].join('\n')); });
       }
 
+      // ล้าง placeholder ของ block ที่ไม่ได้ถูกเพิ่ม
       if (code.blocks && Array.isArray(code.blocks)) {
-        code.blocks.forEach((b: any) => { if (b.placeholder) finalHtml = finalHtml.split(b.placeholder).join(""); });
+        code.blocks.forEach((b: any) => { if (b.placeholder) finalHtml = rep(finalHtml, b.placeholder, ""); });
       }
 
     } else {
@@ -611,122 +637,32 @@ export default function CodeDetail() {
             if (idx !== -1) {
               const k = line.substring(0, idx).trim();
               const v = line.substring(idx + 1).trim();
-              if (k) finalHtml = finalHtml.split(k).join(v);
+              if (k) finalHtml = rep(finalHtml, k, v);
             }
           });
         }
       }
       
       if (code.blocks && Array.isArray(code.blocks)) {
-        code.blocks.forEach((b: any) => { if (b.placeholder) finalHtml = finalHtml.split(b.placeholder).join(""); });
+        code.blocks.forEach((b: any) => { if (b.placeholder) finalHtml = rep(finalHtml, b.placeholder, ""); });
       }
     }
 
-    if (isForPreview) {
-      finalHtml = finalHtml.replace(/\n/g, '<br/>');
-      finalHtml = finalHtml.replace(/>\s*<br\/>\s*</g, '>\n<');
-    }
+    // 🔧 ลบการแทน \n เป็น <br/> ทั้งก้อนออกแล้ว (เดิมทำให้ <style>/<script> พัง)
+    // ส่วน richtext แปลง \n เป็น <br/> เองอยู่แล้วใน parseContent
 
     return finalHtml;
   };
 
-  const previewHtml = useMemo(() => getRenderedHtml(true), [debouncedFieldValues, debouncedActiveBlocks, code, editMode, activeVariation]);
-  const codeHtml = useMemo(() => getRenderedHtml(false), [debouncedFieldValues, debouncedActiveBlocks, code, editMode, activeVariation]);
-
-  const iframeSrcDoc = useMemo(() => `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-          ::-webkit-scrollbar { width: 6px; height: 6px; }
-          ::-webkit-scrollbar-track { background: transparent; }
-          ::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.4); border-radius: 10px; }
-          ::-webkit-scrollbar-thumb:hover { background: rgba(168, 85, 247, 0.6); }
-          
-          body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background: #131313;
-            overflow: hidden; /* ปิด Scrollbar ของ Body ไปเลย เราจะใช้ของ Wrapper แทน */
-            font-family: sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-          }
-
-          /* กรอบหน้าต่างหลักที่ทำหน้าที่รับขนาดจาก iframe */
-          #scale-container {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            overflow-y: auto; /* ให้เลื่อนเฉพาะข้างในนี้ */
-            position: relative;
-          }
-
-          /* กระดานเว็บบอร์ดจำลอง (Fixed Board Width) */
-          #board-simulator {
-            width: 900px; /* สมมติว่าความกว้างบอร์ดคือ 900px */
-            min-height: 100%;
-            background: #131313; /* พื้นหลังบอร์ดจำลอง */
-            transform-origin: top center;
-            padding: 40px 20px;
-            box-sizing: border-box;
-          }
-
-          /* บังคับไม่ให้รูป/วิดีโอล้นขอบเหมือนเดิม */
-          #board-simulator img, #board-simulator video, #board-simulator iframe {
-            max-width: 100%;
-            height: auto;
-          }
-
-        </style>
-      </head>
-      <body>
-        <div id="scale-container">
-          <div id="board-simulator">
-            ${previewHtml}
-          </div>
-        </div>
-
-        <script>
-          // สคริปต์คำนวณและปรับขนาดอัตโนมัติ (Auto-Scaling)
-          function adjustScale() {
-            const container = document.getElementById('scale-container');
-            const board = document.getElementById('board-simulator');
-            
-            // หาความกว้างของ iframe ในขณะนั้น
-            const availableWidth = container.clientWidth;
-            
-            // ถ้าพื้นที่ว่างแคบกว่า 900px ให้ย่อส่วน (Scale Down)
-            if (availableWidth < 900) {
-              const scaleRatio = availableWidth / 900;
-              board.style.transform = 'scale(' + scaleRatio + ')';
-              // ชดเชยความสูงที่หายไปจากการย่อส่วน
-              board.style.marginBottom = '-' + (board.offsetHeight * (1 - scaleRatio)) + 'px';
-            } else {
-              // ถ้าจอใหญ่พอก็ไม่ต้องย่อ
-              board.style.transform = 'scale(1)';
-              board.style.marginBottom = '0px';
-            }
-          }
-
-          // ปรับขนาดตอนโหลดเสร็จ และตอนที่เบราว์เซอร์โดนย่อ/ขยาย
-          window.addEventListener('resize', adjustScale);
-          // ใช้ ResizeObserver ดักการเปลี่ยนแปลงขนาดของเนื้อหาด้วย (เผื่อโหลดรูปเสร็จแล้วขนาดเปลี่ยน)
-          const observer = new ResizeObserver(adjustScale);
-          observer.observe(document.body);
-          
-          adjustScale();
-        </script>
-      </body>
-    </html>
-  `, [previewHtml]);
+  // 🔧 deps ครบแล้ว (เดิมขาดค่าที่ getRenderedHtml อ่านอยู่)
+  const previewHtml = useMemo(
+    () => getRenderedHtml(true),
+    [debouncedFieldValues, debouncedActiveBlocks, code, editMode, activeVariation]
+  );
+  const codeHtml = useMemo(
+    () => getRenderedHtml(false),
+    [fieldValues, activeBlocks, code, editMode, activeVariation]
+  );
 
   const handleCopy = () => {
     const exactCodeHtml = getRenderedHtml(false); 
@@ -741,7 +677,7 @@ export default function CodeDetail() {
 
   const renderFieldUI = (field: any, val: any, onChange: (v: any) => void, refKey: string, allValues: any, contextFields: any[]) => {
     
-    if (!checkConditionMatch(field, allValues, contextFields)) {
+    if (!checkConditionMatch(field, allValues, contextFields, fieldValues)) {
       return null; 
     }
 
@@ -773,7 +709,7 @@ export default function CodeDetail() {
       );
     }
     
-    // 🌟 ระบบ Gradient (คืนค่ากลับเป็น Linear / Radial อย่างเดียว)
+    // ระบบ Gradient (Linear / Radial)
     if (field.type === 'gradient') {
       const fallbackCol = getFallbackColor(field);
       let currentVal = val || fallbackCol;
@@ -838,16 +774,17 @@ export default function CodeDetail() {
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <div style={{ 
               width: '40px', height: '36px', borderRadius: '6px', 
-              background: currentVal.includes('gradient') ? currentVal : safeHex(currentVal), 
+              background: val ? (currentVal.includes('gradient') ? currentVal : safeHex(currentVal)) : 'repeating-conic-gradient(#d4d4d8 0% 25%, #fff 0% 50%) 50% / 12px 12px', 
               border: '1px solid var(--color-accent-mute)', flexShrink: 0
             }} />
             <input 
               type="text" 
               className="glass-input" 
               placeholder={`เช่น linear-gradient(90deg, #000, #fff)`} 
-              value={currentVal} 
+              value={val || ''} 
               onChange={e => onChange(e.target.value)} 
             />
+            {val ? <button className="tool-btn" onClick={() => onChange('')} title="ล้างสี" style={{ flexShrink: 0, height: '36px', padding: '0 10px' }}>ล้าง</button> : null}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px', background: 'rgba(255,255,255,0.4)', padding: '12px', borderRadius: '8px' }}>
@@ -930,8 +867,7 @@ export default function CodeDetail() {
 
     if (field.type === 'color') {
       const fallbackCol = getFallbackColor(field);
-      const currentVal = val || fallbackCol;
-      const pickerVal = safeHex(currentVal, '#8b5cf6');
+      const pickerVal = val ? safeHex(val, '#8b5cf6') : '#ffffff'; // ว่าง = ยังไม่ได้เลือกสี
 
       return (
         <div key={refKey} className="field-group">
@@ -939,12 +875,13 @@ export default function CodeDetail() {
           <div style={{ display: 'flex', gap: '10px' }}>
             <input type="color" style={{ width: '40px', height: '36px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} value={pickerVal} onChange={e => onChange(e.target.value)} />
             <input type="text" className="glass-input" placeholder={`เช่น ${fallbackCol}`} value={val || ''} onChange={e => onChange(e.target.value)} />
+            {val ? <button className="tool-btn" onClick={() => onChange('')} title="ล้างสี" style={{ flexShrink: 0, height: '36px', padding: '0 10px' }}>ล้าง</button> : null}
           </div>
         </div>
       );
     }
     
-    // 🌟 ระบบ รูปภาพ และ ภาพพื้นหลัง(+url)
+    // ระบบ รูปภาพ และ ภาพพื้นหลัง(+url)
     if (field.type === 'image' || field.type === 'image_url') {
       const imgData = val || { url: "", x: 50, y: 50, zoom: 100 };
       return (
@@ -965,10 +902,7 @@ export default function CodeDetail() {
     
     if (field.type === 'richtext' || field.type === 'roleplay') {
       const isRp = field.type === 'roleplay';
-      let textVal = val;
-      if (textVal === undefined || textVal === null || textVal === "") {
-         textVal = field.variableName;
-      }
+      const textVal: string = val ?? "";
 
       return (
         <div key={refKey} className="field-group">
@@ -1063,7 +997,7 @@ export default function CodeDetail() {
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;600;700&display=swap');
         
-        /* 🚨 ล็อก 100vh สำหรับ Desktop (No Scroll บนหน้าหลัก) 🚨 */
+        /* ล็อก 100vh สำหรับ Desktop (No Scroll บนหน้าหลัก) */
         body { overflow: hidden !important; margin: 0; padding: 0; }
         
         .code-detail-wrapper { 
@@ -1086,34 +1020,32 @@ export default function CodeDetail() {
 
         .split-layout { 
           display: grid; 
-          grid-template-columns: 1fr 1.25fr;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
           gap: 24px; 
           flex: 1; min-height: 0; align-items: stretch; 
         }
         
-        /* 🔥 กล่องซ้าย - แก้ไขให้ Scrollbar ไม่ล้นมุมโค้ง 🔥 */
         .glass-panel-scrollable {
+          min-width: 0;
           background: var(--glass-bg); 
           border: 1px solid rgba(255,255,255,0.7); 
           border-radius: 20px; 
           backdrop-filter: blur(16px); 
           box-shadow: 0 10px 40px rgba(139, 92, 246, 0.08);
-          overflow: hidden; /* บังคับไม่ให้เนื้อหาล้นออกนอกขอบโค้ง */
+          overflow: hidden;
           display: flex;
           flex-direction: column;
         }
 
-        /* เอา มาใส่ชั้นใน เพื่อให้ Scrollbar โดนขังอยู่ข้างใน และเว้นระยะจากขอบบนล่าง */
         .left-panel-inner { 
           flex: 1; 
           overflow-y: auto; 
-          padding: 24px; /* สร้างพื้นที่รอบๆ */
+          padding: 24px;
           display: flex; 
           flex-direction: column; 
           gap: 20px; 
         }
 
-        /* ขยับเนื้อหาออกห่างจาก Scrollbar นิดหน่อยให้ดูสวยงาม */
         .left-panel-content {
           padding-right: 8px;
           display: flex;
@@ -1121,15 +1053,12 @@ export default function CodeDetail() {
           gap: 20px;
         }
         
-        /* 🔥 กล่องขวากินพื้นที่เต็ม และไม่ล้น 🔥 */
-        .right-panel { height: 100%; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+        .right-panel { min-width: 0; overflow: hidden; height: 100%; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
 
         .display-area { 
           background: #131313; border-radius: 12px; border: 1px solid var(--glass-border); 
-          display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; 
+          display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; overflow: hidden; position: relative;
         }
-        
-        .preview-iframe { flex: 1; width: 100%; height: 100%; border: none; background: #131313; }
         
         .code-container { 
           padding: 24px; background: #131313; color: #e2e8f0; font-family: monospace !important; 
@@ -1181,14 +1110,13 @@ export default function CodeDetail() {
         .m-toggle-btn { flex: 1; background: transparent; border: none; padding: 6px 10px; border-radius: 8px; font-weight: 700; color: var(--color-secondary); cursor: pointer; font-size: 0.9rem; transition: 0.2s; white-space: nowrap; }
         .m-toggle-btn.active { background: #fff; color: var(--color-text-main); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
-        .controls-row-right { display: flex; justify-content: flex-start; align-items: center; }
+        .controls-row-right { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
         .view-toggles { display: flex; background: rgba(255,255,255,0.4); border-radius: 10px; padding: 2px; border: 1px solid var(--glass-border); margin-bottom: 8px; }
         
-        /* 🔥 ย่อปุ่ม Live Preview / HTML ให้เล็กลง */
         .toggle-btn { background: transparent; border: none; padding: 4px 10px; border-radius: 8px; font-weight: 600; color: var(--color-secondary); cursor: pointer; font-size: 0.75rem; }
         .toggle-btn.active { background: #fff; color: var(--color-text-main); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
-        .btn-copy { position: absolute; top: 16px; right: 16px; background: var(--glass-input); border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; color: var(--color-text-main); cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10; transition: 0.2s; }
+        .btn-copy { background: var(--glass-input); border: 1px solid var(--glass-border); padding: 4px 12px; border-radius: 10px; font-weight: 700; font-size: 0.75rem; color: var(--color-text-main); cursor: pointer; margin-left: auto; margin-bottom: 8px; white-space: nowrap; transition: 0.2s; }
         .btn-copy:hover { transform: scale(1.05); }
 
         .block-card { background: rgba(255,255,255,0.7); border: 2px dashed var(--color-accent-light); border-radius: 12px; padding: 16px; margin-bottom: 16px; position: relative; transition: 0.2s; }
@@ -1204,7 +1132,7 @@ export default function CodeDetail() {
         .modal-content { background: var(--glass-bg); padding: 40px; border-radius: 24px; border: 1px solid var(--glass-border); box-shadow: 0 20px 40px rgba(0,0,0,0.2); text-align: center; max-width: 400px; width: 90%; position: relative; }
         .btn-close-modal { position: absolute; top: 16px; right: 16px; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--color-primary); }
 
-        /* 🔥 ยกเว้นให้มือถือ Scroll ได้ปกติ 🔥 */
+        /* ยกเว้นให้มือถือ Scroll ได้ปกติ */
         @media (max-width: 1024px) {
           body { overflow: auto !important; }
           .code-detail-wrapper { position: static; height: auto; min-height: 100vh; overflow: visible !important; }
@@ -1236,7 +1164,6 @@ export default function CodeDetail() {
 
       <div className="wide-w">
         
-        {/* 🌟 Compact Header: นำแท็กกิจกรรมมารวมบรรทัดเดียว 🌟 */}
         {code && !isFullLocked && (
           <div className="glass-panel" style={{ padding: '16px 24px', borderRadius: '16px', marginBottom: '20px', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
@@ -1278,7 +1205,6 @@ export default function CodeDetail() {
               <div className="left-panel-inner custom-scrollbar">
                 <div className="left-panel-content">
                   
-                  {/* 🌟 ย้ายปุ่มสลับโหมดกลับมาฝั่งซ้าย และย่อขนาดลง 🌟 */}
                   <div style={{ display: 'flex', background: 'rgba(255,255,255,0.4)', borderRadius: '10px', padding: '2px', border: '1px solid var(--glass-border)', marginBottom: '8px', flexShrink: 0 }}>
                     <button className={`m-toggle-btn ${editMode === 'original' ? 'active' : ''}`} onClick={() => handleModeSwitch('original', viewMode)} style={{ fontSize: '0.8rem', padding: '6px' }}>👀 ดูตัวอย่าง</button>
                     <button className={`m-toggle-btn ${editMode === 'customize' ? 'active' : ''}`} onClick={() => handleModeSwitch('customize', viewMode)} style={{ fontSize: '0.8rem', padding: '6px' }}>{code.isLocked && !isUnlocked ? "🔒 ปรับแต่ง" : "✍️ ปรับแต่ง"}</button>
@@ -1330,7 +1256,6 @@ export default function CodeDetail() {
                       </div>
 
                       <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {/* ⚠️ Terms of Use (Fixed) */}
                         <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '16px' }}>
                           <h4 style={{ margin: '0 0 8px 0', color: '#b91c1c', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span>⚠️</span> Terms of Use
@@ -1342,7 +1267,6 @@ export default function CodeDetail() {
                           </ul>
                         </div>
 
-                        {/* 💡 Tips (Fixed) */}
                         <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: '12px', padding: '16px' }}>
                           <h4 style={{ margin: '0 0 8px 0', color: '#854d0e', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span>💡</span> คำแนะนำ
@@ -1353,7 +1277,6 @@ export default function CodeDetail() {
                           </ul>
                         </div>
 
-                        {/* 💬 Contact */}
                         <div style={{ background: 'rgba(216, 180, 254, 0.2)', border: '1px solid var(--color-accent-light)', borderRadius: '12px', padding: '16px' }}>
                           <h4 style={{ margin: '0 0 8px 0', color: 'var(--color-primary)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span>💬</span> พบปัญหาการใช้งาน?
@@ -1420,21 +1343,17 @@ export default function CodeDetail() {
                     </button>
                   )}
                 </div>
-              </div>
-
-              <div className="display-area">
                 {editMode === 'customize' && (
                   <button className="btn-copy" onClick={handleCopy}>
                     {copied ? "✅ Copied!" : "📋 Copy"}
                   </button>
                 )}
+              </div>
+
+              <div className="display-area">
                 
                 {viewMode === 'preview' ? (
-                  <iframe 
-                    className="preview-iframe" 
-                    srcDoc={iframeSrcDoc} 
-                    title="Live Preview"
-                  />
+                  <ScaledPreview html={previewHtml} />
                 ) : (
                   <pre className="code-container custom-scrollbar"><code>{codeHtml}</code></pre>
                 )}

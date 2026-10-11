@@ -239,7 +239,7 @@ export default function WizardsPage() {
                 <span class="nm">${esc(m.name)}</span>${(m.familiar || m.amulet_name || m.unique_skill) ? `
                 <span class="meta">
                   ${m.unique_skill ? tag('✨ พลังเฉพาะตัว') : ''}
-                  ${m.familiar ? tag('สัตว์ภูต '+m.familiar, 'r-spirit') : ''}
+                  ${m.familiar && m.familiar !== 'ไม่มี' ? `<span class="tag">สัตว์ภูต ${esc(m.familiar)}</span>` : ''}
                   ${m.amulet_name ? tag(m.amulet_name) : ''}
                 </span>` : ''}
               </span>
@@ -799,8 +799,8 @@ export default function WizardsPage() {
         .panel{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:16px;display:flex;flex-direction:column;}
         .panel h3{margin:0 0 2px;font-size:18px;font-weight:600;color:#fff} .sub{color:var(--muted);font-size:13px}
         
-        .mcard{ display:flex;align-items:flex-start;gap:12px;text-align:left;width:100%;height:100%; background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px 14px; }
-        .mcard .av { margin-top: 2px; }
+        .mcard{ display:flex;align-items:center;gap:12px;text-align:left;width:100%;height:100%; background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px 14px; }
+        .mcard .av { align-self:flex-start; margin-top:2px; }
         .mcard:hover{border-color:var(--ice)}
         .mcard-info { flex: 1; min-width: 0; } 
         .mcard .nm{display:block;font-weight:600;font-size:16px;line-height:1.35;color:#fff;}

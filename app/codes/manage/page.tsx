@@ -21,6 +21,23 @@ type CodeType = {
   blocks?: any;
 };
 
+// 🔧 ตัดช่องว่างหน้า-หลังของชื่อ/ตัวแปร (ช่องว่างหน้าตัวแปรทำให้แทนค่าในโค้ดผิดที่)
+const trimField = (f: any) => ({
+  ...f,
+  label: typeof f?.label === 'string' ? f.label.trim() : f?.label,
+  variableName: typeof f?.variableName === 'string' ? f.variableName.trim() : f?.variableName,
+  conditionVar: typeof f?.conditionVar === 'string' ? f.conditionVar.trim() : f?.conditionVar,
+});
+const sanitizeFields = (fields: any) => (Array.isArray(fields) ? fields.map(trimField) : []);
+const sanitizeBlocks = (blocks: any) =>
+  (Array.isArray(blocks) ? blocks : []).map((b: any) => ({
+    ...b,
+    placeholder: typeof b?.placeholder === 'string' ? b.placeholder.trim() : b?.placeholder,
+    fields: sanitizeFields(b?.fields),
+  }));
+
+const makeDefaultVariation = () => ({ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", type: "replace", replacements: "", fullHtml: "" });
+
 export default function ManageCodes() {
   const [codes, setCodes] = useState<CodeType[]>([]);
   const [selectedCodeId, setSelectedCodeId] = useState<string>("new");
@@ -30,7 +47,7 @@ export default function ManageCodes() {
     name: "", codeType: "", activityTags: [] as string[], eventTags: [] as string[], 
     previewUrl: "", htmlCode: "", description: "",
     isLocked: false, lockPassword: "", isCommission: false, 
-    variations: [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", type: "replace", replacements: "**สีหลัก**=#d8b4fe", fullHtml: "" }],
+    variations: [makeDefaultVariation()] as any[],
     customFields: [] as any[],
     blocks: [] as any[]
   });
@@ -97,7 +114,7 @@ export default function ManageCodes() {
 
   const handleCustomFieldChange = (index: number, field: string, value: any) => {
     const newFields = [...formData.customFields];
-    // 🔥 บังคับใส่ค่าสีไล่ระดับสำรอง ถ้าประเภทเป็น gradient
+    // ถ้าเปลี่ยนเป็น gradient และยังไม่มีค่าตั้งต้น ให้ใส่ไว้เป็นจุดเริ่มต้นของเครื่องมือปรับสี
     if (field === 'type' && value === 'gradient' && !newFields[index].options) {
       newFields[index] = { ...newFields[index], [field]: value, options: 'linear-gradient(90deg, #d8b4fe, #bae6fd)' };
     } else {
@@ -105,7 +122,12 @@ export default function ManageCodes() {
     }
     setFormData({ ...formData, customFields: newFields });
   };
-  const addCustomField = () => setFormData({ ...formData, customFields: [...formData.customFields, { id: Date.now().toString(), label: " ", variableName: " ", type: "text", options: "", conditionVar: "", conditionVal: "" }] });
+
+  // 🔧 แก้จุดต้นเหตุ: เดิมใส่ label: " " และ variableName: " " (เว้นวรรค 1 ตัว) ทำให้ช่องมีที่ว่างนำหน้า
+  const addCustomField = () => setFormData({
+    ...formData,
+    customFields: [...formData.customFields, { id: Date.now().toString(), label: "", variableName: "", type: "text", options: "", conditionVar: "", conditionVal: "" }]
+  });
   const removeCustomField = (index: number) => setFormData({ ...formData, customFields: formData.customFields.filter((_, i) => i !== index) });
   const moveCustomField = (index: number, direction: 'up' | 'down') => {
     const newArr = [...formData.customFields];
@@ -136,24 +158,34 @@ export default function ManageCodes() {
   const handleRemoveBlock = (index: number) => {
     if (confirm("ลบบล็อกนี้ทิ้งใช่หรือไม่?")) setFormData({ ...formData, blocks: formData.blocks.filter((_, i) => i !== index) });
   };
+
+  // 🔧 ทำให้ไม่แก้ state เดิมตรง ๆ (เดิม push/assign เข้า array ซ้อนใน state โดยตรง)
   const handleAddFieldToBlock = (blockIndex: number) => {
-    const newBlocks = [...formData.blocks];
-    newBlocks[blockIndex].fields.push({ id: `field_${Date.now()}`, variableName: "", label: "", type: "text", options: "", conditionVar: "", conditionVal: "" });
+    const newBlocks = formData.blocks.map((b, i) =>
+      i === blockIndex
+        ? { ...b, fields: [...b.fields, { id: `field_${Date.now()}`, variableName: "", label: "", type: "text", options: "", conditionVar: "", conditionVal: "" }] }
+        : b
+    );
     setFormData({ ...formData, blocks: newBlocks });
   };
   const handleUpdateBlockField = (blockIndex: number, fieldIndex: number, key: string, value: any) => {
-    const newBlocks = [...formData.blocks];
-    // 🔥 บังคับใส่ค่าสีไล่ระดับสำรอง ถ้าประเภทเป็น gradient
-    if (key === 'type' && value === 'gradient' && !newBlocks[blockIndex].fields[fieldIndex].options) {
-      newBlocks[blockIndex].fields[fieldIndex] = { ...newBlocks[blockIndex].fields[fieldIndex], [key]: value, options: 'linear-gradient(90deg, #d8b4fe, #bae6fd)' };
-    } else {
-      newBlocks[blockIndex].fields[fieldIndex] = { ...newBlocks[blockIndex].fields[fieldIndex], [key]: value };
-    }
+    const newBlocks = formData.blocks.map((b, i) => {
+      if (i !== blockIndex) return b;
+      const newFields = b.fields.map((f: any, j: number) => {
+        if (j !== fieldIndex) return f;
+        if (key === 'type' && value === 'gradient' && !f.options) {
+          return { ...f, [key]: value, options: 'linear-gradient(90deg, #d8b4fe, #bae6fd)' };
+        }
+        return { ...f, [key]: value };
+      });
+      return { ...b, fields: newFields };
+    });
     setFormData({ ...formData, blocks: newBlocks });
   };
   const handleRemoveBlockField = (blockIndex: number, fieldIndex: number) => {
-    const newBlocks = [...formData.blocks];
-    newBlocks[blockIndex].fields = newBlocks[blockIndex].fields.filter((_: any, i: number) => i !== fieldIndex);
+    const newBlocks = formData.blocks.map((b, i) =>
+      i === blockIndex ? { ...b, fields: b.fields.filter((_: any, j: number) => j !== fieldIndex) } : b
+    );
     setFormData({ ...formData, blocks: newBlocks });
   };
 
@@ -164,19 +196,18 @@ export default function ManageCodes() {
       setFormData({
         name: "", codeType: "", activityTags: [], eventTags: [], previewUrl: "", htmlCode: "", description: "",
         isLocked: false, lockPassword: "", isCommission: false,
-        variations: [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", type: "replace", replacements: "", fullHtml: "" }],
+        variations: [makeDefaultVariation()],
         customFields: [], blocks: []
       });
     } else {
       const code = codes.find(c => c.id === selectedCodeId);
       if (code) {
-        let parsedVariations = []; let parsedCustomFields = []; let parsedBlocks = []; 
-        try { parsedVariations = code.variations ? JSON.parse(code.variations) : []; } catch { parsedVariations = []; }
-        try { parsedCustomFields = code.customFields ? JSON.parse(code.customFields) : []; } catch { parsedCustomFields = []; }
+        let parsedVariations: any[] = []; let parsedCustomFields: any[] = []; let parsedBlocks: any[] = []; 
+        try { parsedVariations = code.variations ? (typeof code.variations === 'string' ? JSON.parse(code.variations) : code.variations) : []; } catch { parsedVariations = []; }
+        try { parsedCustomFields = code.customFields ? (typeof code.customFields === 'string' ? JSON.parse(code.customFields) : code.customFields) : []; } catch { parsedCustomFields = []; }
         try { parsedBlocks = code.blocks ? (typeof code.blocks === 'string' ? JSON.parse(code.blocks) : code.blocks) : []; } catch { parsedBlocks = []; }
 
-        if (parsedVariations.length === 0) parsedVariations = [{ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", type: "replace", replacements: "", fullHtml: "" }];
-        if (!Array.isArray(parsedBlocks)) parsedBlocks = [];
+        if (!Array.isArray(parsedVariations) || parsedVariations.length === 0) parsedVariations = [makeDefaultVariation()];
 
         setFormData({
           name: code.name || "",
@@ -190,8 +221,9 @@ export default function ManageCodes() {
           lockPassword: code.lockPassword || "",
           isCommission: code.isCommission || false, 
           variations: parsedVariations,
-          customFields: parsedCustomFields,
-          blocks: parsedBlocks
+          // 🔧 โค้ดเก่าที่เคยบันทึกตัวแปรเป็น " " จะถูกตัดช่องว่างให้อัตโนมัติตอนโหลด
+          customFields: sanitizeFields(parsedCustomFields),
+          blocks: sanitizeBlocks(parsedBlocks)
         });
       }
     }
@@ -223,8 +255,9 @@ export default function ManageCodes() {
       lockPassword: formData.isLocked ? formData.lockPassword : "",
       isCommission: formData.isLocked ? formData.isCommission : false, 
       variations: JSON.stringify(formData.variations),
-      customFields: JSON.stringify(formData.customFields),
-      blocks: JSON.stringify(formData.blocks)
+      // 🔧 ตัดช่องว่างก่อนบันทึกทุกครั้ง
+      customFields: JSON.stringify(sanitizeFields(formData.customFields)),
+      blocks: JSON.stringify(sanitizeBlocks(formData.blocks))
     };
 
     try {
@@ -455,7 +488,6 @@ export default function ManageCodes() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <h4 style={{ margin: 0, color: '#1e3a8a' }}>จุดที่ #{index + 1}</h4>
                   
-                  {/* 🌟 ปุ่มเลื่อนขึ้น-ลงของ Custom Fields */}
                   <div style={{ display: 'flex', gap: '4px', marginLeft: '12px' }}>
                     <button type="button" className="tool-btn" onClick={() => moveCustomField(index, 'up')} disabled={index === 0} title="เลื่อนขึ้น">⬆️</button>
                     <button type="button" className="tool-btn" onClick={() => moveCustomField(index, 'down')} disabled={index === formData.customFields.length - 1} title="เลื่อนลง">⬇️</button>
@@ -484,10 +516,9 @@ export default function ManageCodes() {
                 </select>
               </div>
 
-              {/* เพิ่มช่องระบุ Fallback สำหรับ Gradient */}
               {field.type === 'gradient' && (
                 <div className="form-group" style={{ marginTop: '16px', marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.85rem' }}>สีตั้งต้น (Fallback) หากพรีเซ็ตไม่ระบุสี</label>
+                  <label className="form-label" style={{ fontSize: '0.85rem' }}>สีตั้งต้นของเครื่องมือปรับสี (ไม่ถูกใส่ในโค้ดจนกว่าผู้ใช้จะเลือกเอง)</label>
                   <input 
                     type="text" 
                     className="glass-input" 
@@ -517,9 +548,12 @@ export default function ManageCodes() {
                     if (e.target.checked) {
                       handleCustomFieldChange(index, 'conditionVar', "VAR_NAME");
                     } else {
-                      const newFields = [...formData.customFields];
-                      delete newFields[index].conditionVar;
-                      delete newFields[index].conditionVal;
+                      // 🔧 สร้างอ็อบเจกต์ใหม่แทนการ delete บน state เดิม
+                      const newFields = formData.customFields.map((f, i) => {
+                        if (i !== index) return f;
+                        const { conditionVar, conditionVal, ...rest } = f;
+                        return rest;
+                      });
                       setFormData({ ...formData, customFields: newFields });
                     }
                   }} />
@@ -611,13 +645,12 @@ export default function ManageCodes() {
                               />
                             )}
 
-                            {/* เพิ่มช่องระบุ Fallback สำหรับ Gradient ในบล็อกเสริม */}
                             {field.type === 'gradient' && (
                               <input 
                                 type="text"
                                 value={field.options || ""} 
                                 onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'options', e.target.value)} 
-                                placeholder="สีตั้งต้น (Fallback)" 
+                                placeholder="สีตั้งต้นของเครื่องมือ" 
                                 className="glass-input" 
                                 style={{ padding: '8px', fontSize: '0.85rem', marginTop: '8px', width: '100%' }} 
                               />

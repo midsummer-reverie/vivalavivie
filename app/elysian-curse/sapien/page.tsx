@@ -238,18 +238,26 @@ export default function HumansPage() {
       const wp = M.weapon_tier[targetWeapon], steps = [];
       const targetRank = Number(isHub ? CALC.hubRank : rk(m.rank_level));
 
-      let base = 0;
-      calcSkills(M.rank[targetRank]).forEach((s:any)=>{ const c = CALC.skills[s.id]; if(c && c.on && s.power!=null) base += toNum(s.power); });
-      steps.push(['อาวุธโจมตีพื้นฐาน', base]);
+      let cur = 0;
       
-      let cur = base;
+      calcSkills(M.rank[targetRank]).forEach((s:any)=>{ 
+        // เพิ่มบรรทัดนี้: ข้ามสกิลม้าและกับดักที่ดึงจากฐานข้อมูลไปเลย เพื่อไม่ให้บวกซ้ำซ้อน
+        if (s.name.includes('ม้า') || s.name.includes('กับดัก')) return;
+
+        const c = CALC.skills[s.id]; 
+        if(c && c.on && s.power!=null) {
+            const p = toNum(s.power);
+            cur += p;
+            steps.push([s.name, p]); 
+        }
+      });
       
-      if(wp && targetRank >= 3 && CALC.weaponOn){ 
+      if(wp && targetRank >= 3 && CALC.weaponOn && targetWeapon !== 'none'){ 
           const wBonus = targetRank === 3 ? wp.bonus_rank3 : wp.bonus_rank4;
           cur += wBonus; steps.push([`โบนัสระดับอาวุธ (${targetWeapon})`, `+ ${wBonus}`]); 
       }
       
-      if(targetRank >= 4 && CALC.horseOn){ cur += 3; steps.push(['ใช้งานม้าศึก', '+ 3']); }
+      if(targetRank >= 4 && CALC.horseOn){ cur += 3; steps.push(['ใช้งานม้า', '+ 3']); }
       
       if(CALC.trapOn && targetRank >= 1){
           const tc = CALC.trapCount === '' ? 1 : Math.max(0, toNum(CALC.trapCount)); 
@@ -306,7 +314,7 @@ export default function HumansPage() {
       }
 
       let html = `${isHub?'':`<h3>${ICON.calc}คำนวณพลังโจมตี</h3>`}
-        <p class="hint">เลือกการโจมตีและอุปกรณ์เสิรมที่ใช้</p>${hubControls}`;
+        <p class="hint">เลือกการโจมตีและอุปกรณ์เสริมที่ใช้</p>${hubControls}`;
 
       if(atkSkills.length) { 
           html += `<div class="sec-h" style="margin-top:14px">การโจมตีหลัก</div>` + atkSkills.map((s:any) => {

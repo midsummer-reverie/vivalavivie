@@ -152,6 +152,340 @@ function ScaledPreview({ html }: { html: string }) {
 const rep = (s: string, key: string, val: any) => (key ? s.split(key).join(String(val ?? "")) : s);
 const escapeRegex = (s: string) => s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 
+// ============================================================
+// 🖼️ Image helpers
+// รองรับทั้งฟิลด์ชนิด image และ image_url
+// ============================================================
+type SizeMode = 'cover' | 'contain' | 'auto' | 'percent' | 'percent_both' | 'px';
+type PosMode = 'percent' | 'keyword' | 'px';
+type KeyX = 'left' | 'center' | 'right';
+type KeyY = 'top' | 'center' | 'bottom';
+
+interface ImgData {
+  url: string;
+  posMode: PosMode;   // percent = 50% 50% | keyword = left top | px = 20px 30px
+  x: number;          // ใช้เมื่อ posMode = percent (%) หรือ px
+  y: number;
+  kx: KeyX;           // ใช้เมื่อ posMode = keyword
+  ky: KeyY;
+  zoom: number;       // ความกว้าง (%) หรือ px ตามโหมด
+  zoomH?: number;     // ความสูง (%) ใช้เฉพาะโหมด percent_both (ถ้าไม่ระบุ = เท่ากับความกว้าง)
+  sizeMode: SizeMode;
+  repeat: string;
+}
+
+const KEY_X: KeyX[] = ['left', 'center', 'right'];
+const KEY_Y: KeyY[] = ['top', 'center', 'bottom'];
+
+const POS_MODES: { value: PosMode; label: string }[] = [
+  { value: 'percent', label: '% (50% 50%)' },
+  { value: 'keyword', label: 'คำสั่ง (left, top…)' },
+  { value: 'px', label: 'พิกเซล (px)' },
+];
+
+const SIZE_MODES: { value: SizeMode; label: string }[] = [
+  { value: 'percent', label: 'กว้าง %' },
+  { value: 'percent_both', label: 'กว้าง+สูง %' },
+  { value: 'px', label: 'พิกเซล (px)' },
+  { value: 'cover', label: 'cover' },
+  { value: 'contain', label: 'contain' },
+  { value: 'auto', label: 'auto' },
+];
+
+const REPEAT_OPTIONS = [
+  { value: 'no-repeat', label: 'no-repeat' },
+  { value: 'repeat', label: 'repeat' },
+  { value: 'repeat-x', label: 'repeat-x' },
+  { value: 'repeat-y', label: 'repeat-y' },
+  { value: '', label: 'ไม่ใส่' },
+];
+
+const makeImg = (o: any = {}): ImgData => ({
+  url: "", posMode: 'percent', x: 50, y: 50, kx: 'center', ky: 'center',
+  zoom: 100, sizeMode: 'percent', repeat: 'no-repeat',
+  ...(o || {}),
+});
+
+const cssUrl = (u: string) => `url('${String(u).trim().replace(/'/g, '%27').replace(/\\/g, '%5C')}')`;
+
+const imgSizeCss = (d: ImgData): string => {
+  switch (d.sizeMode) {
+    case 'cover': case 'contain': case 'auto': return d.sizeMode;
+    case 'percent_both': return `${d.zoom}% ${d.zoomH ?? d.zoom}%`;
+    case 'px': return `${d.zoom}px`;
+    default: return `${d.zoom}%`;
+  }
+};
+
+const imgPosCss = (d: ImgData): string => {
+  switch (d.posMode) {
+    case 'keyword': return `${d.kx} ${d.ky}`;
+    case 'px': return `${d.x}px ${d.y}px`;
+    default: return `${d.x}% ${d.y}%`;
+  }
+};
+
+const imgToCss = (d: ImgData) =>
+  `${cssUrl(d.url)} ${imgPosCss(d)} / ${imgSizeCss(d)}${d.repeat ? ' ' + d.repeat : ''}`;
+
+// Regex จับ: [url('VAR') | VAR] + [ตำแหน่ง] + [/ ขนาด] + [repeat]
+// group1 = มี url( ครอบอยู่, group2 = ตำแหน่ง, group3 = ขนาด, group4 = repeat
+const LEN = `-?\\d*\\.?\\d+(?:%|px|vw|vh|vmin|vmax|em|rem)?`;
+const tok = (s: string) => `(?:${s})(?![\\w-])`;
+const POS = tok(`center|left|right|top|bottom|${LEN}`);
+const SIZE_TOK = tok(`${LEN}|auto`);
+const bgRegex = (name: string) => {
+  const n = escapeRegex(name);
+  return new RegExp(
+    `(?:(url\\(\\s*['"]?)${n}['"]?\\s*\\)|${n})` +
+    `(?:\\s+(${POS}(?:\\s+${POS}){0,3})` +
+    `(?:\\s*\\/\\s*(${tok('cover|contain')}|${SIZE_TOK}(?:\\s+${SIZE_TOK})?))?` +
+    `((?:\\s+(?:no-repeat|repeat-x|repeat-y|repeat|space|round)(?![\\w-]))*))?`,
+    'gi'
+  );
+};
+
+// อ่านค่าตำแหน่ง/ซูม/repeat จากโค้ดต้นฉบับ เพื่อใช้เป็นค่าเริ่มต้น
+const detectImgDefaults = (html: string, name: string): ImgData => {
+  const d = makeImg();
+  const m = html ? bgRegex(name).exec(html) : null;
+  if (!m || !m[2]) return d;
+
+  const isKw = (t: string) => /^(left|right|top|bottom|center)$/.test(t);
+  const isPct = (t: string) => /^-?\d*\.?\d+%$/.test(t);
+  const isPx = (t: string) => /^-?\d*\.?\d+px$/.test(t) || t === '0';
+  const kwPct: any = { center: 50, left: 0, top: 0, right: 100, bottom: 100 };
+  const toPct = (t: string) => kwPct[t] ?? (isPct(t) ? parseFloat(t) : NaN);
+
+  const p = m[2].trim().toLowerCase().split(/\s+/);
+
+  if (p.length <= 2) {
+    if (p.every(isKw)) {
+      // แบบคำสั่ง: center / left top / top left / center bottom ...
+      d.posMode = 'keyword';
+      if (p.length === 1) {
+        if (p[0] === 'top' || p[0] === 'bottom') d.ky = p[0] as KeyY;
+        else if (p[0] === 'left' || p[0] === 'right') d.kx = p[0] as KeyX;
+      } else {
+        const [a, b] = p;
+        const vertFirst = a === 'top' || a === 'bottom' || b === 'left' || b === 'right';
+        const hx = vertFirst ? b : a;
+        const hy = vertFirst ? a : b;
+        if ((KEY_X as string[]).includes(hx)) d.kx = hx as KeyX;
+        if ((KEY_Y as string[]).includes(hy)) d.ky = hy as KeyY;
+      }
+    } else if (p.length === 2 && p.every(isPx)) {
+      // แบบพิกเซล: 20px 30px
+      d.posMode = 'px';
+      d.x = parseFloat(p[0]);
+      d.y = parseFloat(p[1]);
+    } else if (p.length === 1) {
+      const v = toPct(p[0]);
+      if (!isNaN(v)) d.x = Math.round(v);
+    } else {
+      // แบบเปอร์เซ็นต์ (หรือผสมกับคำสั่ง เช่น center 20%)
+      const vx = toPct(p[0]), vy = toPct(p[1]);
+      if (!isNaN(vx)) d.x = Math.round(vx);
+      if (!isNaN(vy)) d.y = Math.round(vy);
+    }
+  }
+  // ตำแหน่งแบบอ้างอิงขอบ (right 10px bottom 20px) ยังไม่รองรับ → ใช้ค่าเริ่มต้น 50% 50%
+
+  if (m[3]) {
+    const s = m[3].trim().toLowerCase().split(/\s+/);
+    if (['cover', 'contain', 'auto'].includes(s[0]) && s.length === 1) {
+      d.sizeMode = s[0] as SizeMode;
+    } else if (s[0].endsWith('%')) {
+      d.zoom = parseFloat(s[0]);
+      if (s.length > 1 && s[1].endsWith('%')) {
+        d.sizeMode = 'percent_both';
+        d.zoomH = parseFloat(s[1]);
+      } else {
+        d.sizeMode = 'percent';
+      }
+    } else if (s[0].endsWith('px')) {
+      d.zoom = parseFloat(s[0]);
+      d.sizeMode = 'px';
+    }
+  }
+
+  // คง repeat ตามต้นฉบับ (ถ้าต้นฉบับไม่มี ก็ไม่ใส่)
+  d.repeat = (m[4] || '').trim().split(/\s+/)[0] || '';
+  return d;
+};
+
+// แปลงค่าที่ autosave ไว้ในรูปแบบเก่า (ไม่มี sizeMode) ให้เข้ากับระบบใหม่
+const migrateImg = (saved: any, detected: ImgData): ImgData => {
+  if (!saved || typeof saved !== 'object') return detected;
+  if (saved.sizeMode !== undefined) return makeImg(saved);
+  const untouched = saved.x === 50 && saved.y === 50 && saved.zoom === 100;
+  return untouched
+    ? { ...detected, url: saved.url || "" }
+    : { ...detected, ...saved, sizeMode: 'percent' };
+};
+
+const isImageField = (f: any) => f?.type === 'image' || f?.type === 'image_url';
+
+// ============================================================
+// 🖼️ ImageFieldEditor: ตัวปรับรูปภาพแบบกะทัดรัด (ใช้กับฟิลด์ image / image_url)
+// ============================================================
+function ImageFieldEditor({ field, val, onChange, resetTo }: {
+  field: any;
+  val: any;
+  onChange: (v: any) => void;
+  resetTo: ImgData;
+}) {
+  const d = makeImg(val);
+  const set = (patch: Partial<ImgData>) => onChange({ ...d, ...patch });
+  const hasUrl = d.url.trim() !== '';
+  const isPxSize = d.sizeMode === 'px';
+  const isBoth = d.sizeMode === 'percent_both';
+  const sizeNumeric = d.sizeMode === 'percent' || isBoth || isPxSize;
+  const posPx = d.posMode === 'px';
+  const sizeText = imgSizeCss(d);
+  const posText = imgPosCss(d);
+  const num = (v: string, cb: (n: number) => void) => { const n = parseFloat(v); if (!isNaN(n)) cb(n); };
+
+  const onPosMode = (m: PosMode) => {
+    const patch: Partial<ImgData> = { posMode: m };
+    if (m === 'px' && d.posMode !== 'px') { patch.x = 0; patch.y = 0; }
+    if (m === 'percent' && d.posMode === 'px') { patch.x = 50; patch.y = 50; }
+    if (m === 'keyword' && d.posMode === 'percent') {
+      patch.kx = d.x <= 33 ? 'left' : d.x >= 67 ? 'right' : 'center';
+      patch.ky = d.y <= 33 ? 'top' : d.y >= 67 ? 'bottom' : 'center';
+    }
+    set(patch);
+  };
+
+  const onSizeMode = (m: SizeMode) => {
+    const wasPx = d.sizeMode === 'px';
+    const nextZoom = m === 'px' && !wasPx ? 500 : m !== 'px' && wasPx ? 100 : d.zoom;
+    set({ sizeMode: m, zoom: nextZoom, zoomH: m === 'percent_both' ? (d.zoomH ?? nextZoom) : undefined });
+  };
+
+  const presets = isPxSize ? [200, 400, 600, 800, 1200] : [50, 100, 150, 200, 300];
+
+  return (
+    <div className="img-ed">
+      {/* หัวข้อ + รีเซ็ต */}
+      <div className="img-row">
+        <span className="field-label" style={{ fontSize: '0.85rem', flex: 1, minWidth: 0 }}>
+          {field.label}
+          {field.type === 'image_url' && <span className="img-badge">BG</span>}
+        </span>
+        <button type="button" className="tool-btn img-reset" title="กลับไปใช้ตำแหน่ง/ซูมตามโค้ดต้นฉบับ" onClick={() => onChange({ ...resetTo, url: d.url })}>↺ รีเซ็ต</button>
+      </div>
+
+      <input type="url" className="glass-input" style={{ height: 30, padding: '4px 10px', fontSize: '0.85rem' }} placeholder="วางลิงก์รูปภาพ..." value={d.url} onChange={e => set({ url: e.target.value })} />
+
+      {/* พรีวิวเล็ก + ค่า CSS */}
+      {hasUrl && (
+        <div className="img-row" style={{ alignItems: 'flex-start' }}>
+          <div className="img-thumb" style={{
+            backgroundImage: cssUrl(d.url),
+            backgroundPosition: posText,
+            backgroundSize: sizeText,
+            backgroundRepeat: d.repeat || 'repeat',
+          }} />
+          <code className="img-code">{posText} / {sizeText}{d.repeat ? ' ' + d.repeat : ''}</code>
+        </div>
+      )}
+
+      {/* เลือกรูปแบบ: ตำแหน่ง / ซูม / ซ้ำ */}
+      <div className="img-grid3">
+        <label className="img-cap">ตำแหน่ง
+          <select className="img-mini" value={d.posMode} onChange={e => onPosMode(e.target.value as PosMode)}>
+            {POS_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
+        </label>
+        <label className="img-cap">ซูม
+          <select className="img-mini" value={d.sizeMode} onChange={e => onSizeMode(e.target.value as SizeMode)}>
+            {SIZE_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
+        </label>
+        <label className="img-cap">ซ้ำรูป
+          <select className="img-mini" value={d.repeat} onChange={e => set({ repeat: e.target.value })}>
+            {REPEAT_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+        </label>
+      </div>
+
+      {/* ตำแหน่ง */}
+      {d.posMode === 'keyword' ? (
+        <div className="img-row">
+          <div className="pos-pad">
+            {KEY_Y.map(ky => KEY_X.map(kx => (
+              <button
+                type="button"
+                key={`${kx}_${ky}`}
+                className={`pos-cell ${d.kx === kx && d.ky === ky ? 'on' : ''}`}
+                title={`${kx} ${ky}`}
+                onClick={() => set({ kx, ky })}
+              />
+            )))}
+          </div>
+          <code className="img-code" style={{ flex: 'none' }}>{d.kx} {d.ky}</code>
+        </div>
+      ) : (
+        <div className="img-grid2">
+          {(['x', 'y'] as const).map(ax => (
+            <div key={ax} className="img-row">
+              <span className="img-lbl">{ax.toUpperCase()}</span>
+              <input
+                type="range" className="img-range"
+                min={posPx ? -1000 : 0} max={posPx ? 1000 : 100} step={posPx ? 5 : 1}
+                value={d[ax]}
+                onChange={e => set({ [ax]: Number(e.target.value) } as any)}
+              />
+              <input type="number" className="img-mini img-num" value={d[ax]} onChange={e => num(e.target.value, n => set({ [ax]: n } as any))} />
+              <span className="img-unit">{posPx ? 'px' : '%'}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ซูม (เฉพาะโหมดที่เป็นตัวเลข) */}
+      {sizeNumeric && (
+        <>
+          <div className="img-row">
+            <span className="img-lbl">{isBoth ? 'กว้าง' : 'ซูม'}</span>
+            <input
+              type="range" className="img-range"
+              min={isPxSize ? 50 : 10} max={isPxSize ? 3000 : 500} step={isPxSize ? 10 : 1}
+              value={d.zoom}
+              onChange={e => set({ zoom: Number(e.target.value) })}
+            />
+            <input type="number" className="img-mini img-num" min={1} value={d.zoom} onChange={e => num(e.target.value, n => set({ zoom: Math.max(1, n) }))} />
+            <span className="img-unit">{isPxSize ? 'px' : '%'}</span>
+          </div>
+
+          {isBoth && (
+            <div className="img-row">
+              <span className="img-lbl">สูง</span>
+              <input
+                type="range" className="img-range" min={10} max={500}
+                value={d.zoomH ?? d.zoom}
+                onChange={e => set({ zoomH: Number(e.target.value) })}
+              />
+              <input type="number" className="img-mini img-num" min={1} value={d.zoomH ?? d.zoom} onChange={e => num(e.target.value, n => set({ zoomH: Math.max(1, n) }))} />
+              <span className="img-unit">%</span>
+            </div>
+          )}
+
+          <div className="img-row" style={{ gap: 4, flexWrap: 'wrap' }}>
+            {presets.map(z => (
+              <button
+                key={z} type="button" className="tool-btn img-chip"
+                onClick={() => set(isBoth ? { zoom: z, zoomH: z } : { zoom: z })}
+              >{z}{isPxSize ? 'px' : '%'}</button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function CodeDetail() {
   const params = useParams<{ id: string }>();
   const codeId = params?.id || '';
@@ -246,8 +580,9 @@ export default function CodeDetail() {
     const initial: { [key: string]: any } = {};
     if (codeData.customFields && Array.isArray(codeData.customFields)) {
       codeData.customFields.forEach((field: any) => {
-        if (field.type === 'image' || field.type === 'image_url') {
-          initial[field.variableName] = { url: "", x: 50, y: 50, zoom: 100 };
+        if (isImageField(field)) {
+          // อ่านค่าตั้งต้น (ตำแหน่ง/ซูม/repeat) จากโค้ดต้นฉบับ ทั้งชนิด image และ image_url
+          initial[field.variableName] = detectImgDefaults(codeData.htmlCode, field.variableName);
         } else if (field.type === 'dropdown') {
           initial[field.variableName] = getDropdownFirstOption(field.options);
         } else {
@@ -261,7 +596,16 @@ export default function CodeDetail() {
         const autosave = localStorage.getItem(`code_autosave_${codeData.id}`);
         if (autosave) {
           const parsed = JSON.parse(autosave);
-          setFieldValues({ ...initial, ...(parsed.values || {}) });
+          const merged: { [key: string]: any } = { ...initial, ...(parsed.values || {}) };
+
+          // แปลงค่ารูปภาพที่ autosave ไว้ในรูปแบบเก่าให้เข้ากับระบบใหม่
+          (codeData.customFields || []).forEach((field: any) => {
+            if (isImageField(field)) {
+              merged[field.variableName] = migrateImg(parsed.values?.[field.variableName], initial[field.variableName]);
+            }
+          });
+
+          setFieldValues(merged);
           setActiveBlocks(parsed.blocks || []);
           
           setTimeout(() => {
@@ -376,14 +720,10 @@ export default function CodeDetail() {
     const newBlock = { instanceId: `block_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`, blockId: blockDef.id, placeholder: blockDef.placeholder, htmlTemplate: blockDef.html, fields: blockDef.fields, values: {} as any };
     if (blockDef.fields && Array.isArray(blockDef.fields)) {
       blockDef.fields.forEach((f: any) => {
-        if (f.type === 'image' || f.type === 'image_url') {
-          newBlock.values[f.variableName] = { url: "", x: 50, y: 50, zoom: 100 };
+        if (isImageField(f)) {
+          newBlock.values[f.variableName] = detectImgDefaults(blockDef.html, f.variableName);
         } else if (f.type === 'dropdown') {
           newBlock.values[f.variableName] = getDropdownFirstOption(f.options);
-        } else if (f.type === 'gradient') {
-          newBlock.values[f.variableName] = "";
-        } else if (f.type === 'color') {
-          newBlock.values[f.variableName] = "";
         } else {
           newBlock.values[f.variableName] = "";
         }
@@ -398,7 +738,7 @@ export default function CodeDetail() {
     else if (direction === 'down' && index < newArr.length - 1) [newArr[index + 1], newArr[index]] = [newArr[index], newArr[index + 1]];
     setActiveBlocks(newArr);
   };
-  const updateBlockValue = (instanceId: string, varName: string, val: any) => setActiveBlocks(activeBlocks.map(b => b.instanceId === instanceId ? { ...b, values: { ...b.values, [varName]: val } } : b));
+  const updateBlockValue = (instanceId: string, varName: string, val: any) => setActiveBlocks(prev => prev.map(b => b.instanceId === instanceId ? { ...b, values: { ...b.values, [varName]: val } } : b));
   const updateSelection = (refKey: string) => {
     const el = textareaRefs.current[refKey];
     if (el && document.activeElement === el) setSelections(prev => ({ ...prev, [refKey]: { start: el.selectionStart, end: el.selectionEnd } }));
@@ -549,29 +889,36 @@ export default function CodeDetail() {
       const name: string = field.variableName;
       const isVisible = checkConditionMatch(field, values, fields, fallbackValues);
 
-      if (field.type === 'image' || field.type === 'image_url') {
-        const imgData = values?.[name] || { url: "", x: 50, y: 50, zoom: 100 };
-        const hasUrl = isVisible && imgData.url && imgData.url.trim() !== '';
-        const urlCss = hasUrl ? `url('${imgData.url}') ${imgData.x}% ${imgData.y}% / ${imgData.zoom}%` : "";
-        const escaped = escapeRegex(name);
-        const legacyRegex = new RegExp(`(?:url\\(['"]?)?${escaped}(['"]?\\))?\\s*center\\s*\\/?\\s*cover`, 'gi');
-        const urlOnlyRegex = new RegExp(`url\\(['"]?${escaped}['"]?\\)`, 'gi');
+      if (isImageField(field)) {
+        const imgData = makeImg(values?.[name]);
+        const hasUrl = isVisible && !!imgData.url && imgData.url.trim() !== '';
+        const urlCss = hasUrl ? imgToCss(imgData) : "";
+        const plainUrl = hasUrl ? imgData.url.trim() : "";
 
-        // 🔧 แทนตัวแปรที่มี suffix (_URL, _X, ...) ก่อนตัวแปรหลักเสมอ ไม่งั้น VAR_URL จะกลายเป็น "<url>_URL"
+        // แทนตัวแปรที่มี suffix ก่อนตัวแปรหลักเสมอ ไม่งั้น VAR_URL จะกลายเป็น "<url>_URL"
         out = rep(out, `${name}_CSS`, urlCss);
-        out = rep(out, `${name}_URL`, hasUrl ? imgData.url : "");
-        out = rep(out, `${name}_X`, hasUrl ? imgData.x : "");
-        out = rep(out, `${name}_Y`, hasUrl ? imgData.y : "");
+        out = rep(out, `${name}_URL`, plainUrl);
+        out = rep(out, `${name}_POS`, hasUrl ? imgPosCss(imgData) : "");
+        out = rep(out, `${name}_X`, hasUrl ? (imgData.posMode === 'keyword' ? imgData.kx : imgData.x) : "");
+        out = rep(out, `${name}_Y`, hasUrl ? (imgData.posMode === 'keyword' ? imgData.ky : imgData.y) : "");
         out = rep(out, `${name}_ZOOM`, hasUrl ? imgData.zoom : "");
+        out = rep(out, `${name}_SIZE`, hasUrl ? imgSizeCss(imgData) : "");
+        out = rep(out, `${name}_REPEAT`, hasUrl ? imgData.repeat : "");
 
-        if (field.type === 'image_url') {
-          // ใช้ function replacer เพื่อกันตัวอักษรพิเศษอย่าง $ ใน URL
-          let temp = out.replace(legacyRegex, () => urlCss);
-          if (temp === out) temp = temp.replace(urlOnlyRegex, () => urlCss);
-          out = temp !== out ? temp : rep(out, name, urlCss);
-        } else {
-          out = rep(out, name, hasUrl ? imgData.url : "");
-        }
+        const nameRe = new RegExp(escapeRegex(name), 'i');
+
+        out = out.replace(bgRegex(name), (m: string, wrap: string, pos: string) => {
+          // มีตำแหน่ง/ขนาดต่อท้าย (เช่น 50% 50%/100% no-repeat, center/cover) → แทนทั้งชุดด้วยค่าที่ปรับ
+          if (pos) return hasUrl ? urlCss : "";
+
+          if (field.type === 'image_url') {
+            if (!hasUrl) return "";
+            return wrap ? cssUrl(imgData.url) : urlCss; // url(VAR) เฉย ๆ → ใส่แค่ url('...')
+          }
+
+          // ชนิด image ที่ไม่มีตำแหน่งต่อท้าย (เช่น <img src="VAR">) → แทนชื่อเป็น URL เฉย ๆ
+          return m.replace(nameRe, () => plainUrl);
+        });
 
       } else if (field.type === 'color' || field.type === 'gradient') {
         if (isVisible) {
@@ -881,25 +1228,22 @@ export default function CodeDetail() {
       );
     }
     
-    // ระบบ รูปภาพ และ ภาพพื้นหลัง(+url)
-    if (field.type === 'image' || field.type === 'image_url') {
-      const imgData = val || { url: "", x: 50, y: 50, zoom: 100 };
+    // ระบบ รูปภาพ และ ภาพพื้นหลัง(+url) ใช้ตัวควบคุมชุดเดียวกัน
+    if (isImageField(field)) {
+      // ค่ารีเซ็ต = ตำแหน่ง/ซูมตามโค้ดต้นฉบับ (หาจากโค้ดหลักหรือ Blocks)
+      const srcHtml = [code.htmlCode, ...(code.blocks || []).map((b: any) => b.html)]
+        .find((h: any) => typeof h === 'string' && bgRegex(field.variableName).test(h));
       return (
-        <div key={refKey} className="field-group" style={{ background: 'rgba(255,255,255,0.4)', padding: '16px', borderRadius: '12px', border: '1px dashed var(--color-accent-light)' }}>
-          <label className="field-label" style={{ marginBottom: '8px', display: 'block' }}>
-            {field.label}
-            {field.type === 'image_url' && <span style={{ marginLeft: '8px', fontSize: '0.7rem', background: 'var(--color-accent-mute)', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontWeight: 'normal' }}>Background CSS</span>}
-          </label>
-          <input type="url" className="glass-input" placeholder={`วางลิงก์รูปภาพ ${field.label}...`} value={imgData.url} onChange={e => onChange({ ...imgData, url: e.target.value })} />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
-            <div><span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>แกน X ({imgData.x}%)</span><input type="range" min="0" max="100" value={imgData.x} onChange={e => onChange({ ...imgData, x: Number(e.target.value) })} style={{ width: '100%' }} /></div>
-            <div><span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>แกน Y ({imgData.y}%)</span><input type="range" min="0" max="100" value={imgData.y} onChange={e => onChange({ ...imgData, y: Number(e.target.value) })} style={{ width: '100%' }} /></div>
-            <div style={{ gridColumn: 'span 2' }}><span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>ขนาดซูม ({imgData.zoom}%)</span><input type="range" min="50" max="300" value={imgData.zoom} onChange={e => onChange({ ...imgData, zoom: Number(e.target.value) })} style={{ width: '100%' }} /></div>
-          </div>
-        </div>
+        <ImageFieldEditor
+          key={refKey}
+          field={field}
+          val={val}
+          onChange={onChange}
+          resetTo={detectImgDefaults(srcHtml || '', field.variableName)}
+        />
       );
     }
-    
+
     if (field.type === 'richtext' || field.type === 'roleplay') {
       const isRp = field.type === 'roleplay';
       const textVal: string = val ?? "";
@@ -1132,6 +1476,28 @@ export default function CodeDetail() {
         .modal-content { background: var(--glass-bg); padding: 40px; border-radius: 24px; border: 1px solid var(--glass-border); box-shadow: 0 20px 40px rgba(0,0,0,0.2); text-align: center; max-width: 400px; width: 90%; position: relative; }
         .btn-close-modal { position: absolute; top: 16px; right: 16px; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--color-primary); }
 
+        /* ตัวปรับรูปภาพแบบกะทัดรัด */
+        .img-ed { background: rgba(255,255,255,0.4); padding: 10px; border-radius: 10px; border: 1px dashed var(--color-accent-light); display: flex; flex-direction: column; gap: 6px; }
+        .img-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+        .img-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+        .img-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; }
+        .img-cap { display: flex; flex-direction: column; gap: 2px; font-size: 0.68rem; font-weight: 700; color: var(--color-primary); min-width: 0; }
+        .img-lbl { font-size: 0.7rem; font-weight: 700; color: var(--color-primary); min-width: 24px; flex-shrink: 0; }
+        .img-unit { font-size: 0.7rem; color: var(--color-secondary); width: 16px; flex-shrink: 0; }
+        .img-mini { height: 26px; padding: 0 6px; font-size: 0.78rem; border-radius: 6px; border: 1px solid var(--color-accent-light); background: var(--glass-input); color: var(--color-text-main); outline: none; min-width: 0; width: 100%; }
+        .img-mini:focus { border-color: var(--color-accent); }
+        .img-num { width: 54px; flex-shrink: 0; padding: 0 4px; }
+        .img-range { flex: 1; min-width: 0; height: 16px; margin: 0; accent-color: var(--color-accent); }
+        .img-badge { margin-left: 6px; font-size: 0.6rem; background: var(--color-accent-mute); color: #fff; padding: 1px 5px; border-radius: 4px; font-weight: 600; vertical-align: middle; }
+        .img-reset { height: 24px; padding: 0 8px; font-size: 0.7rem; flex-shrink: 0; }
+        .img-chip { padding: 0 7px; height: 20px; font-size: 0.68rem; min-width: 0; }
+        .img-thumb { width: 72px; height: 44px; flex-shrink: 0; border-radius: 6px; border: 1px solid var(--color-accent-light); background-color: #e5e7eb; }
+        .img-code { flex: 1; min-width: 0; font-size: 0.68rem; line-height: 1.35; color: var(--color-secondary); word-break: break-all; }
+        .pos-pad { display: grid; grid-template-columns: repeat(3, 18px); grid-template-rows: repeat(3, 18px); gap: 2px; flex-shrink: 0; }
+        .pos-cell { border: 1px solid var(--color-accent-light); background: #fff; border-radius: 4px; cursor: pointer; padding: 0; transition: 0.1s; }
+        .pos-cell:hover { background: var(--color-accent-lighter); }
+        .pos-cell.on { background: var(--color-accent); border-color: var(--color-accent); }
+
         /* ยกเว้นให้มือถือ Scroll ได้ปกติ */
         @media (max-width: 1024px) {
           body { overflow: auto !important; }
@@ -1293,7 +1659,7 @@ export default function CodeDetail() {
                     <div className="customizer-box">
                       <h3 style={{ margin: 0, color: 'var(--color-primary)', fontSize: '1.1rem' }}>✨ ปรับแต่งฟิลด์หลัก</h3>
                       {code.customFields && code.customFields.map((field: any, index: number) => 
-                        renderFieldUI(field, fieldValues[field.variableName], (newVal) => setFieldValues({ ...fieldValues, [field.variableName]: newVal }), `cf_${index}`, fieldValues, code.customFields)
+                        renderFieldUI(field, fieldValues[field.variableName], (newVal) => setFieldValues(prev => ({ ...prev, [field.variableName]: newVal })), `cf_${index}`, fieldValues, code.customFields)
                       )}
 
                       {(code.blocks?.length > 0 || activeBlocks.length > 0) && (

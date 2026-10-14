@@ -65,7 +65,7 @@ export default function HomePage() {
     { 
       id: 'sapiens', 
       name: 'มนุษย์', 
-      en: 'Sapien', 
+      en: 'Sapiens', 
       path: '/elysian-curse/sapien', // เปลี่ยนเป็น '/sapien2026'
       color: '#d4af37', // เหลืองอมน้ำตาลทอง
       img: 'https://iili.io/n1XLNoB.png' 

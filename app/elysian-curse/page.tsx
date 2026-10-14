@@ -63,7 +63,7 @@ export default function HomePage() {
       img: 'https://iili.io/nchwsNs.png' 
     },
     { 
-      id: 'sapien', 
+      id: 'sapiens', 
       name: 'มนุษย์', 
       en: 'Sapien', 
       path: '/elysian-curse/sapien', // เปลี่ยนเป็น '/sapien2026'

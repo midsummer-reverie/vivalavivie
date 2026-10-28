@@ -114,7 +114,6 @@ export default function ManageCodes() {
 
   const handleCustomFieldChange = (index: number, field: string, value: any) => {
     const newFields = [...formData.customFields];
-    // ถ้าเปลี่ยนเป็น gradient และยังไม่มีค่าตั้งต้น ให้ใส่ไว้เป็นจุดเริ่มต้นของเครื่องมือปรับสี
     if (field === 'type' && value === 'gradient' && !newFields[index].options) {
       newFields[index] = { ...newFields[index], [field]: value, options: 'linear-gradient(90deg, #d8b4fe, #bae6fd)' };
     } else {
@@ -123,7 +122,6 @@ export default function ManageCodes() {
     setFormData({ ...formData, customFields: newFields });
   };
 
-  // 🔧 แก้จุดต้นเหตุ: เดิมใส่ label: " " และ variableName: " " (เว้นวรรค 1 ตัว) ทำให้ช่องมีที่ว่างนำหน้า
   const addCustomField = () => setFormData({
     ...formData,
     customFields: [...formData.customFields, { id: Date.now().toString(), label: "", variableName: "", type: "text", options: "", conditionVar: "", conditionVal: "" }]
@@ -159,7 +157,6 @@ export default function ManageCodes() {
     if (confirm("ลบบล็อกนี้ทิ้งใช่หรือไม่?")) setFormData({ ...formData, blocks: formData.blocks.filter((_, i) => i !== index) });
   };
 
-  // 🔧 ทำให้ไม่แก้ state เดิมตรง ๆ (เดิม push/assign เข้า array ซ้อนใน state โดยตรง)
   const handleAddFieldToBlock = (blockIndex: number) => {
     const newBlocks = formData.blocks.map((b, i) =>
       i === blockIndex
@@ -221,7 +218,6 @@ export default function ManageCodes() {
           lockPassword: code.lockPassword || "",
           isCommission: code.isCommission || false, 
           variations: parsedVariations,
-          // 🔧 โค้ดเก่าที่เคยบันทึกตัวแปรเป็น " " จะถูกตัดช่องว่างให้อัตโนมัติตอนโหลด
           customFields: sanitizeFields(parsedCustomFields),
           blocks: sanitizeBlocks(parsedBlocks)
         });
@@ -255,7 +251,6 @@ export default function ManageCodes() {
       lockPassword: formData.isLocked ? formData.lockPassword : "",
       isCommission: formData.isLocked ? formData.isCommission : false, 
       variations: JSON.stringify(formData.variations),
-      // 🔧 ตัดช่องว่างก่อนบันทึกทุกครั้ง
       customFields: JSON.stringify(sanitizeFields(formData.customFields)),
       blocks: JSON.stringify(sanitizeBlocks(formData.blocks))
     };
@@ -529,13 +524,14 @@ export default function ManageCodes() {
                 </div>
               )}
 
+              {/* 🌟 1. ปรับปรุง UI Dropdown (Custom Fields) ให้รองรับการเคาะบรรทัดและใส่ค่าว่าง */}
               {field.type === 'dropdown' && (
                 <div className="form-group" style={{ marginTop: '16px', marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.85rem' }}>ระบุตัวเลือก (เช่น สีแดง=#ff0000, สีดำ=#000 คั่นด้วยลูกน้ำ)</label>
+                  <label className="form-label" style={{ fontSize: '0.85rem' }}>ระบุตัวเลือก (1 บรรทัด = 1 ตัวเลือก หรือคั่นด้วยลูกน้ำ)</label>
                   <textarea 
                     className="glass-input custom-scrollbar" 
                     rows={3}
-                    placeholder="ข้อความที่แสดง=ค่าที่จะไปแทนในโค้ด" 
+                    placeholder={"ตัวอย่างรูปแบบ:\nสีเหลือง= yellow (เว้นวรรคด้านหน้าได้)\nซ่อน= (ไม่ใส่ค่าหลัง = จะถือเป็นค่าว่างจริง ๆ)"} 
                     value={field.options || ""} 
                     onChange={e => handleCustomFieldChange(index, 'options', e.target.value)} 
                   />
@@ -548,7 +544,6 @@ export default function ManageCodes() {
                     if (e.target.checked) {
                       handleCustomFieldChange(index, 'conditionVar', "VAR_NAME");
                     } else {
-                      // 🔧 สร้างอ็อบเจกต์ใหม่แทนการ delete บน state เดิม
                       const newFields = formData.customFields.map((f, i) => {
                         if (i !== index) return f;
                         const { conditionVar, conditionVal, ...rest } = f;
@@ -634,11 +629,12 @@ export default function ManageCodes() {
                               <option value="image_url">ภาพพื้นหลัง (+url)</option>
                             </select>
                             
+                            {/* 🌟 2. ปรับปรุง UI Dropdown (Blocks) ให้รองรับการเคาะบรรทัดและใส่ค่าว่าง */}
                             {field.type === 'dropdown' && (
                               <textarea 
                                 value={field.options || ""} 
                                 onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'options', e.target.value)} 
-                                placeholder="เช่น โชว์=ค่าในโค้ด, สีแดง=#ff0" 
+                                placeholder={"แสดงผล=ค่าในโค้ด\nสีเหลือง= yellow\nซ่อน="} 
                                 className="glass-input custom-scrollbar" 
                                 rows={2}
                                 style={{ padding: '8px', fontSize: '0.85rem', marginTop: '8px', width: '100%' }} 

@@ -152,6 +152,27 @@ function ScaledPreview({ html }: { html: string }) {
 const rep = (s: string, key: string, val: any) => (key ? s.split(key).join(String(val ?? "")) : s);
 const escapeRegex = (s: string) => s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 
+// 🌟 ฟังก์ชันใหม่สำหรับแกะ Dropdown Options อย่างชาญฉลาด
+const parseDropdownOptions = (optionsStr: string) => {
+  if (!optionsStr) return [];
+  // 💡 ทริค: ถ้าเจอเคาะบรรทัด ถือว่าใช้บรรทัดแบ่ง (ลูกน้ำข้างในจะไม่พัง) แต่ถ้าไม่เจอ ใช้ลูกน้ำแบ่งแบบเดิม
+  const separator = optionsStr.includes('\n') ? /\r?\n/ : /,/;
+  
+  return optionsStr.split(separator).map(opt => {
+    const parts = opt.split('=');
+    const label = parts[0].trim();
+    if (!label) return null;
+
+    if (parts.length >= 2) {
+      // เอาหลัง = มารวมกัน (ไม่ trim) เพื่อคงช่องว่างด้านหน้าไว้ (เช่น " yellow")
+      let val = parts.slice(1).join('=');
+      val = val.replace(/\r$/, ''); // ป้องกัน \r ติดมาจากการขึ้นบรรทัดใหม่
+      return { label, value: val };
+    }
+    return { label, value: label };
+  }).filter(Boolean) as {label: string, value: string}[];
+};
+
 // ============================================================
 // 🖼️ Image helpers
 // รองรับทั้งฟิลด์ชนิด image และ image_url
@@ -569,11 +590,8 @@ export default function CodeDetail() {
   }, [codeId]);
 
   const getDropdownFirstOption = (optionsStr: string) => {
-    if (!optionsStr) return "";
-    const opts = optionsStr.split(',').map((s: string) => s.trim()).filter(Boolean);
-    if (opts.length === 0) return "";
-    const parts = opts[0].split('=');
-    return parts.length >= 2 ? parts.slice(1).join('=').trim() : parts[0].trim();
+    const opts = parseDropdownOptions(optionsStr);
+    return opts.length > 0 ? opts[0].value : "";
   };
 
   const initFieldValues = (codeData: any, forceReset: boolean = false) => {
@@ -849,13 +867,10 @@ export default function CodeDetail() {
     
     const parentField = allAvailableFields.find((f: any) => f.variableName === field.conditionVar);
     if (parentField && parentField.type === 'dropdown' && parentField.options) {
-      const optionsArray = parentField.options.split(',').map((s: string) => s.trim()).filter(Boolean);
+      const optionsArray = parseDropdownOptions(parentField.options);
       for (const opt of optionsArray) {
-        const parts = opt.split('=');
-        const label = parts[0].trim();
-        const value = parts.length >= 2 ? parts.slice(1).join('=').trim() : label;
-        
-        if (value === parentVal && (label === field.conditionVal || value === field.conditionVal)) {
+        // opt.label หรือ opt.value ก็ต้องแมทช์ได้
+        if (opt.value === parentVal && (opt.label === field.conditionVal || opt.value === field.conditionVal)) {
           return true;
         }
       }
@@ -872,8 +887,11 @@ export default function CodeDetail() {
 
     // 1) Dropdown ก่อน (ชื่อยาวก่อน กันชื่อซ้อนทับกัน เช่น TITLE กับ TITLE2)
     list.filter(f => f.type === 'dropdown').sort(byLenDesc).forEach(field => {
-      const val = values?.[field.variableName] || "";
-      if (val !== "") out = rep(out, field.variableName, val);
+      const val = values?.[field.variableName];
+      // ถ้าค่าเป็น string (รวมถึง "") ก็ให้แทนที่ไปเลย
+      if (typeof val === 'string') {
+        out = rep(out, field.variableName, val);
+      }
     });
 
     // 2) ฟิลด์อื่น ๆ: เรียงชื่อยาวก่อน แล้วถ้าชื่อเท่ากัน (ฟิลด์เงื่อนไขที่ใช้ตัวแปรเดียวกัน) ให้ตัวที่แสดงผลได้แทนก่อน
@@ -995,9 +1013,6 @@ export default function CodeDetail() {
       }
     }
 
-    // 🔧 ลบการแทน \n เป็น <br/> ทั้งก้อนออกแล้ว (เดิมทำให้ <style>/<script> พัง)
-    // ส่วน richtext แปลง \n เป็น <br/> เองอยู่แล้วใน parseContent
-
     return finalHtml;
   };
 
@@ -1029,27 +1044,24 @@ export default function CodeDetail() {
     }
 
     if (field.type === 'dropdown') {
-      const optionsArray = field.options ? field.options.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+      const parsedOptions = parseDropdownOptions(field.options);
       
-      const parsedOptions = optionsArray.map((opt: string) => {
-        const parts = opt.split('=');
-        if (parts.length >= 2) {
-          return { label: parts[0].trim(), value: parts.slice(1).join('=').trim() };
-        }
-        return { label: opt, value: opt };
-      });
+      // 🔧 แก้ปัญหา Placeholder: 
+      // ถ้า val เป็น undefined/null จะใช้ "__PLACEHOLDER__" เพื่อโชว์บรรทัด '-- เลือก...'
+      // ถ้าผู้ใช้เลือกชอยส์ "ซ่อน=" (ซึ่งทำให้ val="") มันจะไม่โดนมองข้าม
+      const currentVal = val !== undefined && val !== null ? val : "__PLACEHOLDER__";
 
       return (
         <div key={refKey} className="field-group">
           <label className="field-label">{field.label}</label>
           <select 
             className="glass-input" 
-            value={val || ""} 
+            value={currentVal} 
             onChange={e => onChange(e.target.value)}
           >
-            <option value="" disabled>-- เลือก{field.label} --</option>
+            <option value="__PLACEHOLDER__" disabled>-- เลือก{field.label} --</option>
             {parsedOptions.map((opt: any, idx: number) => (
-              <option key={`${opt.value}_${idx}`} value={opt.value}>{opt.label}</option>
+              <option key={`opt_${idx}`} value={opt.value}>{opt.label}</option>
             ))}
           </select>
         </div>

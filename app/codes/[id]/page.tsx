@@ -1273,7 +1273,7 @@ export default function CodeDetail() {
               </div>
               <div className="tb-divider"></div>
               <div className="tb-group">
-                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const url = prompt("ระบุลิงก์รูปภาพ:"); if(url) insertTag(refKey, textVal, onChange, `[img=${url}]`, '[/img]'); }} title="แทรกรูปภาพ">🖼️</button>
+                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const url = prompt("ระบุลิงก์รูปภาพ:"); if(url) insertTag(refKey, textVal, onChange, `[img]${url}[/img]`, ''); }} title="แทรกรูปภาพ">🖼️</button>
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const yt = prompt("รหัสวิดีโอ YouTube (เช่น dQw4w9WgXcQ):"); if(yt) insertTag(refKey, textVal, onChange, `[yt=${yt}]`, '[/yt]'); }} title="YouTube (ปกติ)">📺</button>
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const yt = prompt("รหัสวิดีโอ YouTube (เล่นอัตโนมัติ):"); if(yt) insertTag(refKey, textVal, onChange, `[ytauto=${yt}]`, '[/ytauto]'); }} title="YouTube (Auto)">▶️</button>
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const yt = prompt("รหัสวิดีโอ YouTube (ซ่อนกล่อง + เล่นอัตโนมัติ):"); if(yt) insertTag(refKey, textVal, onChange, `[hideyt=${yt}]`, '[/hideyt]'); }} title="YouTube (ซ่อนกล่อง)">🎵</button>

@@ -508,6 +508,7 @@ export default function ManageCodes() {
                   <option value="image">🖼️ รูปภาพ (เลื่อนตำแหน่ง/ซูม)</option>
                   <option value="image_url">🖼️ ภาพพื้นหลัง (+url)</option>
                   <option value="dropdown">📋 ตัวเลือก (Dropdown + พิมพ์เอง)</option>
+                  <option value="dimension">📐 ขนาด / มิติ (Dimension)</option>
                 </select>
               </div>
 
@@ -532,6 +533,20 @@ export default function ManageCodes() {
                     className="glass-input custom-scrollbar" 
                     rows={3}
                     placeholder={"ตัวอย่างรูปแบบ:\nสีเหลือง= yellow (เว้นวรรคด้านหน้าได้)\nซ่อน= (ไม่ใส่ค่าหลัง = จะถือเป็นค่าว่างจริง ๆ)"} 
+                    value={field.options || ""} 
+                    onChange={e => handleCustomFieldChange(index, 'options', e.target.value)} 
+                  />
+                </div>
+              )}
+              
+              {/* สำหรับชนิด dimension ตั้งค่าหน่วยและขนาดเริ่มต้น */}
+              {field.type === 'dimension' && (
+                <div className="form-group" style={{ marginTop: '16px', marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.85rem' }}>ขนาดและหน่วยเริ่มต้น</label>
+                  <input 
+                    type="text" 
+                    className="glass-input" 
+                    placeholder="เช่น 100%, 16px, 1.5rem" 
                     value={field.options || ""} 
                     onChange={e => handleCustomFieldChange(index, 'options', e.target.value)} 
                   />
@@ -627,6 +642,7 @@ export default function ManageCodes() {
                               <option value="gradient">ไล่ระดับสี</option>
                               <option value="dropdown">ตัวเลือก</option>
                               <option value="image_url">ภาพพื้นหลัง (+url)</option>
+                              <option value="dimension">ขนาด / มิติ (Dimension)</option>
                             </select>
                             
                             {/* 🌟 2. ปรับปรุง UI Dropdown (Blocks) ให้รองรับการเคาะบรรทัดและใส่ค่าว่าง */}
@@ -647,6 +663,17 @@ export default function ManageCodes() {
                                 value={field.options || ""} 
                                 onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'options', e.target.value)} 
                                 placeholder="สีตั้งต้นของเครื่องมือ" 
+                                className="glass-input" 
+                                style={{ padding: '8px', fontSize: '0.85rem', marginTop: '8px', width: '100%' }} 
+                              />
+                            )}
+                            
+                            {field.type === 'dimension' && (
+                              <input 
+                                type="text"
+                                value={field.options || ""} 
+                                onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'options', e.target.value)} 
+                                placeholder="เช่น 100%, 16px" 
                                 className="glass-input" 
                                 style={{ padding: '8px', fontSize: '0.85rem', marginTop: '8px', width: '100%' }} 
                               />

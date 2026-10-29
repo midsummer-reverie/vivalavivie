@@ -507,6 +507,153 @@ function ImageFieldEditor({ field, val, onChange, resetTo }: {
   );
 }
 
+// ============================================================
+// 📏 TextSizePicker: เครื่องมือปรับขนาดตัวอักษรสำหรับ Editor
+// ============================================================
+function TextSizePicker({ refKey, textVal, onChange, onInsert }: { 
+  refKey: string; 
+  textVal: string; 
+  onChange: (v: string) => void; 
+  onInsert: (refKey: string, textVal: string, onChange: (v: string) => void, open: string, close: string) => void;
+}) {
+  const [val, setVal] = useState<number>(16);
+  const [unit, setUnit] = useState<string>('px');
+
+  return (
+    <div className="tb-group" style={{ 
+      display: 'flex', alignItems: 'center', gap: '4px', 
+      background: 'rgba(255,255,255,0.5)', padding: '2px 6px', 
+      borderRadius: '8px', border: '1px solid var(--color-accent-mute)' 
+    }}>
+      {/* Slider */}
+      <input
+        type="range"
+        min="0.1" max="100" step="0.1"
+        value={val}
+        onChange={e => setVal(Number(e.target.value))}
+        style={{ width: '60px', accentColor: 'var(--color-accent)', margin: 0 }}
+        title="เลื่อนปรับขนาด (1-100)"
+      />
+      
+      {/* Number Input (สามารถพิมพ์เกิน 100 ได้ถ้าต้องการ) */}
+      <input
+        type="number"
+        min="0.1" step="0.1"
+        value={val}
+        onChange={e => setVal(Number(e.target.value))}
+        className="glass-input"
+        style={{ width: '50px', height: '24px', padding: '0 4px', fontSize: '0.75rem', borderRadius: '4px' }}
+        title="พิมพ์ตัวเลขขนาด"
+      />
+      
+      {/* เลือกหน่วย */}
+      <select
+        value={unit}
+        onChange={e => setUnit(e.target.value)}
+        className="tb-select"
+        style={{ height: '24px', fontSize: '0.75rem', padding: '0 4px' }}
+      >
+        <option value="px">px</option>
+        <option value="%">%</option>
+        <option value="em">em</option>
+        <option value="rem">rem</option>
+        <option value="vw">vw</option>
+        <option value="vh">vh</option>
+        <option value="vmin">vmin</option>
+        <option value="vmax">vmax</option>
+        <option value="pt">pt</option>
+        <option value="cm">cm</option>
+      </select>
+      
+      {/* ปุ่มแทรกโค้ด */}
+      <button 
+        className="tool-btn" 
+        onMouseDown={e => e.preventDefault()} 
+        onClick={() => onInsert(refKey, textVal, onChange, `[size=${val}${unit}]`, '[/size]')} 
+        style={{ padding: '2px 6px', fontSize: '0.8rem' }}
+        title="แทรกโค้ดขนาด"
+      >
+        A📏
+      </button>
+    </div>
+  );
+}
+
+// ============================================================
+// 📏 DimensionFieldEditor: ตัวปรับขนาดและหน่วยสำหรับตัวแปรทั่วไป (Width, Font-Size ฯลฯ)
+// ============================================================
+function DimensionFieldEditor({ field, val, onChange }: { 
+  field: any; 
+  val: string; 
+  onChange: (v: string) => void; 
+}) {
+  // อ่านค่าเริ่มต้นจาก options (เช่น ถ้าคนสร้างกำหนด options เป็น "100%" หรือ "16px")
+  const fallback = field.options || field.defaultValue || "16px";
+  const currentValStr = String(val || fallback).trim();
+  
+  // แยกตัวเลขและหน่วยออกจากกันด้วย Regex
+  const match = currentValStr.match(/^(-?\d*\.?\d+)(.*)$/);
+  const numVal = match ? parseFloat(match[1]) : 16;
+  const unitVal = match && match[2] ? match[2].trim() : "px";
+
+  // ปรับ Min / Max / Step ของ Slider ตามหน่วยที่เลือกให้เหมาะสม
+  let min = 0, max = 100, step = 1;
+  if (unitVal === 'px') { max = 2000; step = 1; }
+  else if (unitVal === '%') { max = 200; step = 1; }
+  else if (['vw', 'vh', 'vmin', 'vmax'].includes(unitVal)) { max = 100; step = 1; }
+  else if (['em', 'rem'].includes(unitVal)) { max = 10; step = 0.1; }
+
+  const handleNumChange = (newNum: number) => {
+    onChange(`${newNum}${unitVal}`);
+  };
+
+  const handleUnitChange = (newUnit: string) => {
+    onChange(`${numVal}${newUnit}`);
+  };
+
+  return (
+    <div className="field-group">
+      <label className="field-label">{field.label}</label>
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'rgba(255,255,255,0.4)', padding: '10px', borderRadius: '10px', border: '1px solid var(--color-accent-light)' }}>
+        
+        {/* Slider */}
+        <input 
+          type="range" 
+          min={min} max={max} step={step} 
+          value={numVal} 
+          onChange={e => handleNumChange(Number(e.target.value))} 
+          style={{ flex: 1, minWidth: 0, accentColor: 'var(--color-accent)', height: '16px', margin: 0 }} 
+          title="เลื่อนเพื่อปรับขนาด"
+        />
+        
+        {/* Number Input */}
+        <input 
+          type="number" 
+          step="any"
+          value={numVal} 
+          onChange={e => handleNumChange(Number(e.target.value))} 
+          className="glass-input" 
+          style={{ width: '70px', padding: '6px 8px', height: '32px' }} 
+          title="พิมพ์ตัวเลข"
+        />
+        
+        {/* Unit Dropdown */}
+        <select 
+          value={unitVal} 
+          onChange={e => handleUnitChange(e.target.value)} 
+          className="glass-input tb-select" 
+          style={{ width: '80px', padding: '0 8px', height: '32px' }}
+        >
+          {['px', '%', 'em', 'rem', 'vw', 'vh', 'vmin', 'vmax', 'pt', 'cm'].map(u => (
+            <option key={u} value={u}>{u}</option>
+          ))}
+        </select>
+
+      </div>
+    </div>
+  );
+}
+
 export default function CodeDetail() {
   const params = useParams<{ id: string }>();
   const codeId = params?.id || '';
@@ -1285,12 +1432,7 @@ export default function CodeDetail() {
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, textVal, onChange, '[align=right]', '[/align]')}> <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2zm4 4h8v2H6zm-4 4h12v2H2z"/></svg> </button>
               </div>
               <div className="tb-divider"></div>
-              <div className="tb-group">
-                <select id={`size_${refKey}`} className="tb-select">
-                  <option value="12px">12px</option><option value="14px">14px</option><option value="16px">16px</option><option value="18px">18px</option><option value="20px">20px</option><option value="24px">24px</option>
-                </select>
-                <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const size = (document.getElementById(`size_${refKey}`) as HTMLSelectElement).value; insertTag(refKey, textVal, onChange, `[size=${size}]`, '[/size]'); }} style={{ padding: '4px' }}>A📏</button>
-              </div>
+              <TextSizePicker refKey={refKey} textVal={textVal} onChange={onChange} onInsert={insertTag} />
               <div className="tb-divider"></div>
               <div className="tb-group">
                 <div className="color-picker-group">
@@ -1314,6 +1456,17 @@ export default function CodeDetail() {
           </div>
           {isRp && <div className="word-count">📊 จำนวนคำ: {countWords(textVal)} คำ</div>}
         </div>
+      );
+    }
+    // ระบบ ขนาด/มิติ (Dimension / Size)
+    if (field.type === 'dimension' || field.type === 'size') {
+      return (
+        <DimensionFieldEditor
+          key={refKey}
+          field={field}
+          val={val}
+          onChange={onChange}
+        />
       );
     }
     return (

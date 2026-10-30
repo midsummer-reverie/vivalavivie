@@ -327,7 +327,7 @@ export default function CodesShowcase() {
               <div className="filter-group">
                 <label className="filter-label">🔒 การแสดงผล / สถานะ</label>
                 <select className="filter-select" value={filters.visibility} onChange={(e) => setFilters({...filters, visibility: e.target.value as FilterState['visibility']})}>
-                  <option value="Default">🌍 โชว์ตามปกติ (ซ่อน Private ตอนค้นหา)</option>
+                  <option value="Default">🌍 โชว์ตามปกติ (ซ่อนโค้ดที่ล็อกไว้เป็น Private)</option>
                   <option value="PublicOnly">🔓 เฉพาะโค้ดสาธารณะ (Public Only)</option>
                   <option value="CommissionOnly">💎 เฉพาะโค้ดใสรหัส (Personal Only)</option>
                   <option value="PrivateOnly">🔒 เฉพาะโค้ดส่วนตัว (Private Only)</option>

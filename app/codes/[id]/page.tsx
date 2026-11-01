@@ -365,7 +365,40 @@ function ImageFieldEditor({ field, val, onChange, resetTo }: {
   const posPx = d.posMode === 'px';
   const sizeText = imgSizeCss(d);
   const posText = imgPosCss(d);
-  const num = (v: string, cb: (n: number) => void) => { const n = parseFloat(v); if (!isNaN(n)) cb(n); };
+
+  // 💡 State แยกสำหรับเก็บข้อความในช่อง input แต่ละตัว เพื่อให้ผู้ใช้ลบจนหมดเป็นค่าว่างได้อิสระ
+  const [inputStrs, setInputStrs] = useState<{ [key: string]: string }>({
+    x: String(d.x),
+    y: String(d.y),
+    zoom: String(d.zoom),
+    zoomH: String(d.zoomH ?? d.zoom),
+  });
+
+  // อัปเดต State ข้อความตามค่าภายนอก (เช่นเวลากดรีเซ็ต หรือเลื่อน Slider)
+  useEffect(() => {
+    setInputStrs({
+      x: String(d.x),
+      y: String(d.y),
+      zoom: String(d.zoom),
+      zoomH: String(d.zoomH ?? d.zoom),
+    });
+  }, [d.x, d.y, d.zoom, d.zoomH]);
+
+  const handleTextChange = (key: 'x' | 'y' | 'zoom' | 'zoomH', text: string) => {
+    setInputStrs(prev => ({ ...prev, [key]: text })); // อนุญาตให้พิมพ์หรือลบจนว่างได้
+    
+    if (text === '' || text === '-' || text === '.') return; // ยังไม่เซฟลงค่าจริงถ้ายังพิมพ์ค้างไว้หรือว่างเปล่า
+    const n = parseFloat(text);
+    if (!isNaN(n)) {
+      if (key === 'zoomH') {
+        set({ zoomH: Math.max(1, n) });
+      } else if (key === 'zoom') {
+        set({ zoom: isPxSize ? Math.max(1, n) : Math.max(1, n) });
+      } else {
+        set({ [key]: n });
+      }
+    }
+  };
 
   const onPosMode = (m: PosMode) => {
     const patch: Partial<ImgData> = { posMode: m };
@@ -388,18 +421,16 @@ function ImageFieldEditor({ field, val, onChange, resetTo }: {
 
   return (
     <div className="img-ed">
-      {/* หัวข้อ + รีเซ็ต */}
       <div className="img-row">
         <span className="field-label" style={{ fontSize: '0.85rem', flex: 1, minWidth: 0 }}>
           {field.label}
           {field.type === 'image_url' && <span className="img-badge">BG</span>}
         </span>
-        <button type="button" className="tool-btn img-reset" title="กลับไปใช้ตำแหน่ง/ซูมตามโค้ดต้นฉบับ" onClick={() => onChange({ ...resetTo, url: d.url })}>↺ รีเซ็ต</button>
+        <button type="button" className="tool-btn img-reset" title="รีเซ็ต" onClick={() => onChange({ ...resetTo, url: d.url })}>↺ รีเซ็ต</button>
       </div>
 
       <input type="url" className="glass-input" style={{ height: 30, padding: '4px 10px', fontSize: '0.85rem' }} placeholder="วางลิงก์รูปภาพ..." value={d.url} onChange={e => set({ url: e.target.value })} />
 
-      {/* พรีวิวเล็ก + ค่า CSS */}
       {hasUrl && (
         <div className="img-row" style={{ alignItems: 'flex-start' }}>
           <div className="img-thumb" style={{
@@ -412,7 +443,6 @@ function ImageFieldEditor({ field, val, onChange, resetTo }: {
         </div>
       )}
 
-      {/* เลือกรูปแบบ: ตำแหน่ง / ซูม / ซ้ำ */}
       <div className="img-grid3">
         <label className="img-cap">ตำแหน่ง
           <select className="img-mini" value={d.posMode} onChange={e => onPosMode(e.target.value as PosMode)}>
@@ -431,7 +461,6 @@ function ImageFieldEditor({ field, val, onChange, resetTo }: {
         </label>
       </div>
 
-      {/* ตำแหน่ง */}
       {d.posMode === 'keyword' ? (
         <div className="img-row">
           <div className="pos-pad">
@@ -449,23 +478,35 @@ function ImageFieldEditor({ field, val, onChange, resetTo }: {
         </div>
       ) : (
         <div className="img-grid2">
-          {(['x', 'y'] as const).map(ax => (
-            <div key={ax} className="img-row">
-              <span className="img-lbl">{ax.toUpperCase()}</span>
-              <input
-                type="range" className="img-range"
-                min={posPx ? -1000 : 0} max={posPx ? 1000 : 100} step={posPx ? 5 : 1}
-                value={d[ax]}
-                onChange={e => set({ [ax]: Number(e.target.value) } as any)}
-              />
-              <input type="number" className="img-mini img-num" value={d[ax]} onChange={e => num(e.target.value, n => set({ [ax]: n } as any))} />
-              <span className="img-unit">{posPx ? 'px' : '%'}</span>
-            </div>
-          ))}
+          {(['x', 'y'] as const).map(ax => {
+            const minVal = posPx ? -1000 : -100;
+            const maxVal = posPx ? 1000 : 200;
+            const stepVal = posPx ? 5 : 1;
+            const isEmp = inputStrs[ax] === '';
+
+            return (
+              <div key={ax} className="img-row">
+                <span className="img-lbl">{ax.toUpperCase()}</span>
+                <input
+                  type="range" className="img-range"
+                  min={minVal} max={maxVal} step={stepVal}
+                  value={isNaN(d[ax]) ? 0 : d[ax]}
+                  onChange={e => set({ [ax]: Number(e.target.value) } as any)}
+                />
+                <input 
+                  type="number" 
+                  className="img-mini img-num" 
+                  style={{ borderColor: isEmp ? 'var(--danger)' : undefined, boxShadow: isEmp ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : undefined }}
+                  value={inputStrs[ax]} 
+                  onChange={e => handleTextChange(ax, e.target.value)} 
+                />
+                <span className="img-unit">{posPx ? 'px' : '%'}</span>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* ซูม (เฉพาะโหมดที่เป็นตัวเลข) */}
       {sizeNumeric && (
         <>
           <div className="img-row">
@@ -473,10 +514,17 @@ function ImageFieldEditor({ field, val, onChange, resetTo }: {
             <input
               type="range" className="img-range"
               min={isPxSize ? 50 : 10} max={isPxSize ? 3000 : 500} step={isPxSize ? 10 : 1}
-              value={d.zoom}
+              value={isNaN(d.zoom) ? 100 : d.zoom}
               onChange={e => set({ zoom: Number(e.target.value) })}
             />
-            <input type="number" className="img-mini img-num" min={1} value={d.zoom} onChange={e => num(e.target.value, n => set({ zoom: Math.max(1, n) }))} />
+            <input 
+              type="number" 
+              className="img-mini img-num" 
+              style={{ borderColor: inputStrs.zoom === '' ? 'var(--danger)' : undefined }}
+              min={1} 
+              value={inputStrs.zoom} 
+              onChange={e => handleTextChange('zoom', e.target.value)} 
+            />
             <span className="img-unit">{isPxSize ? 'px' : '%'}</span>
           </div>
 
@@ -485,10 +533,17 @@ function ImageFieldEditor({ field, val, onChange, resetTo }: {
               <span className="img-lbl">สูง</span>
               <input
                 type="range" className="img-range" min={10} max={500}
-                value={d.zoomH ?? d.zoom}
+                value={isNaN(d.zoomH ?? d.zoom) ? 100 : (d.zoomH ?? d.zoom)}
                 onChange={e => set({ zoomH: Number(e.target.value) })}
               />
-              <input type="number" className="img-mini img-num" min={1} value={d.zoomH ?? d.zoom} onChange={e => num(e.target.value, n => set({ zoomH: Math.max(1, n) }))} />
+              <input 
+                type="number" 
+                className="img-mini img-num" 
+                style={{ borderColor: inputStrs.zoomH === '' ? 'var(--danger)' : undefined }}
+                min={1} 
+                value={inputStrs.zoomH} 
+                onChange={e => handleTextChange('zoomH', e.target.value)} 
+              />
               <span className="img-unit">%</span>
             </div>
           )}

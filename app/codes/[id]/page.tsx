@@ -815,7 +815,7 @@ export default function CodeDetail() {
   const handleSaveDraft = () => {
     if (!draftName.trim()) return alert("กรุณาตั้งชื่อดราฟต์");
     const newDrafts = [{ name: draftName, values: { ...fieldValues }, blocks: [...activeBlocks] }, ...drafts];
-    if (newDrafts.length > 5) newDrafts.pop();
+    if (newDrafts.length > 100) newDrafts.pop();
     saveDraftToStorage(newDrafts);
     setDraftName("");
     alert("✨ บันทึกดราฟต์สำเร็จ!");

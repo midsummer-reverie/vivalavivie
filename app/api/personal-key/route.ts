@@ -7,6 +7,7 @@ import {
   randomUUID,
 } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { getPersonalKeySession } from "@/lib/personal-session";
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -29,6 +30,10 @@ function hashPersonalKey(key: string) {
   return createHmac("sha256", getPepper())
     .update(key, "utf8")
     .digest("hex");
+}
+
+function isValidNewPersonalKey(key: string) {
+  return key.length >= 8 && key.length <= 128 && /^[\x21-\x7E]+$/.test(key) && key === key.toLowerCase();
 }
 
 function hashToken(token: string) {
@@ -177,6 +182,84 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const action = body.action;
+
+    if (action === "change") {
+      const newKey = typeof body.newKey === "string" ? body.newKey.trim() : "";
+
+      if (newKey.length < 8 || newKey.length > 128) {
+        await recordRateLimitAttempt(request);
+        return NextResponse.json(
+          { error: "New Personal Key must be between 8 and 128 characters." },
+          { status: 400 }
+        );
+      }
+
+      if (!isValidNewPersonalKey(newKey)) {
+        return NextResponse.json(
+          { error: "New Personal Key must use lowercase English letters, numbers, or symbols only." },
+          { status: 400 }
+        );
+      }
+
+      const session = await getPersonalKeySession(request);
+      if (!session) {
+        return NextResponse.json(
+          { error: "Please reconnect your Personal Key before changing it." },
+          { status: 401 }
+        );
+      }
+
+      const newKeyHash = hashPersonalKey(newKey);
+      const personalKeyId = session.personalKeyId;
+      const duplicate = await sql`
+        SELECT id
+        FROM personal_keys
+        WHERE key_hash = ${newKeyHash}
+          AND id <> ${personalKeyId}
+        LIMIT 1
+      `;
+
+      if (duplicate.length > 0) {
+        return NextResponse.json(
+          { error: "This new Personal Key is already registered." },
+          { status: 409 }
+        );
+      }
+
+      await recordRateLimitAttempt(request);
+
+      const updated = await sql`
+        WITH updated_key AS (
+          UPDATE personal_keys
+          SET key_hash = ${newKeyHash}, name = ${newKey}
+          WHERE id = ${personalKeyId}
+            AND key_hash <> ${newKeyHash}
+          RETURNING id
+        ), revoked_sessions AS (
+          DELETE FROM personal_sessions
+          WHERE personal_key_id IN (SELECT id FROM updated_key)
+          RETURNING id
+        )
+        SELECT id FROM updated_key
+      `;
+
+      if (updated.length === 0) {
+        return NextResponse.json(
+          { error: "Personal Key changed before this request completed. Please reconnect and try again." },
+          { status: 409 }
+        );
+      }
+
+      const token = await createSession(personalKeyId);
+      const response = NextResponse.json({
+        success: true,
+        connected: true,
+        message: "Personal Key changed. Other devices must reconnect with the new key.",
+      });
+      setSessionCookie(response, token);
+      return response;
+    }
+
     const key =
       typeof body.key === "string" ? body.key.trim() : "";
 
@@ -188,11 +271,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (key.length < 8 || key.length > 128) {
+    if (key.length < 8 || key.length > 128 || (action === "register" && !isValidNewPersonalKey(key))) {
       await recordRateLimitAttempt(request);
       return NextResponse.json(
         {
-          error: "Personal Key must be between 8 and 128 characters.",
+          error: action === "register"
+            ? "Personal Key must be 8 to 128 characters and use lowercase English letters, numbers, or symbols only."
+            : "Personal Key must be between 8 and 128 characters.",
         },
         { status: 400 }
       );
@@ -207,8 +292,8 @@ export async function POST(request: NextRequest) {
       personalKeyId = randomUUID().replace(/-/g, "");
 
       const inserted = await sql`
-        INSERT INTO personal_keys (id, key_hash)
-        VALUES (${personalKeyId}, ${keyHash})
+        INSERT INTO personal_keys (id, key_hash, name)
+        VALUES (${personalKeyId}, ${keyHash}, ${key})
         ON CONFLICT (key_hash) DO NOTHING
         RETURNING id
       `;

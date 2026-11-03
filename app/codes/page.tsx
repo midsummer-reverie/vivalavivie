@@ -148,6 +148,10 @@ export default function CodesShowcase() {
   const [personalKeyAction, setPersonalKeyAction] = useState<'register' | 'connect'>('connect');
   const [personalKeyBusy, setPersonalKeyBusy] = useState(false);
   const [personalKeyMessage, setPersonalKeyMessage] = useState("");
+  const [personalKeyMessageIsError, setPersonalKeyMessageIsError] = useState(false);
+  const [showChangeKeyForm, setShowChangeKeyForm] = useState(false);
+  const [newPersonalKey, setNewPersonalKey] = useState("");
+  const [confirmPersonalKey, setConfirmPersonalKey] = useState("");
   const [cloudDrafts, setCloudDrafts] = useState<CloudDraftPreview[]>([]);
   const [cloudDraftSearch, setCloudDraftSearch] = useState("");
   const [cloudDraftsLoading, setCloudDraftsLoading] = useState(false);
@@ -267,6 +271,7 @@ export default function CodesShowcase() {
   const handlePersonalKeySubmit = async () => {
     setPersonalKeyBusy(true);
     setPersonalKeyMessage("");
+    setPersonalKeyMessageIsError(false);
     try {
       const response = await fetch('/api/personal-key', {
         method: 'POST',
@@ -281,6 +286,7 @@ export default function CodesShowcase() {
       await refreshCloudDrafts();
     } catch (error) {
       setPersonalKeyMessage(error instanceof Error ? error.message : 'ดำเนินการ Personal Key ไม่สำเร็จ');
+      setPersonalKeyMessageIsError(true);
     } finally {
       setPersonalKeyBusy(false);
     }
@@ -289,15 +295,51 @@ export default function CodesShowcase() {
   const handlePersonalKeyDisconnect = async () => {
     setPersonalKeyBusy(true);
     setPersonalKeyMessage("");
+    setPersonalKeyMessageIsError(false);
     try {
       const response = await fetch('/api/personal-key', { method: 'DELETE' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'ยกเลิกการเชื่อมต่อไม่สำเร็จ');
       setPersonalKeyConnected(false);
       setCloudDrafts([]);
+      setShowChangeKeyForm(false);
       setPersonalKeyMessage('ยกเลิกการเชื่อมต่อแล้ว');
     } catch (error) {
       setPersonalKeyMessage(error instanceof Error ? error.message : 'ยกเลิกการเชื่อมต่อไม่สำเร็จ');
+      setPersonalKeyMessageIsError(true);
+    } finally {
+      setPersonalKeyBusy(false);
+    }
+  };
+
+  const handlePersonalKeyChange = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (newPersonalKey.trim() !== confirmPersonalKey.trim()) {
+      setPersonalKeyMessage('Key ใหม่ที่กรอกทั้งสองช่องไม่ตรงกัน');
+      setPersonalKeyMessageIsError(true);
+      return;
+    }
+
+    setPersonalKeyBusy(true);
+    setPersonalKeyMessage("");
+    setPersonalKeyMessageIsError(false);
+    try {
+      const response = await fetch('/api/personal-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'change', newKey: newPersonalKey.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'เปลี่ยน Personal Key ไม่สำเร็จ');
+
+      setPersonalKeyConnected(true);
+      setShowChangeKeyForm(false);
+      setNewPersonalKey('');
+      setConfirmPersonalKey('');
+      setPersonalKeyMessage('เปลี่ยน Key แล้ว อุปกรณ์อื่นต้องเชื่อมต่อด้วย Key ใหม่');
+    } catch (error) {
+      setPersonalKeyMessage(error instanceof Error ? error.message : 'เปลี่ยน Personal Key ไม่สำเร็จ');
+      setPersonalKeyMessageIsError(true);
     } finally {
       setPersonalKeyBusy(false);
     }
@@ -388,6 +430,14 @@ export default function CodesShowcase() {
         .personal-key-input { width: 210px; max-width: 42vw; border: 1px solid #d8b4fe; border-radius: 9px; padding: 7px 9px; background: rgba(255,255,255,0.85); color: #2e1065; }
         .personal-key-submit { border: 1px solid #7c3aed; border-radius: 9px; padding: 7px 11px; background: #7c3aed; color: white; font-weight: 700; cursor: pointer; }
         .personal-key-submit:disabled, .personal-key-action:disabled { opacity: 0.55; cursor: not-allowed; }
+        .personal-key-connected { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+        .personal-key-change-form { display: grid; grid-template-columns: repeat(2, minmax(140px, 1fr)); gap: 8px; width: min(100%, 520px); padding: 10px; border: 1px solid #d8b4fe; border-radius: 12px; background: rgba(255,255,255,0.75); }
+        .personal-key-change-form label { display: flex; flex-direction: column; gap: 4px; color: #5b21b6; font-size: .75rem; font-weight: 700; }
+        .personal-key-change-form input { width: 100%; min-width: 0; border: 1px solid #d8b4fe; border-radius: 8px; padding: 7px 8px; background: white; color: #2e1065; }
+        .personal-key-change-note, .personal-key-change-actions { grid-column: 1 / -1; }
+        .personal-key-change-note { margin: 0; color: #6b21a8; font-size: .75rem; }
+        .personal-key-change-actions { display: flex; justify-content: flex-end; gap: 7px; }
+        .personal-key-cancel { border: 1px solid #d1d5db; border-radius: 9px; padding: 7px 10px; color: #4b5563; background: white; font-weight: 700; cursor: pointer; }
         .cloud-drafts-overlay { position: fixed; inset: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(24, 16, 36, 0.64); backdrop-filter: blur(5px); }
         .cloud-drafts-panel { width: min(100%, 1000px); max-height: 88vh; overflow: auto; margin: 0; padding: 14px; border: 1px solid rgba(216, 180, 254, 0.75); border-radius: 18px; background: #faf7ff; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.3); }
         .cloud-drafts-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
@@ -417,6 +467,10 @@ export default function CodesShowcase() {
           .cloud-drafts-overlay { padding: 10px; }
           .personal-key-panel { align-items: flex-start; flex-direction: column; margin-top: -18px; }
           .personal-key-controls { justify-content: flex-start; width: 100%; }
+          .personal-key-connected { align-items: stretch; width: 100%; }
+          .personal-key-change-form { grid-template-columns: 1fr; width: 100%; }
+          .personal-key-change-note, .personal-key-change-actions { grid-column: auto; }
+          .personal-key-change-actions > button { flex: 1; }
           .personal-key-input { flex: 1; min-width: 150px; max-width: none; }
           .cloud-drafts-header { align-items: stretch; flex-direction: column; }
           .cloud-drafts-search { width: 100%; }
@@ -599,24 +653,40 @@ export default function CodesShowcase() {
         <section className="personal-key-panel" aria-label="Personal Key">
           <div>
             <strong style={{ color: '#4c1d95', fontSize: '0.95rem' }}>🔑 Personal Key</strong>
-            <div style={{ color: personalKeyConnected ? '#166534' : '#6b21a8', fontSize: '0.78rem', marginTop: '2px' }}>
+            <div style={{ color: personalKeyMessageIsError ? '#b91c1c' : personalKeyConnected ? '#166534' : '#6b21a8', fontSize: '0.78rem', marginTop: '2px' }}>
               {personalKeyMessage || (personalKeyConnected ? 'เชื่อมต่อแล้ว ใช้ Cloud Drafts ได้' : 'เชื่อมต่อหรือสร้าง Key เพื่อใช้ Cloud Drafts')}
             </div>
           </div>
           {personalKeyConnected ? (
-            <div className="personal-key-controls">
-              <button type="button" className="personal-key-submit" onClick={() => { setShowCloudDrafts(true); void refreshCloudDrafts(); }}>
-                ☁️ ดู Cloud Drafts ({cloudDrafts.length})
-              </button>
-              <button type="button" className="personal-key-action" onClick={() => void handlePersonalKeyDisconnect()} disabled={personalKeyBusy}>
-                {personalKeyBusy ? 'กำลังทำรายการ...' : 'ยกเลิกการเชื่อมต่อ'}
-              </button>
+            <div className="personal-key-connected">
+              <div className="personal-key-controls">
+                <button type="button" className="personal-key-submit" onClick={() => { setShowCloudDrafts(true); void refreshCloudDrafts(); }}>
+                  ☁️ ดู Cloud Drafts ({cloudDrafts.length})
+                </button>
+                <button type="button" className="personal-key-action" onClick={() => { setShowChangeKeyForm(value => !value); setPersonalKeyMessage(''); setPersonalKeyMessageIsError(false); }} disabled={personalKeyBusy}>
+                  เปลี่ยน Personal Key
+                </button>
+                <button type="button" className="personal-key-action" onClick={() => void handlePersonalKeyDisconnect()} disabled={personalKeyBusy}>
+                  {personalKeyBusy ? 'กำลังทำรายการ...' : 'ยกเลิกการเชื่อมต่อ'}
+                </button>
+              </div>
+              {showChangeKeyForm && (
+                <form className="personal-key-change-form" onSubmit={handlePersonalKeyChange}>
+                  <p className="personal-key-change-note">กำลังเปลี่ยน Key ของบัญชีที่เชื่อมต่ออยู่ Draft เดิมจะยังอยู่ และ Session อุปกรณ์อื่นจะถูกยกเลิก</p>
+                  <label>Key ใหม่<input type="text" autoComplete="off" minLength={8} maxLength={128} value={newPersonalKey} onChange={event => setNewPersonalKey(event.target.value.toLowerCase())} /></label>
+                  <label>ยืนยัน Key ใหม่<input type="text" autoComplete="off" minLength={8} maxLength={128} value={confirmPersonalKey} onChange={event => setConfirmPersonalKey(event.target.value.toLowerCase())} /></label>
+                  <div className="personal-key-change-actions">
+                    <button type="button" className="personal-key-cancel" onClick={() => { setShowChangeKeyForm(false); setNewPersonalKey(''); setConfirmPersonalKey(''); }}>ยกเลิก</button>
+                    <button type="submit" className="personal-key-submit" disabled={personalKeyBusy || newPersonalKey.trim().length < 8 || confirmPersonalKey.trim().length < 8 || newPersonalKey.trim() !== confirmPersonalKey.trim()}>{personalKeyBusy ? 'กำลังเปลี่ยน...' : 'ยืนยันการเปลี่ยน Key'}</button>
+                  </div>
+                </form>
+              )}
             </div>
           ) : (
             <div className="personal-key-controls">
               <button type="button" className={`personal-key-action ${personalKeyAction === 'connect' ? 'selected' : ''}`} aria-pressed={personalKeyAction === 'connect'} onClick={() => setPersonalKeyAction('connect')} disabled={personalKeyBusy}>เชื่อม Key</button>
               <button type="button" className={`personal-key-action ${personalKeyAction === 'register' ? 'selected' : ''}`} aria-pressed={personalKeyAction === 'register'} onClick={() => setPersonalKeyAction('register')} disabled={personalKeyBusy}>สร้าง Key</button>
-              <input type="text" className="personal-key-input" autoComplete="off" minLength={8} maxLength={128} placeholder="Personal Key (8+ ตัวอักษร)" value={personalKeyInput} onChange={event => setPersonalKeyInput(event.target.value)} />
+              <input type="text" className="personal-key-input" autoComplete="off" minLength={8} maxLength={128} placeholder="Personal Key (8+ ตัวอักษร)" value={personalKeyInput} onChange={event => setPersonalKeyInput(personalKeyAction === 'register' ? event.target.value.toLowerCase() : event.target.value)} />
               <button type="button" className="personal-key-submit" disabled={personalKeyBusy || personalKeyInput.trim().length < 8} onClick={() => void handlePersonalKeySubmit()}>
                 {personalKeyBusy ? 'กำลังทำรายการ...' : 'ยืนยัน'}
               </button>

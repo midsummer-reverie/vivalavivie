@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -11,10 +11,107 @@ type CodeType = {
   activityTags?: string[];
   eventTags?: string[];
   previewUrl?: string;
+  htmlCode?: string;
+  customFields?: any[];
+  blocks?: any[];
   isLocked: boolean;
   isCommission?: boolean; 
   likes?: number; 
 };
+
+type CloudDraftPreview = {
+  id: string;
+  code_id: string;
+  name: string;
+  values_json: Record<string, any> | string;
+  blocks_json: any[] | string;
+  created_at: string;
+};
+
+const parseJsonField = <T,>(value: T | string | null | undefined, fallback: T): T => {
+  if (typeof value !== 'string') return (value ?? fallback) as T;
+  try { return JSON.parse(value) as T; } catch { return fallback; }
+};
+
+const replaceTemplateValue = (html: string, key: string, value: unknown) =>
+  key ? html.split(key).join(String(value ?? '')) : html;
+
+function renderDraftTemplate(code: CodeType, draft: CloudDraftPreview) {
+  let html = code.htmlCode || '';
+  const values = parseJsonField<Record<string, any>>(draft.values_json, {});
+  const parsedBlocks = parseJsonField<any[]>(draft.blocks_json, []);
+  const blocks = Array.isArray(parsedBlocks) ? parsedBlocks : [];
+  const applyFields = (source: string, fields: any[], fieldValues: Record<string, any>, fallbackValues: Record<string, any> = {}) => {
+    let result = source;
+    const sortedFields = (Array.isArray(fields) ? fields : [])
+      .filter(field => typeof field?.variableName === 'string')
+      .sort((a, b) => b.variableName.length - a.variableName.length);
+
+    for (const field of sortedFields) {
+      const key = field.variableName;
+      const rawValue = fieldValues?.[key];
+      const parentValue = fieldValues?.[field.conditionVar] === undefined
+        ? fallbackValues?.[field.conditionVar] ?? ''
+        : fieldValues?.[field.conditionVar];
+      const isVisible = !field.conditionVar || parentValue === field.conditionVal;
+      if (field.type === 'image' || field.type === 'image_url') {
+        const image = rawValue && typeof rawValue === 'object' ? rawValue : {};
+        const url = typeof rawValue === 'string' ? rawValue : typeof image.url === 'string' ? image.url : '';
+        const cssUrl = url ? `url('${url.trim().replace(/'/g, '%27').replace(/\\/g, '%5C')}')` : '';
+        const position = image.posMode === 'keyword'
+          ? `${image.kx || 'center'} ${image.ky || 'center'}`
+          : image.posMode === 'px' ? `${image.x ?? 50}px ${image.y ?? 50}px` : `${image.x ?? 50}% ${image.y ?? 50}%`;
+        const size = image.sizeMode === 'percent_both'
+          ? `${image.zoom ?? 100}% ${image.zoomH ?? image.zoom ?? 100}%`
+          : ['cover', 'contain', 'auto'].includes(image.sizeMode) ? image.sizeMode : image.sizeMode === 'px' ? `${image.zoom ?? 100}px` : `${image.zoom ?? 100}%`;
+        const backgroundCss = isVisible && url ? `${cssUrl} ${position} / ${size}${image.repeat ? ` ${image.repeat}` : ''}` : '';
+        result = replaceTemplateValue(result, `${key}_CSS`, backgroundCss);
+        result = replaceTemplateValue(result, `${key}_URL`, isVisible ? url : '');
+        result = replaceTemplateValue(result, `${key}_POS`, isVisible && url ? position : '');
+        result = replaceTemplateValue(result, `${key}_X`, isVisible && url ? image.posMode === 'keyword' ? image.kx : image.x ?? 50 : '');
+        result = replaceTemplateValue(result, `${key}_Y`, isVisible && url ? image.posMode === 'keyword' ? image.ky : image.y ?? 50 : '');
+        result = replaceTemplateValue(result, `${key}_ZOOM`, isVisible && url ? image.zoom ?? 100 : '');
+        result = replaceTemplateValue(result, `${key}_SIZE`, isVisible && url ? size : '');
+        result = replaceTemplateValue(result, `${key}_REPEAT`, isVisible && url ? image.repeat || 'no-repeat' : '');
+        result = replaceTemplateValue(result, key, isVisible ? url : '');
+        continue;
+      }
+      let value = rawValue && typeof rawValue === 'object'
+        ? (typeof rawValue.url === 'string' ? rawValue.url : '')
+        : rawValue === undefined || rawValue === null || rawValue === '' ? key : String(rawValue);
+      if (!isVisible) value = '';
+      if ((field.type === 'richtext' || field.type === 'roleplay') && typeof value === 'string') {
+        value = value
+          .replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong>$1</strong>')
+          .replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>')
+          .replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<u>$1</u>')
+          .replace(/\[color=(.*?)\]([\s\S]*?)\[\/color\]/gi, '<span style="color:$1">$2</span>')
+          .replace(/\n/g, '<br/>');
+      }
+      result = replaceTemplateValue(result, key, value);
+    }
+    return result;
+  };
+
+  html = applyFields(html, parseJsonField<any[]>(code.customFields, []), values, values);
+  const renderedBlocks = new Map<string, string[]>();
+  for (const block of blocks) {
+    if (!block?.placeholder || typeof block.htmlTemplate !== 'string') continue;
+    const blockHtml = applyFields(block.htmlTemplate, block.fields, block.values || {}, values);
+    renderedBlocks.set(block.placeholder, [...(renderedBlocks.get(block.placeholder) || []), blockHtml]);
+  }
+  for (const [placeholder, parts] of renderedBlocks) {
+    html = replaceTemplateValue(html, placeholder, parts.join('\n'));
+  }
+  const templateBlocks = parseJsonField<any[]>(code.blocks, []);
+  for (const block of Array.isArray(templateBlocks) ? templateBlocks : []) {
+    if (block?.placeholder && !renderedBlocks.has(block.placeholder)) {
+      html = replaceTemplateValue(html, block.placeholder, '');
+    }
+  }
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=900, initial-scale=1"><style>html,body{margin:0;min-height:100%;background:#131313}body{width:900px;overflow:hidden}#draft-preview{width:900px;min-height:540px;padding:12px;box-sizing:border-box;background:#131313}#draft-preview img,#draft-preview video{max-width:100%;height:auto}</style></head><body><div id="draft-preview">${html}</div></body></html>`;
+}
 
 type FilterState = {
   sort: "Newest" | "Popular";
@@ -46,20 +143,61 @@ export default function CodesShowcase() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState(false);
+  const [personalKeyConnected, setPersonalKeyConnected] = useState(false);
+  const [personalKeyInput, setPersonalKeyInput] = useState("");
+  const [personalKeyAction, setPersonalKeyAction] = useState<'register' | 'connect'>('connect');
+  const [personalKeyBusy, setPersonalKeyBusy] = useState(false);
+  const [personalKeyMessage, setPersonalKeyMessage] = useState("");
+  const [cloudDrafts, setCloudDrafts] = useState<CloudDraftPreview[]>([]);
+  const [cloudDraftSearch, setCloudDraftSearch] = useState("");
+  const [cloudDraftsLoading, setCloudDraftsLoading] = useState(false);
+  const [cloudDraftsError, setCloudDraftsError] = useState("");
+  const [showCloudDrafts, setShowCloudDrafts] = useState(false);
   const router = useRouter();
+
+  const refreshCloudDrafts = useCallback(async () => {
+    setCloudDraftsLoading(true);
+    setCloudDraftsError("");
+    try {
+      const response = await fetch('/api/drafts?includeContent=1', { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'โหลด Cloud Drafts ไม่สำเร็จ');
+      setCloudDrafts(Array.isArray(data.drafts) ? data.drafts : []);
+    } catch (error) {
+      setCloudDraftsError(error instanceof Error ? error.message : 'โหลด Cloud Drafts ไม่สำเร็จ');
+    } finally {
+      setCloudDraftsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchCodes = async () => {
       try {
         const res = await fetch('/api/codes');
-        if (res.ok) setCodes(await res.json());
+        if (res.ok) {
+          const rows = await res.json();
+          setCodes((Array.isArray(rows) ? rows : []).map((code: CodeType) => ({
+            ...code,
+            customFields: parseJsonField<any[]>(code.customFields, []),
+            blocks: parseJsonField<any[]>(code.blocks, []),
+          })));
+        }
       } catch (error) { console.error("Error fetching data:", error); }
     };
     fetchCodes();
+
+    fetch('/api/personal-key')
+      .then(async response => response.ok ? response.json() : null)
+      .then(data => {
+        const connected = Boolean(data?.connected);
+        setPersonalKeyConnected(connected);
+        if (connected) void refreshCloudDrafts();
+      })
+      .catch(error => console.error('Personal Key session check failed:', error));
     
     const savedLikes = localStorage.getItem('user_liked_codes');
     if (savedLikes) setLikedCodes(JSON.parse(savedLikes));
-  }, []);
+  }, [refreshCloudDrafts]);
 
   // ดึงตัวเลือกสำหรับ Dropdown
   const nonPrivateCodes = codes.filter(c => !c.isLocked || c.isCommission);
@@ -111,12 +249,58 @@ export default function CodesShowcase() {
     // Newest คือลำดับเดิมที่ fetch มา (สมมติว่า backend เรียงมาให้แล้ว)
   }
 
+  const normalizedDraftSearch = cloudDraftSearch.trim().toLocaleLowerCase();
+  const visibleCloudDrafts = cloudDrafts.filter(draft => {
+    const code = codes.find(item => item.id === draft.code_id);
+    const codeName = code?.name || draft.code_id;
+    return !normalizedDraftSearch || `${draft.name} ${codeName} ${draft.code_id}`.toLocaleLowerCase().includes(normalizedDraftSearch);
+  });
+
   const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === "712069") {
       setShowAuthModal(false); setPassword(""); setAuthError(false);
       router.push('/codes/manage'); 
     } else { setAuthError(true); }
+  };
+
+  const handlePersonalKeySubmit = async () => {
+    setPersonalKeyBusy(true);
+    setPersonalKeyMessage("");
+    try {
+      const response = await fetch('/api/personal-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: personalKeyAction, key: personalKeyInput }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'ดำเนินการ Personal Key ไม่สำเร็จ');
+      setPersonalKeyConnected(true);
+      setPersonalKeyInput("");
+      setPersonalKeyMessage(personalKeyAction === 'register' ? 'สร้างและเชื่อมต่อ Personal Key แล้ว' : 'เชื่อมต่อ Personal Key แล้ว');
+      await refreshCloudDrafts();
+    } catch (error) {
+      setPersonalKeyMessage(error instanceof Error ? error.message : 'ดำเนินการ Personal Key ไม่สำเร็จ');
+    } finally {
+      setPersonalKeyBusy(false);
+    }
+  };
+
+  const handlePersonalKeyDisconnect = async () => {
+    setPersonalKeyBusy(true);
+    setPersonalKeyMessage("");
+    try {
+      const response = await fetch('/api/personal-key', { method: 'DELETE' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'ยกเลิกการเชื่อมต่อไม่สำเร็จ');
+      setPersonalKeyConnected(false);
+      setCloudDrafts([]);
+      setPersonalKeyMessage('ยกเลิกการเชื่อมต่อแล้ว');
+    } catch (error) {
+      setPersonalKeyMessage(error instanceof Error ? error.message : 'ยกเลิกการเชื่อมต่อไม่สำเร็จ');
+    } finally {
+      setPersonalKeyBusy(false);
+    }
   };
 
   const handleLike = async (e: React.MouseEvent, codeId: string) => {
@@ -197,6 +381,26 @@ export default function CodesShowcase() {
 
         /* 🌟 Toolbar ฉบับคลีน */
         .toolbar { display: flex; gap: 12px; margin-bottom: 30px; background: rgba(255,255,255,0.4); padding: 12px; border-radius: var(--radius-lg); border: 1px solid var(--glass-border); backdrop-filter: blur(12px); box-shadow: 0 4px 16px rgba(139, 92, 246, 0.05); align-items: center; }
+        .personal-key-panel { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: -18px 0 18px; padding: 10px 14px; border: 1px solid rgba(216, 180, 254, 0.75); border-radius: 14px; background: rgba(255,255,255,0.55); box-shadow: 0 4px 14px rgba(139, 92, 246, 0.05); }
+        .personal-key-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
+        .personal-key-action { border: 1px solid #d8b4fe; border-radius: 9px; padding: 7px 10px; color: #5b21b6; background: rgba(255,255,255,0.75); font-weight: 700; cursor: pointer; }
+        .personal-key-action.selected { color: white; background: #7c3aed; border-color: #7c3aed; box-shadow: 0 0 0 2px rgba(124,58,237,0.18); }
+        .personal-key-input { width: 210px; max-width: 42vw; border: 1px solid #d8b4fe; border-radius: 9px; padding: 7px 9px; background: rgba(255,255,255,0.85); color: #2e1065; }
+        .personal-key-submit { border: 1px solid #7c3aed; border-radius: 9px; padding: 7px 11px; background: #7c3aed; color: white; font-weight: 700; cursor: pointer; }
+        .personal-key-submit:disabled, .personal-key-action:disabled { opacity: 0.55; cursor: not-allowed; }
+        .cloud-drafts-overlay { position: fixed; inset: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(24, 16, 36, 0.64); backdrop-filter: blur(5px); }
+        .cloud-drafts-panel { width: min(100%, 1000px); max-height: 88vh; overflow: auto; margin: 0; padding: 14px; border: 1px solid rgba(216, 180, 254, 0.75); border-radius: 18px; background: #faf7ff; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.3); }
+        .cloud-drafts-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+        .cloud-drafts-search { width: min(100%, 340px); border: 1px solid #d8b4fe; border-radius: 10px; padding: 8px 11px; color: #2e1065; background: rgba(255,255,255,0.85); outline: none; }
+        .cloud-drafts-search:focus { border-color: #a855f7; box-shadow: 0 0 0 3px rgba(216,180,254,0.25); }
+        .cloud-drafts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+        .cloud-draft-card { overflow: hidden; color: inherit; text-decoration: none; border: 1px solid rgba(216,180,254,0.75); border-radius: 13px; background: rgba(255,255,255,0.78); transition: transform .18s, box-shadow .18s; }
+        .cloud-draft-card:hover { transform: translateY(-2px); box-shadow: 0 7px 16px rgba(91,33,182,0.12); }
+        .cloud-draft-preview { height: 108px; position: relative; overflow: hidden; background: #131313; border-bottom: 1px solid rgba(216,180,254,0.55); pointer-events: none; }
+        .cloud-draft-preview iframe { position: absolute; top: 0; left: calc(50% - 81px); width: 900px; height: 600px; border: 0; transform: scale(.18); transform-origin: top left; background: #131313; }
+        .cloud-draft-info { padding: 8px 10px 9px; }
+        .cloud-draft-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 0 3px; font-size: .88rem; font-weight: 700; color: #4c1d95; }
+        .cloud-draft-code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; font-size: .74rem; color: #6b7280; }
         .search-wrapper { flex: 1; position: relative; }
         .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 1.2rem; opacity: 0.5; }
         .glass-input-search { width: 100%; background: rgba(255,255,255,0.6); border: 1px solid var(--glass-border); border-radius: 14px; padding: 12px 14px 12px 42px; font-size: 1rem; outline: none; transition: 0.2s; color: var(--text-dark); }
@@ -210,6 +414,13 @@ export default function CodesShowcase() {
         .manage-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(216, 180, 254, 0.5); filter: brightness(1.05); }
 
         @media (max-width: 600px) {
+          .cloud-drafts-overlay { padding: 10px; }
+          .personal-key-panel { align-items: flex-start; flex-direction: column; margin-top: -18px; }
+          .personal-key-controls { justify-content: flex-start; width: 100%; }
+          .personal-key-input { flex: 1; min-width: 150px; max-width: none; }
+          .cloud-drafts-header { align-items: stretch; flex-direction: column; }
+          .cloud-drafts-search { width: 100%; }
+          .cloud-drafts-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
           .toolbar { flex-wrap: wrap; }
           .search-wrapper { min-width: 100%; }
           .filter-btn { flex: 1; justify-content: center; }
@@ -385,6 +596,34 @@ export default function CodesShowcase() {
           <p style={{ color: '#6b21a8', marginTop: '10px', position: 'relative', zIndex: 10, fontWeight: 500 }}>คลังรวบรวมผลงานโค้ด</p>
         </div>
 
+        <section className="personal-key-panel" aria-label="Personal Key">
+          <div>
+            <strong style={{ color: '#4c1d95', fontSize: '0.95rem' }}>🔑 Personal Key</strong>
+            <div style={{ color: personalKeyConnected ? '#166534' : '#6b21a8', fontSize: '0.78rem', marginTop: '2px' }}>
+              {personalKeyMessage || (personalKeyConnected ? 'เชื่อมต่อแล้ว ใช้ Cloud Drafts ได้' : 'เชื่อมต่อหรือสร้าง Key เพื่อใช้ Cloud Drafts')}
+            </div>
+          </div>
+          {personalKeyConnected ? (
+            <div className="personal-key-controls">
+              <button type="button" className="personal-key-submit" onClick={() => { setShowCloudDrafts(true); void refreshCloudDrafts(); }}>
+                ☁️ ดู Cloud Drafts ({cloudDrafts.length})
+              </button>
+              <button type="button" className="personal-key-action" onClick={() => void handlePersonalKeyDisconnect()} disabled={personalKeyBusy}>
+                {personalKeyBusy ? 'กำลังทำรายการ...' : 'ยกเลิกการเชื่อมต่อ'}
+              </button>
+            </div>
+          ) : (
+            <div className="personal-key-controls">
+              <button type="button" className={`personal-key-action ${personalKeyAction === 'connect' ? 'selected' : ''}`} aria-pressed={personalKeyAction === 'connect'} onClick={() => setPersonalKeyAction('connect')} disabled={personalKeyBusy}>เชื่อม Key</button>
+              <button type="button" className={`personal-key-action ${personalKeyAction === 'register' ? 'selected' : ''}`} aria-pressed={personalKeyAction === 'register'} onClick={() => setPersonalKeyAction('register')} disabled={personalKeyBusy}>สร้าง Key</button>
+              <input type="text" className="personal-key-input" autoComplete="off" minLength={8} maxLength={128} placeholder="Personal Key (8+ ตัวอักษร)" value={personalKeyInput} onChange={event => setPersonalKeyInput(event.target.value)} />
+              <button type="button" className="personal-key-submit" disabled={personalKeyBusy || personalKeyInput.trim().length < 8} onClick={() => void handlePersonalKeySubmit()}>
+                {personalKeyBusy ? 'กำลังทำรายการ...' : 'ยืนยัน'}
+              </button>
+            </div>
+          )}
+        </section>
+
         {/* 🌟 Toolbar โฉมใหม่: Search Bar แถวยาวๆ + ปุ่มตัวกรอง + ปุ่ม Manage */}
         <div className="toolbar">
           <div className="search-wrapper">
@@ -471,6 +710,49 @@ export default function CodesShowcase() {
           )}
         </div>
       </div>
+      {personalKeyConnected && showCloudDrafts && (
+        <div className="cloud-drafts-overlay" onClick={() => setShowCloudDrafts(false)}>
+          <section className="cloud-drafts-panel" role="dialog" aria-modal="true" aria-label="Cloud Drafts" onClick={event => event.stopPropagation()}>
+            <div className="cloud-drafts-header">
+              <div>
+                <strong style={{ color: '#4c1d95', fontSize: '1rem' }}>☁️ Cloud Drafts</strong>
+                <div style={{ fontSize: '0.76rem', color: '#6b21a8', marginTop: '2px' }}>ค้นหาตามชื่อ Draft หรือชื่อโค้ด · {cloudDrafts.length} รายการ</div>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <input className="cloud-drafts-search" type="search" placeholder="ค้นหา Draft หรือโค้ด..." value={cloudDraftSearch} onChange={event => setCloudDraftSearch(event.target.value)} />
+                <button type="button" className="personal-key-action" onClick={() => void refreshCloudDrafts()} disabled={cloudDraftsLoading} title="โหลดรายการใหม่" aria-label="โหลด Cloud Drafts ใหม่">{cloudDraftsLoading ? '…' : '↻'}</button>
+                <button type="button" className="personal-key-action" onClick={() => setShowCloudDrafts(false)} title="ปิดหน้าต่าง" aria-label="ปิด Cloud Drafts">✕</button>
+              </div>
+            </div>
+            {cloudDraftsError ? (
+              <div role="alert" style={{ color: '#b91c1c', fontSize: '0.85rem', padding: '10px 2px' }}>{cloudDraftsError}</div>
+            ) : cloudDraftsLoading && cloudDrafts.length === 0 ? (
+              <div style={{ color: '#6b21a8', fontSize: '0.85rem', padding: '10px 2px' }}>กำลังโหลด Drafts...</div>
+            ) : visibleCloudDrafts.length > 0 ? (
+              <div className="cloud-drafts-grid">
+                {visibleCloudDrafts.map(draft => {
+                  const code = codes.find(item => item.id === draft.code_id);
+                  const codeName = code?.name || 'ไม่พบโค้ดต้นทาง';
+                  const preview = code ? renderDraftTemplate(code, draft) : '<!doctype html><html><body style="margin:0;background:#131313;color:#aaa;font:24px sans-serif;padding:30px">Template unavailable</body></html>';
+                  return (
+                    <Link className="cloud-draft-card" href={`/codes/${encodeURIComponent(draft.code_id)}?draft=${encodeURIComponent(draft.id)}`} key={draft.id} title={`เปิด ${draft.name}`}>
+                      <div className="cloud-draft-preview">
+                        <iframe title={`พรีวิว ${draft.name}`} srcDoc={preview} sandbox="" loading="lazy" />
+                      </div>
+                      <div className="cloud-draft-info">
+                        <p className="cloud-draft-name">{draft.name}</p>
+                        <p className="cloud-draft-code">โค้ด: {codeName}</p>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ color: '#6b21a8', fontSize: '0.85rem', padding: '10px 2px' }}>{cloudDrafts.length ? 'ไม่พบ Draft ที่ตรงกับคำค้นหา' : 'ยังไม่มี Cloud Draft ที่บันทึกไว้'}</div>
+            )}
+          </section>
+        </div>
+      )}
     </div>
   );
 }

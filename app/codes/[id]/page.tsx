@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
-import { useParams } from 'next/navigation';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 // ============================================================
@@ -248,6 +248,12 @@ const imgPosCss = (d: ImgData): string => {
 
 const imgToCss = (d: ImgData) =>
   `${cssUrl(d.url)} ${imgPosCss(d)} / ${imgSizeCss(d)}${d.repeat ? ' ' + d.repeat : ''}`;
+
+type UndoRedoOperation = {
+  label: string;
+  undo: () => void | Promise<void>;
+  redo: () => void | Promise<void>;
+};
 
 // Regex จับ: [url('VAR') | VAR] + [ตำแหน่ง] + [/ ขนาด] + [repeat]
 // group1 = มี url( ครอบอยู่, group2 = ตำแหน่ง, group3 = ขนาด, group4 = repeat
@@ -711,7 +717,10 @@ function DimensionFieldEditor({ field, val, onChange }: {
 
 export default function CodeDetail() {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const codeId = params?.id || '';
+  const sharedDraftId = searchParams?.get('draft');
+const sharedDraftToken = searchParams?.get('share'); // รับค่าจากการแชร์แบบร่าง
 
   const [code, setCode] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -740,9 +749,140 @@ export default function CodeDetail() {
   const [drafts, setDrafts] = useState<{ name: string; values: any; blocks: any[] }[]>([]);
   const [draftName, setDraftName] = useState("");
   const [selectedDraftIndex, setSelectedDraftIndex] = useState<number>(-1);
+  const [personalKeyConnected, setPersonalKeyConnected] = useState(false);
+  const [personalKeyInput, setPersonalKeyInput] = useState("");
+  const [personalKeyAction, setPersonalKeyAction] = useState<'register' | 'connect'>('connect');
+  const [cloudDrafts, setCloudDrafts] = useState<{ id: string; code_id: string; name: string; created_at: string; updated_at: string }[]>([]);
+  const [selectedCloudDraftId, setSelectedCloudDraftId] = useState("");
+  const [cloudBusy, setCloudBusy] = useState(false);
+  const [historyRevision, setHistoryRevision] = useState(0);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const historyBusyRef = useRef(false);
+  const undoStackRef = useRef<UndoRedoOperation[]>([]);
+  const redoStackRef = useRef<UndoRedoOperation[]>([]);
+  const lastEditorSnapshotRef = useRef("");
+  const editorHistoryReadyRef = useRef(false);
 
   const textareaRefs = useRef<{ [key: string]: HTMLTextAreaElement | null }>({});
   const [selections, setSelections] = useState<{ [key: string]: { start: number, end: number } }>({});
+
+  const recordUndoOperation = useCallback((operation: UndoRedoOperation) => {
+    undoStackRef.current.push(operation);
+    if (undoStackRef.current.length > 100) undoStackRef.current.shift();
+    redoStackRef.current = [];
+    setHistoryRevision(revision => revision + 1);
+  }, []);
+
+  const handleUndo = useCallback(async () => {
+    if (historyBusyRef.current) return;
+    const operation = undoStackRef.current.pop();
+    if (!operation) return;
+    historyBusyRef.current = true;
+    setHistoryBusy(true);
+    try {
+      await operation.undo();
+      redoStackRef.current.push(operation);
+      setHistoryRevision(revision => revision + 1);
+    } catch (error) {
+      undoStackRef.current.push(operation);
+      alert(error instanceof Error ? `ย้อนกลับไม่สำเร็จ: ${error.message}` : 'ย้อนกลับไม่สำเร็จ');
+    } finally {
+      historyBusyRef.current = false;
+      setHistoryBusy(false);
+    }
+  }, []);
+
+  const handleRedo = useCallback(async () => {
+    if (historyBusyRef.current) return;
+    const operation = redoStackRef.current.pop();
+    if (!operation) return;
+    historyBusyRef.current = true;
+    setHistoryBusy(true);
+    try {
+      await operation.redo();
+      undoStackRef.current.push(operation);
+      setHistoryRevision(revision => revision + 1);
+    } catch (error) {
+      redoStackRef.current.push(operation);
+      alert(error instanceof Error ? `ทำซ้ำไม่สำเร็จ: ${error.message}` : 'ทำซ้ำไม่สำเร็จ');
+    } finally {
+      historyBusyRef.current = false;
+      setHistoryBusy(false);
+    }
+  }, []);
+
+  const handleUndoRef = useRef(handleUndo);
+  const handleRedoRef = useRef(handleRedo);
+  handleUndoRef.current = handleUndo;
+  handleRedoRef.current = handleRedo;
+
+  useEffect(() => {
+    if (!code || loading || code.id !== codeId) return;
+    const timer = setTimeout(() => {
+      const nextSnapshot = JSON.stringify({ codeId, values: fieldValues, blocks: activeBlocks });
+      if (!editorHistoryReadyRef.current) {
+        editorHistoryReadyRef.current = true;
+        lastEditorSnapshotRef.current = nextSnapshot;
+        return;
+      }
+      const previousSnapshot = JSON.parse(lastEditorSnapshotRef.current);
+      if (previousSnapshot.codeId !== codeId) {
+        undoStackRef.current = [];
+        redoStackRef.current = [];
+        lastEditorSnapshotRef.current = nextSnapshot;
+        setHistoryRevision(revision => revision + 1);
+        return;
+      }
+      if (nextSnapshot === lastEditorSnapshotRef.current) return;
+
+      const nextState = JSON.parse(nextSnapshot);
+      lastEditorSnapshotRef.current = nextSnapshot;
+      recordUndoOperation({
+        label: 'แก้ไขค่าใน Editor',
+        undo: () => {
+          lastEditorSnapshotRef.current = JSON.stringify(previousSnapshot);
+          setFieldValues(previousSnapshot.values);
+          setActiveBlocks(previousSnapshot.blocks);
+        },
+        redo: () => {
+          lastEditorSnapshotRef.current = JSON.stringify(nextState);
+          setFieldValues(nextState.values);
+          setActiveBlocks(nextState.blocks);
+        },
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [code, codeId, loading, fieldValues, activeBlocks, recordUndoOperation]);
+
+  useEffect(() => {
+    const handleEditorShortcut = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || !isUnlocked || editMode !== 'customize') return;
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName?.toLowerCase();
+      if (tagName === 'input' || tagName === 'textarea' || tagName === 'select' || target?.isContentEditable) return;
+
+      const key = event.key.toLowerCase();
+      if (key === 'z' && event.shiftKey) {
+        if (redoStackRef.current.length > 0 && !historyBusyRef.current && !cloudBusy) {
+          event.preventDefault();
+          void handleRedoRef.current();
+        }
+      } else if (key === 'y') {
+        if (redoStackRef.current.length > 0 && !historyBusyRef.current && !cloudBusy) {
+          event.preventDefault();
+          void handleRedoRef.current();
+        }
+      } else if (key === 'z') {
+        if (undoStackRef.current.length > 0 && !historyBusyRef.current && !cloudBusy) {
+          event.preventDefault();
+          void handleUndoRef.current();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleEditorShortcut);
+    return () => window.removeEventListener('keydown', handleEditorShortcut);
+  }, [isUnlocked, editMode, cloudBusy]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -751,6 +891,204 @@ export default function CodeDetail() {
     }, 300);
     return () => clearTimeout(handler);
   }, [fieldValues, activeBlocks]);
+
+  const refreshCloudDrafts = useCallback(async () => {
+    const response = await fetch('/api/drafts', { cache: 'no-store' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'โหลด Cloud Drafts ไม่สำเร็จ');
+    setCloudDrafts(Array.isArray(data.drafts) ? data.drafts : []);
+    setSelectedCloudDraftId(current => data.drafts?.some((draft: any) => draft.id === current) ? current : '');
+  }, []);
+
+  const requestCloudDraft = async (url: string, method: string, body?: Record<string, any>) => {
+    const response = await fetch(url, {
+      method,
+      ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}),
+      cache: 'no-store',
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'ดำเนินการ Cloud Draft ไม่สำเร็จ');
+    return data;
+  };
+
+  const refreshCloudDraftsQuietly = async () => {
+    try { await refreshCloudDrafts(); }
+    catch (error) { console.error('Cloud Draft list refresh failed:', error); }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/personal-key')
+      .then(async response => response.ok ? response.json() : null)
+      .then(data => {
+        if (!cancelled && data?.connected) {
+          setPersonalKeyConnected(true);
+          void refreshCloudDrafts().catch(error => console.error('Cloud Draft list load failed:', error));
+        }
+      })
+      .catch(error => console.error('Personal Key session check failed:', error));
+    return () => { cancelled = true; };
+  }, [refreshCloudDrafts]);
+
+  const handlePersonalKey = async (action: 'register' | 'connect') => {
+    setCloudBusy(true);
+    try {
+      const response = await fetch('/api/personal-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, key: personalKeyInput }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'เชื่อมต่อ Personal Key ไม่สำเร็จ');
+      setPersonalKeyInput('');
+      setPersonalKeyConnected(true);
+      await refreshCloudDrafts();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'เชื่อมต่อ Personal Key ไม่สำเร็จ');
+    } finally {
+      setCloudBusy(false);
+    }
+  };
+
+  const handleDisconnectPersonalKey = async () => {
+    setCloudBusy(true);
+    try {
+      const response = await fetch('/api/personal-key', { method: 'DELETE' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'ยกเลิกการเชื่อมต่อไม่สำเร็จ');
+      setPersonalKeyConnected(false);
+      setCloudDrafts([]);
+      setSelectedCloudDraftId('');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'ยกเลิกการเชื่อมต่อไม่สำเร็จ');
+    } finally {
+      setCloudBusy(false);
+    }
+  };
+
+  const handleSaveCloudDraft = async () => {
+    const name = draftName.trim();
+    if (!name) return alert('กรุณาตั้งชื่อ Cloud Draft');
+    const payload = { codeId, name, values: JSON.parse(JSON.stringify(fieldValues)), blocks: JSON.parse(JSON.stringify(activeBlocks)) };
+    setCloudBusy(true);
+    try {
+      const data = await requestCloudDraft('/api/drafts', 'POST', payload);
+      let currentDraftId = data.draftId as string;
+      recordUndoOperation({
+        label: 'บันทึก Cloud Draft',
+        undo: async () => {
+          await requestCloudDraft(`/api/drafts/${encodeURIComponent(currentDraftId)}`, 'DELETE');
+          await refreshCloudDraftsQuietly();
+          setSelectedCloudDraftId('');
+        },
+        redo: async () => {
+          const restored = await requestCloudDraft('/api/drafts', 'POST', payload);
+          currentDraftId = restored.draftId;
+          await refreshCloudDraftsQuietly();
+          setSelectedCloudDraftId(currentDraftId);
+        },
+      });
+      setDraftName('');
+      await refreshCloudDrafts();
+      setSelectedCloudDraftId(data.draftId);
+      alert('บันทึก Cloud Draft แล้ว');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'บันทึก Cloud Draft ไม่สำเร็จ');
+    } finally {
+      setCloudBusy(false);
+    }
+  };
+
+  const handleLoadCloudDraft = async () => {
+    if (!selectedCloudDraftId) return;
+    setCloudBusy(true);
+    try {
+      const response = await fetch(`/api/drafts/${encodeURIComponent(selectedCloudDraftId)}`, { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'โหลด Cloud Draft ไม่สำเร็จ');
+      setFieldValues(data.values || {});
+      setActiveBlocks(data.blocks || []);
+      setEditMode('customize');
+      setViewMode('preview');
+      setTimeout(() => Object.values(textareaRefs.current).forEach(el => autoResize(el)), 100);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'โหลด Cloud Draft ไม่สำเร็จ');
+    } finally {
+      setCloudBusy(false);
+    }
+  };
+
+  const handleUpdateCloudDraft = async () => {
+    if (!selectedCloudDraftId) return;
+    const draftId = selectedCloudDraftId;
+    setCloudBusy(true);
+    try {
+      const url = `/api/drafts/${encodeURIComponent(draftId)}`;
+      const before = await requestCloudDraft(url, 'GET');
+      const beforePayload = { name: before.name, values: before.values, blocks: before.blocks };
+      const afterPayload = { name: before.name, values: JSON.parse(JSON.stringify(fieldValues)), blocks: JSON.parse(JSON.stringify(activeBlocks)) };
+      await requestCloudDraft(url, 'PUT', afterPayload);
+      recordUndoOperation({
+        label: 'อัปเดต Cloud Draft',
+        undo: async () => { await requestCloudDraft(url, 'PUT', beforePayload); await refreshCloudDraftsQuietly(); },
+        redo: async () => { await requestCloudDraft(url, 'PUT', afterPayload); await refreshCloudDraftsQuietly(); },
+      });
+      await refreshCloudDrafts();
+      alert('อัปเดต Cloud Draft แล้ว');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'อัปเดต Cloud Draft ไม่สำเร็จ');
+    } finally {
+      setCloudBusy(false);
+    }
+  };
+
+  const handleDeleteCloudDraft = async () => {
+    if (!selectedCloudDraftId || !confirm('ลบ Cloud Draft นี้หรือไม่? สามารถกด Undo เพื่อกู้ข้อมูลได้ แต่ Share Link เดิมจะไม่กลับมา')) return;
+    const draftId = selectedCloudDraftId;
+    setCloudBusy(true);
+    try {
+      const url = `/api/drafts/${encodeURIComponent(draftId)}`;
+      const before = await requestCloudDraft(url, 'GET');
+      const restorePayload = { codeId, name: before.name, values: before.values, blocks: before.blocks };
+      await requestCloudDraft(url, 'DELETE');
+      let currentDraftId = draftId;
+      recordUndoOperation({
+        label: 'ลบ Cloud Draft',
+        undo: async () => {
+          const restored = await requestCloudDraft('/api/drafts', 'POST', restorePayload);
+          currentDraftId = restored.draftId;
+          await refreshCloudDraftsQuietly();
+          setSelectedCloudDraftId(currentDraftId);
+        },
+        redo: async () => {
+          await requestCloudDraft(`/api/drafts/${encodeURIComponent(currentDraftId)}`, 'DELETE');
+          await refreshCloudDraftsQuietly();
+          setSelectedCloudDraftId('');
+        },
+      });
+      await refreshCloudDrafts();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'ลบ Cloud Draft ไม่สำเร็จ');
+    } finally {
+      setCloudBusy(false);
+    }
+  };
+
+  const handleShareCloudDraft = async () => {
+    if (!selectedCloudDraftId) return;
+    setCloudBusy(true);
+    try {
+      const response = await fetch(`/api/drafts/${encodeURIComponent(selectedCloudDraftId)}/share`, { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok || !data.shareUrl) throw new Error(data.error || 'สร้าง Share Link ไม่สำเร็จ');
+      await navigator.clipboard.writeText(data.shareUrl);
+      alert('คัดลอก Share Link แล้ว');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'สร้าง Share Link ไม่สำเร็จ');
+    } finally {
+      setCloudBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!codeId) return;
@@ -840,18 +1178,101 @@ export default function CodeDetail() {
     setActiveBlocks([]);
   };
 
+  // ============================================================
+  // 💾 Autosave Logic (แก้ไขจุดบั๊กเรียบร้อย)
+  // ============================================================
   useEffect(() => {
     if (!code || !codeId) return;
+    
     const timer = setTimeout(() => {
-      try {
-        localStorage.setItem(`code_autosave_${codeId}`, JSON.stringify({
-          values: fieldValues,
-          blocks: activeBlocks
-        }));
-      } catch (e) { console.warn("Autosave skipped", e); }
-    }, 1000); 
+      localStorage.setItem(`code_autosave_${code.id}`, JSON.stringify({
+        values: debouncedFieldValues,
+        blocks: debouncedActiveBlocks
+      }));
+    }, 500); // ดีเลย์บันทึกอัตโนมัติ 0.5 วินาที
+    
     return () => clearTimeout(timer);
-  }, [fieldValues, activeBlocks, codeId, code]);
+  }, [debouncedFieldValues, debouncedActiveBlocks, code, codeId]);
+
+  
+  // ============================================================
+  // ☁️ โหลด Shared Draft รองรับทั้ง Draft ID และ Share Token
+  // ============================================================
+  useEffect(() => {
+    if (!code || (!sharedDraftId && !sharedDraftToken)) return;
+
+    let cancelled = false;
+
+    const fetchSharedDraft = async () => {
+      try {
+        // Share Token มีลำดับความสำคัญเหนือ Draft ID
+        const apiUrl = sharedDraftToken
+          ? `/api/drafts/share/${encodeURIComponent(sharedDraftToken)}`
+          : `/api/drafts/${encodeURIComponent(sharedDraftId!)}`;
+
+        const res = await fetch(apiUrl);
+
+        if (!res.ok) {
+          if (!cancelled) {
+            alert(
+              res.status === 404
+                ? 'ไม่พบแบบร่างนี้ ลิงก์อาจหมดอายุหรือถูกยกเลิกแล้ว'
+                : 'ไม่สามารถโหลดแบบร่างได้ กรุณาลองใหม่'
+            );
+          }
+          return;
+        }
+
+        const responseData = await res.json();
+
+        if (cancelled) return;
+
+        // API ส่งข้อมูล Draft ไว้ภายใน responseData.draft
+        const data = responseData.draft ?? responseData;
+
+        if (
+          !data ||
+          typeof data.values !== 'object' ||
+          data.values === null ||
+          Array.isArray(data.values) ||
+          !Array.isArray(data.blocks)
+        ) {
+          console.error('Invalid shared draft data:', responseData);
+           alert('ข้อมูลแบบร่างไม่ถูกต้อง');
+          return;
+        }
+
+        setFieldValues(prev => ({
+          ...prev,
+          ...data.values
+        }));
+
+        setActiveBlocks(data.blocks);
+
+        setEditMode('customize');
+        setViewMode('preview');
+
+        setTimeout(() => {
+          Object.values(textareaRefs.current).forEach(el => autoResize(el));
+        }, 100);
+
+        alert(`☁️ โหลดแบบร่าง: ${data.name} สำเร็จ!`);
+      } catch (error) {
+        console.error('Error loading shared draft:', error);
+
+        if (!cancelled) {
+          alert('เกิดข้อผิดพลาดในการโหลดแบบร่าง');
+        }
+      }
+    };
+
+    fetchSharedDraft();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sharedDraftId, sharedDraftToken, code]);
+
 
   const loadDraftsFromStorage = (id: string) => {
     try {
@@ -860,31 +1281,47 @@ export default function CodeDetail() {
     } catch (e) { console.error(e); }
   };
 
-  const saveDraftToStorage = (newDrafts: any[]) => {
+  const saveDraftToStorage = (newDrafts: any[]): boolean => {
     try {
       localStorage.setItem(`code_drafts_${codeId}`, JSON.stringify(newDrafts));
       setDrafts(newDrafts);
+      return true;
     } catch (e) { console.error(e); }
+    return false;
   };
 
   const handleSaveDraft = () => {
     if (!draftName.trim()) return alert("กรุณาตั้งชื่อดราฟต์");
+    const beforeDrafts = JSON.parse(JSON.stringify(drafts));
     const newDrafts = [{ name: draftName, values: { ...fieldValues }, blocks: [...activeBlocks] }, ...drafts];
     if (newDrafts.length > 100) newDrafts.pop();
-    saveDraftToStorage(newDrafts);
+    if (!saveDraftToStorage(newDrafts)) return alert('บันทึก Local Draft ไม่สำเร็จ');
+    const afterDrafts = JSON.parse(JSON.stringify(newDrafts));
+    recordUndoOperation({
+      label: 'บันทึก Local Draft',
+      undo: () => { if (!saveDraftToStorage(beforeDrafts)) throw new Error('เขียน Local Storage ไม่สำเร็จ'); },
+      redo: () => { if (!saveDraftToStorage(afterDrafts)) throw new Error('เขียน Local Storage ไม่สำเร็จ'); },
+    });
     setDraftName("");
     alert("✨ บันทึกดราฟต์สำเร็จ!");
   };
 
   const handleUpdateDraft = () => {
     if (selectedDraftIndex >= 0 && drafts[selectedDraftIndex]) {
+      const beforeDrafts = JSON.parse(JSON.stringify(drafts));
       const updatedDrafts = [...drafts];
       updatedDrafts[selectedDraftIndex] = {
         ...updatedDrafts[selectedDraftIndex],
         values: { ...fieldValues },
         blocks: [...activeBlocks]
       };
-      saveDraftToStorage(updatedDrafts);
+      if (!saveDraftToStorage(updatedDrafts)) return alert('อัปเดต Local Draft ไม่สำเร็จ');
+      const afterDrafts = JSON.parse(JSON.stringify(updatedDrafts));
+      recordUndoOperation({
+        label: 'อัปเดต Local Draft',
+        undo: () => { if (!saveDraftToStorage(beforeDrafts)) throw new Error('เขียน Local Storage ไม่สำเร็จ'); },
+        redo: () => { if (!saveDraftToStorage(afterDrafts)) throw new Error('เขียน Local Storage ไม่สำเร็จ'); },
+      });
       alert("✨ อัปเดตดราฟต์สำเร็จ!");
     }
   };
@@ -901,10 +1338,18 @@ export default function CodeDetail() {
 
   const handleDeleteDraft = () => {
     if (selectedDraftIndex >= 0) {
-      if (confirm("⚠️ แน่ใจหรือไม่ว่าต้องการลบดราฟต์นี้? (ลบแล้วกู้คืนไม่ได้นะ)")) {
+      if (confirm("ลบ Local Draft นี้หรือไม่? สามารถกด Undo เพื่อกู้คืนได้")) {
+        const beforeDrafts = JSON.parse(JSON.stringify(drafts));
+        const previousSelectedIndex = selectedDraftIndex;
         const newDrafts = drafts.filter((_, i) => i !== selectedDraftIndex);
-        saveDraftToStorage(newDrafts);
+        if (!saveDraftToStorage(newDrafts)) return alert('ลบ Local Draft ไม่สำเร็จ');
         setSelectedDraftIndex(-1);
+        const afterDrafts = JSON.parse(JSON.stringify(newDrafts));
+        recordUndoOperation({
+          label: 'ลบ Local Draft',
+          undo: () => { if (!saveDraftToStorage(beforeDrafts)) throw new Error('เขียน Local Storage ไม่สำเร็จ'); setSelectedDraftIndex(previousSelectedIndex); },
+          redo: () => { if (!saveDraftToStorage(afterDrafts)) throw new Error('เขียน Local Storage ไม่สำเร็จ'); setSelectedDraftIndex(-1); },
+        });
       }
     }
   };
@@ -1616,6 +2061,13 @@ export default function CodeDetail() {
           flex-direction: column;
           gap: 20px;
         }
+
+        .undo-floating-toolbar { position: fixed; z-index: 120; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 6px; border: 1px solid rgba(255,255,255,0.85); border-radius: 999px; background: rgba(250,247,255,0.94); box-shadow: 0 8px 28px rgba(46,16,101,0.2); backdrop-filter: blur(14px); }
+        .undo-floating-button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 14px; border: 1px solid var(--color-accent-light); border-radius: 999px; background: #fff; color: var(--color-primary); font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: transform .15s, background .15s, opacity .15s; }
+        .undo-floating-button:hover:not(:disabled) { background: #f3e8ff; transform: translateY(-1px); }
+        .undo-floating-button:disabled { opacity: .42; cursor: not-allowed; }
+        .undo-floating-icon { font-size: 1.25rem; line-height: 1; }
+        .undo-shortcut-hint { font-size: .66rem; font-weight: 500; color: #7c6b91; }
         
         .right-panel { min-width: 0; overflow: hidden; height: 100%; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
 
@@ -1721,13 +2173,18 @@ export default function CodeDetail() {
         /* ยกเว้นให้มือถือ Scroll ได้ปกติ */
         @media (max-width: 1024px) {
           body { overflow: auto !important; }
-          .code-detail-wrapper { position: static; height: auto; min-height: 100vh; overflow: visible !important; }
+          .code-detail-wrapper { position: static; height: auto; min-height: 100vh; padding-bottom: calc(94px + env(safe-area-inset-bottom)); overflow: visible !important; }
           .wide-w { height: auto; display: block; }
           .split-layout { grid-template-columns: 1fr; display: block; }
           .glass-panel-scrollable { height: auto; margin-bottom: 24px; display: block; overflow: visible; }
           .left-panel-inner { overflow-y: visible; padding: 24px; }
           .right-panel { height: auto; }
           .display-area { min-height: 500px; height: 60vh; }
+        }
+        @media (max-width: 600px) {
+          .undo-floating-toolbar { bottom: calc(10px + env(safe-area-inset-bottom)); gap: 4px; padding: 5px; }
+          .undo-floating-button { min-width: 58px; min-height: 44px; gap: 4px; padding: 0 11px; font-size: 0.8rem; }
+          .undo-shortcut-hint { display: none; }
         }
       `}} />
 
@@ -1798,35 +2255,80 @@ export default function CodeDetail() {
 
                   {editMode === 'customize' && isUnlocked && (
                     <div className="draft-row">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-primary)' }}>💾 ระบบ Draft & Auto-save</span>
-                        <button className="tool-btn" onClick={() => {
-                          if(confirm("ล้างข้อมูลที่พิมพ์ค้างไว้ทั้งหมดและกลับไปเริ่มใหม่?")) {
-                             localStorage.removeItem(`code_autosave_${codeId}`);
-                             initFieldValues(code, true);
-                          }
-                        }} style={{ padding: '2px 8px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>
-                          🔄 เริ่มใหม่
-                        </button>
+                      <div data-history-revision={historyRevision} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary)' }}>💾 Local Drafts <span style={{ fontWeight: 400, color: '#71717a' }}>· Auto-save เปิดอยู่</span></span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                          <button className="tool-btn" onClick={() => {
+                            if(confirm("ล้างข้อมูลที่พิมพ์ค้างไว้ทั้งหมดและกลับไปเริ่มใหม่?")) {
+                               localStorage.removeItem(`code_autosave_${codeId}`);
+                               initFieldValues(code, true);
+                            }
+                          }} style={{ padding: '1px 6px', fontSize: '0.7rem', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>
+                            รีเซ็ต
+                          </button>
+                        </div>
                       </div>
                       
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <input type="text" className="glass-input" style={{ padding: '6px 10px', fontSize: '0.9rem' }} placeholder="ตั้งชื่อดราฟต์เพื่อเซฟถาวร..." value={draftName} onChange={e => setDraftName(e.target.value)} />
-                        <button className="tool-btn" onClick={handleSaveDraft} style={{ minWidth: '70px', padding: '0 12px' }}>บันทึก</button>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <input type="text" className="glass-input" style={{ minWidth: 0, padding: '4px 8px', fontSize: '0.82rem', height: '30px' }} placeholder="ชื่อ Local Draft..." value={draftName} onChange={e => setDraftName(e.target.value)} />
+                        <button className="tool-btn" onClick={handleSaveDraft} style={{ minWidth: '58px', height: '30px', padding: '0 8px', fontSize: '0.8rem' }}>บันทึก</button>
                       </div>
                       {drafts.length > 0 && (
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginTop: '4px' }}>
-                          <select className="glass-input tb-select" style={{ flex: 1, minWidth: '150px', height: '32px', padding: '0 10px', fontSize: '0.9rem' }} value={selectedDraftIndex} onChange={e => setSelectedDraftIndex(Number(e.target.value))}>
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap', marginTop: '4px' }}>
+                          <select className="glass-input tb-select" style={{ flex: 1, minWidth: '120px', height: '29px', padding: '0 7px', fontSize: '0.8rem' }} value={selectedDraftIndex} onChange={e => setSelectedDraftIndex(Number(e.target.value))}>
                             <option value={-1}>-- เลือกดราฟต์ที่เซฟไว้ --</option>
                             {drafts.map((d, i) => <option key={i} value={i}>📁 {d.name}</option>)}
                           </select>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <button className="tool-btn" onClick={handleLoadDraft} disabled={selectedDraftIndex === -1} style={{ height: '32px', padding: '0 12px' }}>โหลด</button>
-                            <button className="tool-btn" onClick={handleUpdateDraft} disabled={selectedDraftIndex === -1} style={{ height: '32px', padding: '0 12px', background: '#dcfce7', borderColor: '#86efac', color: '#166534' }}>อัปเดต</button>
-                            <button className="tool-btn" onClick={handleDeleteDraft} disabled={selectedDraftIndex === -1} style={{ height: '32px', padding: '0 12px', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>ลบ</button>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            <button className="tool-btn" onClick={handleLoadDraft} disabled={selectedDraftIndex === -1} style={{ height: '29px', padding: '0 8px', fontSize: '0.78rem' }}>โหลด</button>
+                            <button className="tool-btn" onClick={handleUpdateDraft} disabled={selectedDraftIndex === -1} title="อัปเดต Local Draft" style={{ height: '29px', padding: '0 8px', fontSize: '0.78rem', background: '#dcfce7', borderColor: '#86efac', color: '#166534' }}>อัปเดต</button>
+                            <button className="tool-btn" onClick={handleDeleteDraft} disabled={selectedDraftIndex === -1} style={{ height: '29px', padding: '0 8px', fontSize: '0.78rem', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>ลบ</button>
                           </div>
                         </div>
                       )}
+                      <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--glass-border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary)' }}>☁️ Cloud Drafts</span>
+                          {personalKeyConnected && <button className="tool-btn" onClick={() => void refreshCloudDrafts().catch(error => alert(error instanceof Error ? error.message : 'โหลด Cloud Drafts ไม่สำเร็จ'))} disabled={cloudBusy} style={{ padding: '1px 6px', fontSize: '0.7rem' }}>↻</button>}
+                        </div>
+                        {!personalKeyConnected ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button type="button" className={`tool-btn ${personalKeyAction === 'connect' ? 'active' : ''}`} aria-pressed={personalKeyAction === 'connect'} onClick={() => setPersonalKeyAction('connect')} disabled={cloudBusy} style={{ height: '27px', padding: '0 7px', fontSize: '0.75rem', background: personalKeyAction === 'connect' ? 'var(--color-primary)' : 'rgba(255,255,255,0.65)', color: personalKeyAction === 'connect' ? '#fff' : 'var(--color-text-main)', borderColor: personalKeyAction === 'connect' ? 'var(--color-primary)' : 'var(--glass-border)', boxShadow: personalKeyAction === 'connect' ? '0 0 0 2px rgba(168,85,247,0.2)' : 'none' }}>เชื่อม Key</button>
+                              <button type="button" className={`tool-btn ${personalKeyAction === 'register' ? 'active' : ''}`} aria-pressed={personalKeyAction === 'register'} onClick={() => setPersonalKeyAction('register')} disabled={cloudBusy} style={{ height: '27px', padding: '0 7px', fontSize: '0.75rem', background: personalKeyAction === 'register' ? 'var(--color-primary)' : 'rgba(255,255,255,0.65)', color: personalKeyAction === 'register' ? '#fff' : 'var(--color-text-main)', borderColor: personalKeyAction === 'register' ? 'var(--color-primary)' : 'var(--glass-border)', boxShadow: personalKeyAction === 'register' ? '0 0 0 2px rgba(168,85,247,0.2)' : 'none' }}>สร้าง Key</button>
+                            </div>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <input type="text" autoComplete="off" className="glass-input" minLength={8} maxLength={128} style={{ minWidth: 0, height: '29px', padding: '3px 7px', fontSize: '0.78rem' }} placeholder="Personal Key (8+ ตัวอักษร)" value={personalKeyInput} onChange={event => setPersonalKeyInput(event.target.value)} />
+                              <button className="tool-btn" style={{ height: '29px', padding: '0 7px', fontSize: '0.75rem', whiteSpace: 'nowrap' }} disabled={cloudBusy || personalKeyInput.trim().length < 8} onClick={() => void handlePersonalKey(personalKeyAction)}>{cloudBusy ? 'รอ...' : 'ยืนยัน'}</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                              <span style={{ fontSize: '0.75rem', color: '#166534' }}>เชื่อมต่อแล้ว</span>
+                              <button className="tool-btn" onClick={() => void handleDisconnectPersonalKey()} disabled={cloudBusy} style={{ padding: '1px 6px', fontSize: '0.7rem' }}>ยกเลิก</button>
+                            </div>
+                            <div style={{ display: 'flex', gap: '4px', marginBottom: '5px' }}>
+                              <input type="text" className="glass-input" style={{ minWidth: 0, height: '29px', padding: '3px 7px', fontSize: '0.78rem' }} placeholder="ชื่อ Cloud Draft..." value={draftName} onChange={event => setDraftName(event.target.value)} />
+                              <button className="tool-btn" onClick={() => void handleSaveCloudDraft()} disabled={cloudBusy} style={{ height: '29px', padding: '0 7px', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>บันทึก</button>
+                            </div>
+                            {cloudDrafts.filter(draft => draft.code_id === codeId).length === 0 ? (
+                              <div style={{ fontSize: '0.75rem', color: '#71717a', padding: '2px 0' }}>ยังไม่มี Cloud Draft สำหรับโค้ดนี้</div>
+                            ) : (
+                              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <select className="glass-input tb-select" style={{ flex: 1, minWidth: '120px', height: '29px', padding: '0 7px', fontSize: '0.78rem' }} value={selectedCloudDraftId} onChange={event => setSelectedCloudDraftId(event.target.value)}>
+                                  <option value="">-- เลือก Cloud Draft --</option>
+                                  {cloudDrafts.filter(draft => draft.code_id === codeId).map(draft => <option key={draft.id} value={draft.id}>☁️ {draft.name}</option>)}
+                                </select>
+                                <button className="tool-btn" onClick={() => void handleLoadCloudDraft()} disabled={cloudBusy || !selectedCloudDraftId} style={{ height: '29px', padding: '0 7px', fontSize: '0.75rem' }}>โหลด</button>
+                              <button className="tool-btn" onClick={() => void handleUpdateCloudDraft()} disabled={cloudBusy || !selectedCloudDraftId} style={{ height: '29px', padding: '0 7px', fontSize: '0.75rem', background: '#dcfce7', borderColor: '#86efac', color: '#166534' }}>อัปเดต</button>
+                              <button className="tool-btn" onClick={() => void handleShareCloudDraft()} disabled={cloudBusy || !selectedCloudDraftId} style={{ height: '29px', padding: '0 7px', fontSize: '0.75rem', background: '#eff6ff', borderColor: '#bfdbfe', color: '#1d4ed8' }}>🔗 แชร์</button>
+                              <button className="tool-btn" onClick={() => void handleDeleteCloudDraft()} disabled={cloudBusy || !selectedCloudDraftId} style={{ height: '29px', padding: '0 7px', fontSize: '0.75rem', background: '#fef2f2', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>ลบ</button>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -1949,6 +2451,28 @@ export default function CodeDetail() {
           </div>
         )}
       </div>
+      {editMode === 'customize' && isUnlocked && !isFullLocked && (
+        <div className="undo-floating-toolbar" role="toolbar" aria-label="Undo and redo">
+          <button
+            type="button"
+            className="undo-floating-button"
+            onClick={() => void handleUndo()}
+            disabled={undoStackRef.current.length === 0 || historyBusy || cloudBusy}
+            title={undoStackRef.current[undoStackRef.current.length - 1]?.label ? `Undo: ${undoStackRef.current[undoStackRef.current.length - 1].label} (Ctrl+Z)` : 'Undo (Ctrl+Z)'}
+          >
+            <span className="undo-floating-icon" aria-hidden="true">↶</span><span>Undo</span><span className="undo-shortcut-hint">Ctrl Z</span>
+          </button>
+          <button
+            type="button"
+            className="undo-floating-button"
+            onClick={() => void handleRedo()}
+            disabled={redoStackRef.current.length === 0 || historyBusy || cloudBusy}
+            title={redoStackRef.current[redoStackRef.current.length - 1]?.label ? `Redo: ${redoStackRef.current[redoStackRef.current.length - 1].label} (Ctrl+Y)` : 'Redo (Ctrl+Y)'}
+          >
+            <span className="undo-floating-icon" aria-hidden="true">↷</span><span>Redo</span><span className="undo-shortcut-hint">Ctrl Y</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

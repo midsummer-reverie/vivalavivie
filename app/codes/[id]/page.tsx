@@ -15,6 +15,9 @@ const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : use
 
 function ScaledPreview({ html }: { html: string }) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const latestHtmlRef = useRef(html);
+  latestHtmlRef.current = html;
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [refWidth, setRefWidth] = useState(1280); // จอจำลองเริ่มต้น
   const [zoom, setZoom] = useState(100);
@@ -82,8 +85,24 @@ function ScaledPreview({ html }: { html: string }) {
   #board{width:${BOARD_WIDTH}px;max-width:100%;padding:40px 20px;box-sizing:border-box}
   #board img,#board video{max-width:100%;height:auto}
 </style></head>
-<body><div id="board">${html}</div>
+<body><div id="board"></div>
 <script>
+  // Keep the iframe document alive while variable values change, instead of
+  // navigating srcdoc on every preview update.
+  function renderPreview(html){
+    var board = document.getElementById('board');
+    board.innerHTML = html;
+    Array.prototype.slice.call(board.querySelectorAll('script')).forEach(function(oldScript){
+      var script = document.createElement('script');
+      Array.prototype.slice.call(oldScript.attributes).forEach(function(attribute){ script.setAttribute(attribute.name, attribute.value); });
+      script.textContent = oldScript.textContent || '';
+      oldScript.parentNode.replaceChild(script, oldScript);
+    });
+  }
+  window.addEventListener('message', function(event){
+    if (event.source !== window.parent || !event.data || event.data.type !== 'render-preview') return;
+    renderPreview(typeof event.data.html === 'string' ? event.data.html : '');
+  });
   // ซูมแล้วให้จุดกึ่งกลางแนวตั้งของมุมมองคงที่ (iframe ถูกปรับความสูงตามระดับซูม)
   (function(){
     var cy = window.innerHeight / 2 + window.scrollY;
@@ -91,7 +110,11 @@ function ScaledPreview({ html }: { html: string }) {
     window.addEventListener('resize', function(){ window.scrollTo(window.scrollX, Math.max(0, cy - window.innerHeight / 2)); });
   })();
 </script>
-</body></html>`, [html]);
+</body></html>`, []);
+
+  useEffect(() => {
+    iframeRef.current?.contentWindow?.postMessage({ type: 'render-preview', html }, '*');
+  }, [html]);
 
   const lightBtn = (active: boolean): React.CSSProperties => ({ color: active ? undefined : '#d4d4d8' });
 
@@ -129,8 +152,10 @@ function ScaledPreview({ html }: { html: string }) {
       >
         <div style={{ position: 'relative', width: sizerW, height: size.h, margin: '0 auto' }}>
           <iframe
+            ref={iframeRef}
             title="Live Preview"
             srcDoc={srcDoc}
+            onLoad={() => iframeRef.current?.contentWindow?.postMessage({ type: 'render-preview', html: latestHtmlRef.current }, '*')}
             sandbox="allow-scripts allow-popups"
             style={{
               position: 'absolute', top: 0, left: 0, border: 0, background: '#131313',

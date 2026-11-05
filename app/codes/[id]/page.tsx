@@ -788,7 +788,7 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
   const lastEditorSnapshotRef = useRef("");
   const editorHistoryReadyRef = useRef(false);
 
-  const textareaRefs = useRef<{ [key: string]: HTMLTextAreaElement | null }>({});
+  const textareaRefs = useRef<{ [key: string]: HTMLTextAreaElement | HTMLInputElement | null }>({});
   const [selections, setSelections] = useState<{ [key: string]: { start: number, end: number } }>({});
 
   const recordUndoOperation = useCallback((operation: UndoRedoOperation) => {
@@ -1433,8 +1433,8 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
     const el = textareaRefs.current[refKey];
     if (el && document.activeElement === el) setSelections(prev => ({ ...prev, [refKey]: { start: el.selectionStart, end: el.selectionEnd } }));
   };
-  const autoResize = (el: HTMLTextAreaElement | null) => {
-    if (!el) return;
+  const autoResize = (el: HTMLTextAreaElement | HTMLInputElement | null) => {
+    if (!el || !(el instanceof HTMLTextAreaElement)) return;
     el.style.height = 'auto';
     el.style.height = el.scrollHeight + 'px';
   };
@@ -1451,7 +1451,7 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
       const newCursorStart = start + openTag.length; const newCursorEnd = newCursorStart + selected.length;
       el.setSelectionRange(newCursorStart, newCursorEnd);
       setSelections(prev => ({ ...prev, [refKey]: { start: newCursorStart, end: newCursorEnd } }));
-      autoResize(el);
+      autoResize(el instanceof HTMLTextAreaElement ? el : null);
     }, 0);
   };
 
@@ -1479,6 +1479,11 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
     if (isForPreview) parsed = parsed.replace(/\n/g, '<br/>');
     return parsed;
   };
+
+  const parseShortTextContent = (text: string) => text
+    .replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong>$1</strong>')
+    .replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>')
+    .replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<u>$1</u>');
 
   const countWords = (text: string) => {
     if (!text || text.trim() === '') return 0;
@@ -1625,6 +1630,8 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
             textVal = name;
           } else if (field.type === 'richtext' || field.type === 'roleplay') {
             textVal = isForPreview ? parseContent(textVal, true) : textVal;
+          } else if (field.type === 'text' && isForPreview) {
+            textVal = parseShortTextContent(textVal);
           }
           out = rep(out, name, textVal);
         } else {
@@ -1962,7 +1969,7 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
               <div className="tb-group">
                 <div className="color-picker-group">
                   <input type="color" id={`bg_${refKey}`} defaultValue="#fef08a" className="cp-input" title="สีไฮไลต์" />
-                  <button className="tool-btn cp-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const bg = (document.getElementById(`bg_${refKey}`) as HTMLInputElement).value; insertTag(refKey, textVal, onChange, `[bg=${bg}]`, '[/bg]'); }}>🖍️</button>
+          <button className="tool-btn cp-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const bg = (document.getElementById(`bg_${refKey}`) as HTMLInputElement).value; insertTag(refKey, textVal, onChange, `<span style="background: ${bg};">`, '</span>'); }}>🖍️</button>
                 </div>
                 <div className="color-picker-group">
                   <input type="color" id={`color_${refKey}`} defaultValue="#4c1d95" className="cp-input" title="สีข้อความ" />
@@ -1997,7 +2004,28 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
     return (
       <div key={refKey} className="field-group">
         <label className="field-label">{field.label}</label>
-        <input type="text" className="glass-input" placeholder={`ระบุ${field.label}...`} value={val || ""} onChange={e => onChange(e.target.value)} />
+        {field.type === 'text' ? (
+          <>
+            <div className="tb-group" style={{ marginBottom: 5 }}>
+              <button type="button" className="tool-btn" title="ตัวหนา" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, val || '', onChange, '[b]', '[/b]')}><b>B</b></button>
+              <button type="button" className="tool-btn" title="ตัวเอียง" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, val || '', onChange, '[i]', '[/i]')}><i>I</i></button>
+              <button type="button" className="tool-btn" title="ขีดเส้นใต้" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, val || '', onChange, '[u]', '[/u]')}><u>U</u></button>
+            </div>
+            <input
+              ref={el => { textareaRefs.current[refKey] = el; }}
+              type="text"
+              className="glass-input"
+              placeholder={`ระบุ${field.label}...`}
+              value={val || ""}
+              onChange={e => onChange(e.target.value)}
+              onSelect={() => updateSelection(refKey)}
+              onKeyUp={() => updateSelection(refKey)}
+              onMouseUp={() => updateSelection(refKey)}
+            />
+          </>
+        ) : (
+          <input type="text" className="glass-input" placeholder={`ระบุ${field.label}...`} value={val || ""} onChange={e => onChange(e.target.value)} />
+        )}
       </div>
     );
   };

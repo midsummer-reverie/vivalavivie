@@ -1512,7 +1512,11 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
   const updateBlockValue = (instanceId: string, varName: string, val: any) => setActiveBlocks(prev => prev.map(b => b.instanceId === instanceId ? { ...b, values: { ...b.values, [varName]: val } } : b));
   const updateSelection = (refKey: string) => {
     const el = textareaRefs.current[refKey];
-    if (el && document.activeElement === el) setSelections(prev => ({ ...prev, [refKey]: { start: el.selectionStart, end: el.selectionEnd } }));
+    if (!el || document.activeElement !== el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    if (start === null || end === null) return;
+    setSelections(prev => ({ ...prev, [refKey]: { start, end } }));
   };
   const autoResize = (el: HTMLTextAreaElement | HTMLInputElement | null) => {
     if (!el || !(el instanceof HTMLTextAreaElement)) return;

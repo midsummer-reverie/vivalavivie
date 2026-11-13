@@ -1,4 +1,4 @@
-
+//app/api/drafts/share/[token]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { neon } from "@neondatabase/serverless";

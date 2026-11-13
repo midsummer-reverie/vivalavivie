@@ -740,6 +740,83 @@ function DimensionFieldEditor({ field, val, onChange }: {
   );
 }
 
+const getUnitlessSettings = (field: any) => {
+  const legacyValues = String(field.options || '').split(',').map((part: string) => Number(part.trim()));
+  const readNumber = (value: any, fallback: number) => {
+    if (value === undefined || value === null || value === '') return fallback;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+  const min = readNumber(field.unitlessMin, readNumber(legacyValues[0], 0));
+  const max = Math.max(min + Number.EPSILON, readNumber(field.unitlessMax, readNumber(legacyValues[1], 1)));
+  const step = Math.max(Number.EPSILON, readNumber(field.unitlessStep, readNumber(legacyValues[2], 0.001)));
+  const candidateDefault = readNumber(field.unitlessDefault, readNumber(legacyValues[3], min));
+  const defaultValue = candidateDefault >= min && candidateDefault <= max ? candidateDefault : min;
+  return { min, max, step, defaultValue };
+};
+
+const applyUnitlessDefaults = (fields: any[], values: Record<string, any> = {}) => {
+  const next = { ...values };
+  (Array.isArray(fields) ? fields : []).forEach(field => {
+    if (field?.type !== 'unitless') return;
+    const value = next[field.variableName];
+    if (value === undefined || value === null || value === '') {
+      next[field.variableName] = String(getUnitlessSettings(field).defaultValue);
+    }
+  });
+  return next;
+};
+
+const applyUnitlessDefaultsToBlocks = (blocks: any[]) =>
+  (Array.isArray(blocks) ? blocks : []).map(block => ({
+    ...block,
+    values: applyUnitlessDefaults(block.fields, block.values || {}),
+  }));
+
+function UnitlessFieldEditor({ field, val, onChange }: {
+  field: any;
+  val: any;
+  onChange: (value: string) => void;
+}) {
+  const { min, max, step, defaultValue } = getUnitlessSettings(field);
+  const parsedValue = val === '' || val === null || val === undefined ? defaultValue : Number(val);
+  const currentValue = Number.isFinite(parsedValue) ? parsedValue : defaultValue;
+
+  return (
+    <div className="field-group">
+      <label className="field-label">{field.label}</label>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: 'rgba(255,255,255,0.4)', padding: 10, borderRadius: 10, border: '1px solid var(--color-accent-light)' }}>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={currentValue}
+          onChange={event => onChange(event.target.value)}
+          style={{ flex: 1, minWidth: 0, accentColor: 'var(--color-accent)', height: 16, margin: 0 }}
+          title={`ปรับค่า ${step} ต่อขั้น`}
+        />
+        <input
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          value={currentValue}
+          onChange={event => {
+            if (event.target.value === '') return;
+            const next = Number(event.target.value);
+            if (Number.isFinite(next)) onChange(event.target.value);
+          }}
+          className="glass-input"
+          style={{ width: 100, padding: '6px 8px', height: 32 }}
+          title="พิมพ์ตัวเลขทศนิยม"
+        />
+      </div>
+      <small style={{ color: 'var(--color-secondary)', fontSize: '.72rem' }}>ไม่มีหน่วย · {min} ถึง {max} · ขั้นละ {step}</small>
+    </div>
+  );
+}
+
 export default function CodeDetail() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
@@ -866,13 +943,13 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
         label: 'แก้ไขค่าใน Editor',
         undo: () => {
           lastEditorSnapshotRef.current = JSON.stringify(previousSnapshot);
-          setFieldValues(previousSnapshot.values);
-          setActiveBlocks(previousSnapshot.blocks);
+          setFieldValues(applyUnitlessDefaults(code?.customFields || [], previousSnapshot.values));
+          setActiveBlocks(applyUnitlessDefaultsToBlocks(previousSnapshot.blocks));
         },
         redo: () => {
           lastEditorSnapshotRef.current = JSON.stringify(nextState);
-          setFieldValues(nextState.values);
-          setActiveBlocks(nextState.blocks);
+          setFieldValues(applyUnitlessDefaults(code?.customFields || [], nextState.values));
+          setActiveBlocks(applyUnitlessDefaultsToBlocks(nextState.blocks));
         },
       });
     }, 500);
@@ -1031,8 +1108,8 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
       const response = await fetch(`/api/drafts/${encodeURIComponent(selectedCloudDraftId)}`, { cache: 'no-store' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'โหลด Cloud Draft ไม่สำเร็จ');
-      setFieldValues(data.values || {});
-      setActiveBlocks(data.blocks || []);
+      setFieldValues(applyUnitlessDefaults(code?.customFields || [], data.values || {}));
+      setActiveBlocks(applyUnitlessDefaultsToBlocks(data.blocks || []));
       setEditMode('customize');
       setViewMode('preview');
       setTimeout(() => Object.values(textareaRefs.current).forEach(el => autoResize(el)), 100);
@@ -1168,6 +1245,8 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
           initial[field.variableName] = detectImgDefaults(codeData.htmlCode, field.variableName);
         } else if (field.type === 'dropdown') {
           initial[field.variableName] = getDropdownFirstOption(field.options);
+        } else if (field.type === 'unitless') {
+          initial[field.variableName] = String(getUnitlessSettings(field).defaultValue);
         } else {
           initial[field.variableName] = ""; 
         }
@@ -1179,7 +1258,7 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
         const autosave = localStorage.getItem(`code_autosave_${codeData.id}`);
         if (autosave) {
           const parsed = JSON.parse(autosave);
-          const merged: { [key: string]: any } = { ...initial, ...(parsed.values || {}) };
+          const merged: { [key: string]: any } = applyUnitlessDefaults(codeData.customFields, { ...initial, ...(parsed.values || {}) });
 
           // แปลงค่ารูปภาพที่ autosave ไว้ในรูปแบบเก่าให้เข้ากับระบบใหม่
           (codeData.customFields || []).forEach((field: any) => {
@@ -1189,7 +1268,7 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
           });
 
           setFieldValues(merged);
-          setActiveBlocks(parsed.blocks || []);
+          setActiveBlocks(applyUnitlessDefaultsToBlocks(parsed.blocks || []));
           
           setTimeout(() => {
             Object.values(textareaRefs.current).forEach(el => autoResize(el));
@@ -1199,7 +1278,7 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
       } catch (e) { console.error("Autosave load error:", e); }
     }
 
-    setFieldValues(initial);
+    setFieldValues(applyUnitlessDefaults(codeData.customFields, initial));
     setActiveBlocks([]);
   };
 
@@ -1267,12 +1346,12 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
           return;
         }
 
-        setFieldValues(prev => ({
+        setFieldValues(prev => applyUnitlessDefaults(code?.customFields || [], {
           ...prev,
           ...data.values
         }));
 
-        setActiveBlocks(data.blocks);
+        setActiveBlocks(applyUnitlessDefaultsToBlocks(data.blocks));
 
         setEditMode('customize');
         setViewMode('preview');
@@ -1353,8 +1432,8 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
 
   const handleLoadDraft = () => {
     if (selectedDraftIndex >= 0 && drafts[selectedDraftIndex]) {
-      setFieldValues(drafts[selectedDraftIndex].values || {});
-      setActiveBlocks(drafts[selectedDraftIndex].blocks || []);
+      setFieldValues(applyUnitlessDefaults(code?.customFields || [], drafts[selectedDraftIndex].values || {}));
+      setActiveBlocks(applyUnitlessDefaultsToBlocks(drafts[selectedDraftIndex].blocks || []));
       setTimeout(() => {
         Object.values(textareaRefs.current).forEach(el => autoResize(el));
       }, 100);
@@ -1414,6 +1493,8 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
           newBlock.values[f.variableName] = detectImgDefaults(blockDef.html, f.variableName);
         } else if (f.type === 'dropdown') {
           newBlock.values[f.variableName] = getDropdownFirstOption(f.options);
+        } else if (f.type === 'unitless') {
+          newBlock.values[f.variableName] = String(getUnitlessSettings(f).defaultValue);
         } else {
           newBlock.values[f.variableName] = "";
         }
@@ -1454,6 +1535,13 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
       autoResize(el instanceof HTMLTextAreaElement ? el : null);
     }, 0);
   };
+
+  const escapeHtmlText = (text: string) => text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
   const parseContent = (text: string, isForPreview: boolean) => {
     if (!text) return "";
@@ -1626,7 +1714,10 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
       } else {
         if (isVisible) {
           let textVal = values?.[name];
-          if (textVal === undefined || textVal === null || textVal === "") {
+          if (field.type === 'unitless') {
+            const { defaultValue } = getUnitlessSettings(field);
+            textVal = textVal === undefined || textVal === null || textVal === '' ? String(defaultValue) : String(textVal);
+          } else if (textVal === undefined || textVal === null || textVal === "") {
             textVal = name;
           } else if (field.type === 'richtext' || field.type === 'roleplay') {
             textVal = isForPreview ? parseContent(textVal, true) : textVal;
@@ -1982,6 +2073,24 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, textVal, onChange, '\n[hr]\n')} style={{ fontSize: '0.75rem', padding: '4px' }}>HR</button>
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, textVal, onChange, '[spoiler]', '[/spoiler]')} style={{ fontSize: '0.75rem', padding: '4px' }}>SP</button>
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, textVal, onChange, '[hide]', '[/hide]')} style={{ fontSize: '0.75rem', padding: '4px' }}>Hide</button>
+                <button
+                  type="button"
+                  className="tool-btn"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => {
+                    const summary = prompt('ข้อความหัวข้อ Summary:', 'ดูเพิ่มเติม');
+                    if (summary === null) return;
+                    const arrow = prompt('สัญลักษณ์ลูกศรหน้า Summary (เว้นว่างเพื่อใช้ลูกศรปกติ):', '');
+                    if (arrow === null) return;
+                    const arrowPrefix = arrow.trim() ? `${escapeHtmlText(arrow.trim())} ` : '';
+                    const open = `<details><summary>${arrowPrefix}${escapeHtmlText(summary)}</summary>`;
+                    insertTag(refKey, textVal, onChange, open, '</details>');
+                  }}
+                  style={{ fontSize: '0.75rem', padding: '4px' }}
+                  title="แทรกกล่อง Details พร้อมกำหนดลูกศร"
+                >
+                  ▸ Details
+                </button>
               </div>
             </div>
             <textarea ref={el => { textareaRefs.current[refKey] = el; }} className="editor-textarea custom-scrollbar" placeholder={`พิมพ์${field.label}ที่นี่...`} value={textVal} onChange={e => { onChange(e.target.value); autoResize(e.target); }} onSelect={() => updateSelection(refKey)} onKeyUp={() => updateSelection(refKey)} onMouseUp={() => updateSelection(refKey)} />
@@ -2000,6 +2109,9 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
           onChange={onChange}
         />
       );
+    }
+    if (field.type === 'unitless') {
+      return <UnitlessFieldEditor key={refKey} field={field} val={val} onChange={onChange} />;
     }
     return (
       <div key={refKey} className="field-group">

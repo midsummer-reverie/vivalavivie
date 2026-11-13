@@ -1,3 +1,4 @@
+//app/codes/manage/page.tsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -35,6 +36,11 @@ const sanitizeBlocks = (blocks: any) =>
     placeholder: typeof b?.placeholder === 'string' ? b.placeholder.trim() : b?.placeholder,
     fields: sanitizeFields(b?.fields),
   }));
+const getUnitlessAdminValue = (field: any, key: string, legacyIndex: number, fallback: number) => {
+  if (field?.[key] !== undefined && field?.[key] !== null) return field[key];
+  const legacyValue = Number(String(field?.options || '').split(',')[legacyIndex]?.trim());
+  return Number.isFinite(legacyValue) ? legacyValue : fallback;
+};
 
 const makeDefaultVariation = () => ({ id: Date.now().toString(), label: "Default Theme", color: "#d8b4fe", type: "replace", replacements: "", fullHtml: "" });
 
@@ -116,6 +122,8 @@ export default function ManageCodes() {
     const newFields = [...formData.customFields];
     if (field === 'type' && value === 'gradient' && !newFields[index].options) {
       newFields[index] = { ...newFields[index], [field]: value, options: 'linear-gradient(90deg, #d8b4fe, #bae6fd)' };
+    } else if (field === 'type' && value === 'unitless') {
+      newFields[index] = { ...newFields[index], [field]: value, unitlessMin: 0, unitlessMax: 1, unitlessStep: 0.001, unitlessDefault: 0 };
     } else {
       newFields[index] = { ...newFields[index], [field]: value };
     }
@@ -172,6 +180,9 @@ export default function ManageCodes() {
         if (j !== fieldIndex) return f;
         if (key === 'type' && value === 'gradient' && !f.options) {
           return { ...f, [key]: value, options: 'linear-gradient(90deg, #d8b4fe, #bae6fd)' };
+        }
+        if (key === 'type' && value === 'unitless') {
+          return { ...f, [key]: value, unitlessMin: 0, unitlessMax: 1, unitlessStep: 0.001, unitlessDefault: 0 };
         }
         return { ...f, [key]: value };
       });
@@ -509,6 +520,7 @@ export default function ManageCodes() {
                   <option value="image_url">🖼️ ภาพพื้นหลัง (+url)</option>
                   <option value="dropdown">📋 ตัวเลือก (Dropdown + พิมพ์เอง)</option>
                   <option value="dimension">📐 ขนาด / มิติ (Dimension)</option>
+                  <option value="unitless">🔢 ตัวเลขไม่มีหน่วย (ทศนิยมละเอียด)</option>
                 </select>
               </div>
 
@@ -550,6 +562,18 @@ export default function ManageCodes() {
                     value={field.options || ""} 
                     onChange={e => handleCustomFieldChange(index, 'options', e.target.value)} 
                   />
+                </div>
+              )}
+
+              {field.type === 'unitless' && (
+                <div className="form-group" style={{ marginTop: '16px', marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.85rem' }}>ตั้งค่า Slider (ไม่มีหน่วย)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8 }}>
+                    <label style={{ fontSize: '.75rem', color: '#6b21a8' }}>ต่ำสุด<input type="number" step="any" className="glass-input" value={getUnitlessAdminValue(field, 'unitlessMin', 0, 0)} onChange={e => handleCustomFieldChange(index, 'unitlessMin', e.target.value === '' ? '' : Number(e.target.value))} /></label>
+                    <label style={{ fontSize: '.75rem', color: '#6b21a8' }}>สูงสุด<input type="number" step="any" className="glass-input" value={getUnitlessAdminValue(field, 'unitlessMax', 1, 1)} onChange={e => handleCustomFieldChange(index, 'unitlessMax', e.target.value === '' ? '' : Number(e.target.value))} /></label>
+                    <label style={{ fontSize: '.75rem', color: '#6b21a8' }}>ขั้น Slider<input type="number" min="0.0000001" step="any" className="glass-input" value={getUnitlessAdminValue(field, 'unitlessStep', 2, 0.001)} onChange={e => handleCustomFieldChange(index, 'unitlessStep', e.target.value === '' ? '' : Number(e.target.value))} /></label>
+                    <label style={{ fontSize: '.75rem', color: '#6b21a8' }}>ค่าเริ่มต้น<input type="number" step="any" className="glass-input" value={getUnitlessAdminValue(field, 'unitlessDefault', 3, 0)} onChange={e => handleCustomFieldChange(index, 'unitlessDefault', e.target.value === '' ? '' : Number(e.target.value))} /></label>
+                  </div>
                 </div>
               )}
 
@@ -643,6 +667,7 @@ export default function ManageCodes() {
                               <option value="dropdown">ตัวเลือก</option>
                               <option value="image_url">ภาพพื้นหลัง (+url)</option>
                               <option value="dimension">ขนาด / มิติ (Dimension)</option>
+                              <option value="unitless">ตัวเลขไม่มีหน่วย (ทศนิยมละเอียด)</option>
                             </select>
                             
                             {/* 🌟 2. ปรับปรุง UI Dropdown (Blocks) ให้รองรับการเคาะบรรทัดและใส่ค่าว่าง */}
@@ -677,6 +702,15 @@ export default function ManageCodes() {
                                 className="glass-input" 
                                 style={{ padding: '8px', fontSize: '0.85rem', marginTop: '8px', width: '100%' }} 
                               />
+                            )}
+
+                            {field.type === 'unitless' && (
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginTop: 8 }}>
+                                <label style={{ fontSize: '.7rem', color: '#6b21a8' }}>ต่ำสุด<input type="number" step="any" value={getUnitlessAdminValue(field, 'unitlessMin', 0, 0)} onChange={e => handleUpdateBlockField(bIndex, fIndex, 'unitlessMin', e.target.value === '' ? '' : Number(e.target.value))} className="glass-input" style={{ padding: 6, fontSize: '.8rem' }} /></label>
+                                <label style={{ fontSize: '.7rem', color: '#6b21a8' }}>สูงสุด<input type="number" step="any" value={getUnitlessAdminValue(field, 'unitlessMax', 1, 1)} onChange={e => handleUpdateBlockField(bIndex, fIndex, 'unitlessMax', e.target.value === '' ? '' : Number(e.target.value))} className="glass-input" style={{ padding: 6, fontSize: '.8rem' }} /></label>
+                                <label style={{ fontSize: '.7rem', color: '#6b21a8' }}>ขั้น Slider<input type="number" min="0.0000001" step="any" value={getUnitlessAdminValue(field, 'unitlessStep', 2, 0.001)} onChange={e => handleUpdateBlockField(bIndex, fIndex, 'unitlessStep', e.target.value === '' ? '' : Number(e.target.value))} className="glass-input" style={{ padding: 6, fontSize: '.8rem' }} /></label>
+                                <label style={{ fontSize: '.7rem', color: '#6b21a8' }}>ค่าเริ่มต้น<input type="number" step="any" value={getUnitlessAdminValue(field, 'unitlessDefault', 3, 0)} onChange={e => handleUpdateBlockField(bIndex, fIndex, 'unitlessDefault', e.target.value === '' ? '' : Number(e.target.value))} className="glass-input" style={{ padding: 6, fontSize: '.8rem' }} /></label>
+                              </div>
                             )}
                           </div>
                           <button type="button" onClick={() => handleRemoveBlockField(bIndex, fIndex)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '4px' }} title="ลบ Field">✕</button>

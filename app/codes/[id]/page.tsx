@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { UnicodePicker } from '@/components/UnicodePicker';
 
 // ============================================================
 // 🖥️ ScaledPreview: จำลองหน้าจอ Desktop จริง แล้วย่อทั้ง iframe
@@ -857,6 +858,11 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
   const [cloudDrafts, setCloudDrafts] = useState<{ id: string; code_id: string; name: string; created_at: string; updated_at: string }[]>([]);
   const [selectedCloudDraftId, setSelectedCloudDraftId] = useState("");
   const [cloudBusy, setCloudBusy] = useState(false);
+  const [textTemplates, setTextTemplates] = useState<{ id: string; name: string; content: string }[]>([]);
+  const [textTemplatesOpenFor, setTextTemplatesOpenFor] = useState<string | null>(null);
+  const [textTemplatesLoading, setTextTemplatesLoading] = useState(false);
+  const [textTemplateBusy, setTextTemplateBusy] = useState(false);
+  const [textTemplatesError, setTextTemplatesError] = useState("");
   const [historyRevision, setHistoryRevision] = useState(0);
   const [historyBusy, setHistoryBusy] = useState(false);
   const historyBusyRef = useRef(false);
@@ -1061,6 +1067,9 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
       setPersonalKeyConnected(false);
       setCloudDrafts([]);
       setSelectedCloudDraftId('');
+      setTextTemplates([]);
+      setTextTemplatesOpenFor(null);
+      setTextTemplatesError('');
     } catch (error) {
       alert(error instanceof Error ? error.message : 'ยกเลิกการเชื่อมต่อไม่สำเร็จ');
     } finally {
@@ -1166,9 +1175,14 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
           await requestCloudDraft(`/api/drafts/${encodeURIComponent(currentDraftId)}`, 'DELETE');
           await refreshCloudDraftsQuietly();
           setSelectedCloudDraftId('');
+          setTextTemplates([]);
+          setTextTemplatesOpenFor(null);
         },
       });
       await refreshCloudDrafts();
+      setSelectedCloudDraftId('');
+      setTextTemplates([]);
+      setTextTemplatesOpenFor(null);
     } catch (error) {
       alert(error instanceof Error ? error.message : 'ลบ Cloud Draft ไม่สำเร็จ');
     } finally {
@@ -1540,6 +1554,38 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
     }, 0);
   };
 
+  const insertTemplateText = (refKey: string, currentValue: string, onUpdate: (val: string) => void, content: string) => {
+    const el = textareaRefs.current[refKey];
+    if (!el) return;
+    const sel = selections[refKey] || { start: el.selectionStart ?? currentValue.length, end: el.selectionEnd ?? currentValue.length };
+    const start = Math.min(sel.start, currentValue.length);
+    const end = Math.min(Math.max(sel.end, start), currentValue.length);
+    onUpdate(currentValue.substring(0, start) + content + currentValue.substring(end));
+    setTimeout(() => {
+      el.focus();
+      const cursor = start + content.length;
+      el.setSelectionRange(cursor, cursor);
+      setSelections(prev => ({ ...prev, [refKey]: { start: cursor, end: cursor } }));
+      autoResize(el instanceof HTMLTextAreaElement ? el : null);
+    }, 0);
+  };
+
+  const insertUnicode = (refKey: string, currentValue: string, onUpdate: (val: string) => void, character: string) => {
+    const el = textareaRefs.current[refKey];
+    if (!el) return;
+    const saved = selections[refKey];
+    const start = Math.min(saved?.start ?? el.selectionStart ?? currentValue.length, currentValue.length);
+    const end = Math.min(Math.max(saved?.end ?? el.selectionEnd ?? currentValue.length, start), currentValue.length);
+    onUpdate(currentValue.slice(0, start) + character + currentValue.slice(end));
+    setTimeout(() => {
+      el.focus();
+      const cursor = start + character.length;
+      el.setSelectionRange(cursor, cursor);
+      setSelections(previous => ({ ...previous, [refKey]: { start: cursor, end: cursor } }));
+      autoResize(el instanceof HTMLTextAreaElement ? el : null);
+    }, 0);
+  };
+
   const escapeHtmlText = (text: string) => text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -1811,6 +1857,79 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
     });
   };
 
+  const refreshTextTemplates = async (fieldKey: string) => {
+    setTextTemplatesLoading(true);
+    setTextTemplatesError("");
+    try {
+      const query = new URLSearchParams({ codeId, draftId: selectedCloudDraftId, fieldKey });
+      const response = await fetch(`/api/text-templates?${query.toString()}`, { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'โหลดเทมเพลตไม่สำเร็จ');
+      setTextTemplates(Array.isArray(data.templates) ? data.templates : []);
+    } catch (error) {
+      setTextTemplatesError(error instanceof Error ? error.message : 'โหลดเทมเพลตไม่สำเร็จ');
+    } finally {
+      setTextTemplatesLoading(false);
+    }
+  };
+
+  const toggleTextTemplates = async (fieldKey: string) => {
+    if (textTemplatesOpenFor === fieldKey) {
+      setTextTemplatesOpenFor(null);
+      return;
+    }
+    setTextTemplatesOpenFor(fieldKey);
+    setTextTemplates([]);
+    if (!personalKeyConnected) {
+      setTextTemplatesError('เชื่อมต่อ Personal Key ในส่วน Cloud Drafts ก่อนใช้เทมเพลต');
+      return;
+    }
+    if (!selectedCloudDraftId) {
+      setTextTemplatesError('เลือกหรือบันทึก Cloud Draft ก่อน เทมเพลตจะผูกกับ Draft ที่เลือก');
+      return;
+    }
+    await refreshTextTemplates(fieldKey);
+  };
+
+  const createTextTemplate = async (name: string, content: string, fieldKey: string) => {
+    setTextTemplateBusy(true);
+    setTextTemplatesError("");
+    try {
+      const response = await fetch('/api/text-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, content, codeId, draftId: selectedCloudDraftId, fieldKey }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'บันทึกเทมเพลตไม่สำเร็จ');
+      setTextTemplates(previous => [data, ...previous]);
+    } catch (error) {
+      setTextTemplatesError(error instanceof Error ? error.message : 'บันทึกเทมเพลตไม่สำเร็จ');
+    } finally {
+      setTextTemplateBusy(false);
+    }
+  };
+
+  const deleteTextTemplate = async (templateId: string, fieldKey: string) => {
+    if (!confirm('ลบเทมเพลตข้อความนี้หรือไม่?')) return;
+    setTextTemplateBusy(true);
+    setTextTemplatesError("");
+    try {
+      const response = await fetch('/api/text-templates', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: templateId, codeId, draftId: selectedCloudDraftId, fieldKey }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'ลบเทมเพลตไม่สำเร็จ');
+      setTextTemplates(previous => previous.filter(template => template.id !== templateId));
+    } catch (error) {
+      setTextTemplatesError(error instanceof Error ? error.message : 'ลบเทมเพลตไม่สำเร็จ');
+    } finally {
+      setTextTemplateBusy(false);
+    }
+  };
+
   const renderFieldUI = (field: any, val: any, onChange: (v: any) => void, refKey: string, allValues: any, contextFields: any[]) => {
     
     if (!checkConditionMatch(field, allValues, contextFields, fieldValues)) {
@@ -2033,6 +2152,7 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
     if (field.type === 'richtext' || field.type === 'roleplay') {
       const isRp = field.type === 'roleplay';
       const textVal: string = val ?? "";
+      const templateFieldKey = `${refKey}:${field.variableName}`;
 
       return (
         <div key={refKey} className="field-group">
@@ -2051,6 +2171,7 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const yt = prompt("รหัสวิดีโอ YouTube (เช่น dQw4w9WgXcQ):"); if(yt) insertTag(refKey, textVal, onChange, `[yt=${yt}]`, '[/yt]'); }} title="YouTube (ปกติ)">📺</button>
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const yt = prompt("รหัสวิดีโอ YouTube (เล่นอัตโนมัติ):"); if(yt) insertTag(refKey, textVal, onChange, `[ytauto=${yt}]`, '[/ytauto]'); }} title="YouTube (Auto)">▶️</button>
                 <button className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => { const yt = prompt("รหัสวิดีโอ YouTube (ซ่อนกล่อง + เล่นอัตโนมัติ):"); if(yt) insertTag(refKey, textVal, onChange, `[hideyt=${yt}]`, '[/hideyt]'); }} title="YouTube (ซ่อนกล่อง)">🎵</button>
+                <UnicodePicker onPick={character => insertUnicode(refKey, textVal, onChange, character)} />
               </div>
               <div className="tb-divider"></div>
               <div className="tb-group">
@@ -2096,7 +2217,44 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
                   ▸ Details
                 </button>
               </div>
+              <div className="tb-divider"></div>
+              <button type="button" className="tool-btn" onMouseDown={e => e.preventDefault()} onClick={() => void toggleTextTemplates(templateFieldKey)} title="ข้อความที่บันทึกไว้ของช่องนี้ในโค้ดนี้">📚 ข้อความที่บันทึกไว้</button>
             </div>
+            {textTemplatesOpenFor === templateFieldKey && (
+              <div style={{ padding: '10px', borderBottom: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.55)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                  <strong style={{ fontSize: '0.82rem' }}>ข้อความที่บันทึกไว้</strong>
+                  <button type="button" className="tool-btn" onClick={() => setTextTemplatesOpenFor(null)} aria-label="ปิดเทมเพลต">✕</button>
+                </div>
+                {!personalKeyConnected ? (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>เชื่อมต่อ Personal Key ในส่วน Cloud Drafts ก่อนใช้เทมเพลต</div>
+                ) : !selectedCloudDraftId ? (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>เลือกหรือบันทึก Cloud Draft ก่อน เทมเพลตจะผูกกับ Draft ที่เลือก</div>
+                ) : (
+                  <>
+                    <button type="button" className="tool-btn" disabled={textTemplateBusy || !textVal.trim()} onClick={() => {
+                      const name = prompt('ตั้งชื่อเทมเพลตข้อความ:');
+                      if (name?.trim()) void createTextTemplate(name.trim(), textVal, templateFieldKey);
+                    }} style={{ marginBottom: 8, fontSize: '0.78rem' }}>＋ บันทึกข้อความนี้เป็นเทมเพลต</button>
+                    {textTemplatesLoading && <div style={{ fontSize: '0.8rem' }}>กำลังโหลดเทมเพลต...</div>}
+                    {textTemplatesError && <div role="alert" style={{ color: '#b91c1c', fontSize: '0.78rem', marginBottom: 6 }}>{textTemplatesError}</div>}
+                    {!textTemplatesLoading && textTemplates.length === 0 && !textTemplatesError && <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>ยังไม่มีเทมเพลตที่บันทึกไว้</div>}
+                    <div style={{ display: 'grid', gap: 6, maxHeight: 190, overflowY: 'auto' }}>
+                      {textTemplates.map(template => (
+                        <div key={template.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', border: '1px solid var(--glass-border)', borderRadius: 8, background: 'rgba(255,255,255,0.7)' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>{template.name}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', whiteSpace: 'pre-wrap', overflow: 'hidden', maxHeight: '2.2em' }}>{template.content.slice(0, 100)}</div>
+                          </div>
+                          <button type="button" className="tool-btn" disabled={textTemplateBusy} onMouseDown={e => e.preventDefault()} onClick={() => insertTemplateText(refKey, textVal, onChange, template.content)}>แทรก</button>
+                          <button type="button" className="tool-btn" disabled={textTemplateBusy} onClick={() => void deleteTextTemplate(template.id, templateFieldKey)} title="ลบเทมเพลต">ลบ</button>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
             <textarea ref={el => { textareaRefs.current[refKey] = el; }} className="editor-textarea custom-scrollbar" placeholder={`พิมพ์${field.label}ที่นี่...`} value={textVal} onChange={e => { onChange(e.target.value); autoResize(e.target); }} onSelect={() => updateSelection(refKey)} onKeyUp={() => updateSelection(refKey)} onMouseUp={() => updateSelection(refKey)} />
           </div>
           {isRp && <div className="word-count">📊 จำนวนคำ: {countWords(textVal)} คำ</div>}
@@ -2126,6 +2284,7 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
               <button type="button" className="tool-btn" title="ตัวหนา" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, val || '', onChange, '[b]', '[/b]')}><b>B</b></button>
               <button type="button" className="tool-btn" title="ตัวเอียง" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, val || '', onChange, '[i]', '[/i]')}><i>I</i></button>
               <button type="button" className="tool-btn" title="ขีดเส้นใต้" onMouseDown={e => e.preventDefault()} onClick={() => insertTag(refKey, val || '', onChange, '[u]', '[/u]')}><u>U</u></button>
+              <UnicodePicker onPick={character => insertUnicode(refKey, val || '', onChange, character)} />
             </div>
             <input
               ref={el => { textareaRefs.current[refKey] = el; }}
@@ -2485,7 +2644,7 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
                               <div style={{ fontSize: '0.75rem', color: '#71717a', padding: '2px 0' }}>ยังไม่มี Cloud Draft สำหรับโค้ดนี้</div>
                             ) : (
                               <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                <select className="glass-input tb-select" style={{ flex: 1, minWidth: '120px', height: '29px', padding: '0 7px', fontSize: '0.78rem' }} value={selectedCloudDraftId} onChange={event => setSelectedCloudDraftId(event.target.value)}>
+                                <select className="glass-input tb-select" style={{ flex: 1, minWidth: '120px', height: '29px', padding: '0 7px', fontSize: '0.78rem' }} value={selectedCloudDraftId} onChange={event => { setSelectedCloudDraftId(event.target.value); setTextTemplates([]); setTextTemplatesOpenFor(null); setTextTemplatesError(''); }}>
                                   <option value="">-- เลือก Cloud Draft --</option>
                                   {cloudDrafts.filter(draft => draft.code_id === codeId).map(draft => <option key={draft.id} value={draft.id}>☁️ {draft.name}</option>)}
                                 </select>

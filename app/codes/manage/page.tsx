@@ -28,6 +28,7 @@ const trimField = (f: any) => ({
   label: typeof f?.label === 'string' ? f.label.trim() : f?.label,
   variableName: typeof f?.variableName === 'string' ? f.variableName.trim() : f?.variableName,
   conditionVar: typeof f?.conditionVar === 'string' ? f.conditionVar.trim() : f?.conditionVar,
+  sectionName: typeof f?.sectionName === 'string' ? f.sectionName.trim() : f?.sectionName,
 });
 const sanitizeFields = (fields: any) => (Array.isArray(fields) ? fields.map(trimField) : []);
 const sanitizeBlocks = (blocks: any) =>
@@ -36,6 +37,20 @@ const sanitizeBlocks = (blocks: any) =>
     placeholder: typeof b?.placeholder === 'string' ? b.placeholder.trim() : b?.placeholder,
     fields: sanitizeFields(b?.fields),
   }));
+const getSectionNames = (fields: any[]) => [...new Set(
+  (Array.isArray(fields) ? fields : [])
+    .map(field => typeof field?.sectionName === 'string' ? field.sectionName.trim() : '')
+    .filter(Boolean)
+)];
+const reorderSectionFields = (fields: any[], sectionName: string, direction: 'up' | 'down') => {
+  const names = getSectionNames(fields);
+  const index = names.indexOf(sectionName);
+  const nextIndex = direction === 'up' ? index - 1 : index + 1;
+  if (index < 0 || nextIndex < 0 || nextIndex >= names.length) return fields;
+  [names[index], names[nextIndex]] = [names[nextIndex], names[index]];
+  const unsectioned = fields.filter(field => !(typeof field?.sectionName === 'string' && field.sectionName.trim()));
+  return [...unsectioned, ...names.flatMap(name => fields.filter(field => field.sectionName?.trim() === name))];
+};
 const getUnitlessAdminValue = (field: any, key: string, legacyIndex: number, fallback: number) => {
   if (field?.[key] !== undefined && field?.[key] !== null) return field[key];
   const legacyValue = Number(String(field?.options || '').split(',')[legacyIndex]?.trim());
@@ -130,10 +145,14 @@ export default function ManageCodes() {
     setFormData({ ...formData, customFields: newFields });
   };
 
-  const addCustomField = () => setFormData({
+  const addCustomField = (sectionName = "") => setFormData({
     ...formData,
-    customFields: [...formData.customFields, { id: Date.now().toString(), label: "", variableName: "", type: "text", options: "", conditionVar: "", conditionVal: "" }]
+    customFields: [...formData.customFields, { id: Date.now().toString(), label: "", variableName: "", type: "text", options: "", conditionVar: "", conditionVal: "", sectionName }]
   });
+  const addCustomSection = () => {
+    const sectionName = prompt("ชื่อ Section ใหม่:")?.trim();
+    if (sectionName) addCustomField(sectionName);
+  };
   const removeCustomField = (index: number) => setFormData({ ...formData, customFields: formData.customFields.filter((_, i) => i !== index) });
   const moveCustomField = (index: number, direction: 'up' | 'down') => {
     const newArr = [...formData.customFields];
@@ -143,6 +162,9 @@ export default function ManageCodes() {
       [newArr[index + 1], newArr[index]] = [newArr[index], newArr[index + 1]];
     }
     setFormData({ ...formData, customFields: newArr });
+  };
+  const moveCustomSection = (sectionName: string, direction: 'up' | 'down') => {
+    setFormData({ ...formData, customFields: reorderSectionFields(formData.customFields, sectionName, direction) });
   };
 
   const handleAddBlock = (type: string) => {
@@ -165,10 +187,10 @@ export default function ManageCodes() {
     if (confirm("ลบบล็อกนี้ทิ้งใช่หรือไม่?")) setFormData({ ...formData, blocks: formData.blocks.filter((_, i) => i !== index) });
   };
 
-  const handleAddFieldToBlock = (blockIndex: number) => {
+  const handleAddFieldToBlock = (blockIndex: number, sectionName = "") => {
     const newBlocks = formData.blocks.map((b, i) =>
       i === blockIndex
-        ? { ...b, fields: [...b.fields, { id: `field_${Date.now()}`, variableName: "", label: "", type: "text", options: "", conditionVar: "", conditionVal: "" }] }
+        ? { ...b, fields: [...b.fields, { id: `field_${Date.now()}`, variableName: "", label: "", type: "text", options: "", conditionVar: "", conditionVal: "", sectionName }] }
         : b
     );
     setFormData({ ...formData, blocks: newBlocks });
@@ -193,6 +215,13 @@ export default function ManageCodes() {
   const handleRemoveBlockField = (blockIndex: number, fieldIndex: number) => {
     const newBlocks = formData.blocks.map((b, i) =>
       i === blockIndex ? { ...b, fields: b.fields.filter((_: any, j: number) => j !== fieldIndex) } : b
+    );
+    setFormData({ ...formData, blocks: newBlocks });
+  };
+  const moveBlockSection = (blockIndex: number, sectionName: string, direction: 'up' | 'down') => {
+    const newBlocks = formData.blocks.map((block, index) => index === blockIndex
+      ? { ...block, fields: reorderSectionFields(block.fields || [], sectionName, direction) }
+      : block
     );
     setFormData({ ...formData, blocks: newBlocks });
   };
@@ -486,7 +515,28 @@ export default function ManageCodes() {
           ))}
           <button type="button" className="btn-add" onClick={addVariation}>+ เพิ่มพรีเซ็ต</button>
 
-          <h3 className="section-title">🛠️ กำหนดจุดที่ให้ผู้ใช้ปรับแต่ง (Custom Fields)</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            <h3 className="section-title" style={{ marginBottom: 12 }}>🛠️ กำหนดจุดที่ให้ผู้ใช้ปรับแต่ง (Custom Fields)</h3>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <button type="button" className="btn-add" style={{ margin: 0 }} onClick={() => addCustomField()}>+ เพิ่มตัวแปร</button>
+              <button type="button" className="btn-add" style={{ margin: 0, background: '#7c3aed' }} onClick={addCustomSection}>+ เพิ่ม Section</button>
+            </div>
+          </div>
+          <datalist id="custom-field-sections">
+            {[...new Set(formData.customFields.map((field: any) => field.sectionName?.trim()).filter(Boolean))].map((sectionName: string) => <option key={sectionName} value={sectionName} />)}
+          </datalist>
+          {getSectionNames(formData.customFields).length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 12, marginBottom: 14, borderRadius: 10, background: 'rgba(243,232,255,0.65)', border: '1px solid #d8b4fe' }}>
+              <strong style={{ color: '#4c1d95', fontSize: '0.82rem' }}>ลำดับ Section ในหน้า Editor</strong>
+              {getSectionNames(formData.customFields).map((sectionName, sectionIndex, sections) => (
+                <div key={sectionName} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 7px', borderRadius: 7, background: 'rgba(255,255,255,0.8)' }}>
+                  <span style={{ flex: 1, fontSize: '0.82rem' }}>{sectionIndex + 1}. {sectionName}</span>
+                  <button type="button" className="tool-btn" onClick={() => moveCustomSection(sectionName, 'up')} disabled={sectionIndex === 0} title="เลื่อน Section ขึ้น">⬆️</button>
+                  <button type="button" className="tool-btn" onClick={() => moveCustomSection(sectionName, 'down')} disabled={sectionIndex === sections.length - 1} title="เลื่อน Section ลง">⬇️</button>
+                </div>
+              ))}
+            </div>
+          )}
           {formData.customFields.map((field, index) => (
             <div key={field.id} className="variation-box" style={{ borderColor: '#60a5fa', background: 'rgba(239, 246, 255, 0.4)' }}>
               
@@ -506,6 +556,11 @@ export default function ManageCodes() {
               <div className="form-grid-2">
                 <div className="form-group"><label className="form-label">ชื่อป้ายกำกับ</label><input type="text" required className="glass-input" value={field.label} onChange={e => handleCustomFieldChange(index, 'label', e.target.value)} /></div>
                 <div className="form-group"><label className="form-label">ชื่อตัวแปรในโค้ด (เช่น **ลิงก์ภาพเมจ**)</label><input type="text" required className="glass-input" style={{ fontFamily: 'monospace' }} value={field.variableName} onChange={e => handleCustomFieldChange(index, 'variableName', e.target.value)} /></div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 12 }}>
+                <label className="form-label">Section <span className="form-hint">ตัวแปรที่ใช้ชื่อ Section เดียวกันจะแสดงรวมกลุ่มกัน</span></label>
+                <input type="text" className="glass-input" list="custom-field-sections" placeholder="เช่น ข้อมูลตัวละคร (เว้นว่างเพื่อไม่จัดกลุ่ม)" value={field.sectionName || ''} onChange={e => handleCustomFieldChange(index, 'sectionName', e.target.value)} />
               </div>
               
               <div className="form-group" style={{ marginBottom: 0 }}>
@@ -604,8 +659,6 @@ export default function ManageCodes() {
               </div>
             </div>
           ))}
-          <button type="button" className="btn-add" onClick={addCustomField}>+ เพิ่มจุดปรับแต่ง</button>
-
           <div style={{ marginTop: '40px', padding: '24px', background: 'rgba(255,255,255,0.7)', border: '2px dashed #a855f7', borderRadius: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '10px' }}>
               <h3 style={{ margin: 0, color: '#4c1d95', fontSize: '1.15rem', fontWeight: 700 }}>🧱 จัดการส่วนเสริม (Dynamic Blocks)</h3>
@@ -646,8 +699,26 @@ export default function ManageCodes() {
                   <div style={{ background: 'rgba(243, 232, 255, 0.5)', padding: '16px', borderRadius: '12px', marginTop: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                       <strong style={{ color: '#4c1d95', fontSize: '0.9rem' }}>🛠️ จุดแก้ไข (Fields) ภายในบล็อกนี้</strong>
-                      <button type="button" onClick={() => handleAddFieldToBlock(bIndex)} style={{ background: '#fff', color: '#6b21a8', border: '1px solid #c084fc', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>+ เพิ่มจุดแก้ไขย่อย</button>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button type="button" onClick={() => handleAddFieldToBlock(bIndex)} style={{ background: '#fff', color: '#6b21a8', border: '1px solid #c084fc', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>+ เพิ่มจุดแก้ไขย่อย</button>
+                        <button type="button" onClick={() => { const name = prompt('ชื่อ Section ใหม่:')?.trim(); if (name) handleAddFieldToBlock(bIndex, name); }} style={{ background: '#7c3aed', color: '#fff', border: '1px solid #7c3aed', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>+ เพิ่ม Section</button>
+                      </div>
                     </div>
+                    <datalist id={`block-field-sections-${block.id}`}>
+                      {[...new Set(block.fields.map((field: any) => field.sectionName?.trim()).filter(Boolean))].map((sectionName: string) => <option key={sectionName} value={sectionName} />)}
+                    </datalist>
+                    {getSectionNames(block.fields).length > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', padding: 8, marginBottom: 10, borderRadius: 8, background: 'rgba(255,255,255,0.7)' }}>
+                        <strong style={{ fontSize: '0.78rem', color: '#4c1d95' }}>ลำดับ Section:</strong>
+                        {getSectionNames(block.fields).map((sectionName, sectionIndex, sections) => (
+                          <span key={sectionName} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 5px', border: '1px solid #d8b4fe', borderRadius: 7, background: '#fff', fontSize: '0.75rem' }}>
+                            {sectionName}
+                            <button type="button" className="tool-btn" onClick={() => moveBlockSection(bIndex, sectionName, 'up')} disabled={sectionIndex === 0} title="เลื่อน Section ขึ้น" style={{ minWidth: 24, height: 24 }}>↑</button>
+                            <button type="button" className="tool-btn" onClick={() => moveBlockSection(bIndex, sectionName, 'down')} disabled={sectionIndex === sections.length - 1} title="เลื่อน Section ลง" style={{ minWidth: 24, height: 24 }}>↓</button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {block.fields.map((field: any, fIndex: number) => (
                       <div key={field.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #e9d5ff', marginBottom: '8px' }}>
                         
@@ -655,6 +726,7 @@ export default function ManageCodes() {
                           <div style={{ flex: '1 1 200px' }}>
                             <input type="text" value={field.label} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'label', e.target.value)} placeholder="ชื่อป้ายกำกับ" className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', marginBottom: '8px' }} />
                             <input type="text" value={field.variableName} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'variableName', e.target.value)} placeholder="ตัวแปร (เช่น TEXT_1)" className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', fontFamily: 'monospace' }} />
+                            <input type="text" list={`block-field-sections-${block.id}`} value={field.sectionName || ''} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'sectionName', e.target.value)} placeholder="Section (ถ้าต้องการจัดกลุ่ม)" className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', marginTop: '8px' }} />
                           </div>
                           <div style={{ flex: '0 0 160px' }}>
                             <select value={field.type} onChange={(e) => handleUpdateBlockField(bIndex, fIndex, 'type', e.target.value)} className="glass-input" style={{ padding: '8px', fontSize: '0.85rem', width: '100%' }}>

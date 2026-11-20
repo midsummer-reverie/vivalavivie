@@ -12,6 +12,22 @@ import { UnicodePicker } from '@/components/UnicodePicker';
 const BOARD_WIDTH = 900; // ความกว้างบอร์ดจริงบนเว็บ
 const REF_WIDTHS = [1920, 1440, 1280]; // ความกว้างหน้าจอ Desktop ที่ให้เลือกจำลอง
 
+const groupFieldsBySection = (fields: any[]) => {
+  const groups: { name: string; fields: { field: any; index: number }[] }[] = [];
+  const byName = new Map<string, { name: string; fields: { field: any; index: number }[] }>();
+  (Array.isArray(fields) ? fields : []).forEach((field, index) => {
+    const name = typeof field.sectionName === 'string' ? field.sectionName.trim() : '';
+    let group = byName.get(name);
+    if (!group) {
+      group = { name, fields: [] };
+      byName.set(name, group);
+      groups.push(group);
+    }
+    group.fields.push({ field, index });
+  });
+  return groups;
+};
+
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 function ScaledPreview({ html }: { html: string }) {
@@ -2708,9 +2724,12 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
                   {editMode === 'customize' && isUnlocked && (
                     <div className="customizer-box">
                       <h3 style={{ margin: 0, color: 'var(--color-primary)', fontSize: '1.1rem' }}>✨ ปรับแต่งฟิลด์หลัก</h3>
-                      {code.customFields && code.customFields.map((field: any, index: number) => 
-                        renderFieldUI(field, fieldValues[field.variableName], (newVal) => setFieldValues(prev => ({ ...prev, [field.variableName]: newVal })), `cf_${index}`, fieldValues, code.customFields)
-                      )}
+                      {groupFieldsBySection(code.customFields || []).map((group, groupIndex) => (
+                        <div key={`${group.name || 'ungrouped'}_${groupIndex}`} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                          {group.name && <h4 style={{ margin: '2px 0 -4px', padding: '8px 10px', color: 'var(--color-primary)', background: 'rgba(216,180,254,0.24)', borderLeft: '3px solid var(--color-primary)', borderRadius: 6 }}>{group.name}</h4>}
+                          {group.fields.map(({ field, index }) => renderFieldUI(field, fieldValues[field.variableName], (newVal) => setFieldValues(prev => ({ ...prev, [field.variableName]: newVal })), `cf_${index}`, fieldValues, code.customFields))}
+                        </div>
+                      ))}
 
                       {(code.blocks?.length > 0 || activeBlocks.length > 0) && (
                         <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '2px dashed var(--color-accent-light)' }}>
@@ -2728,7 +2747,12 @@ const sharedDraftToken = searchParams?.get('share'); // รับค่าจา
                                   </div>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                  {block.fields && Array.isArray(block.fields) && block.fields.map((field: any, fIndex: number) => renderFieldUI(field, block.values[field.variableName], (newVal) => updateBlockValue(block.instanceId, field.variableName, newVal), `${block.instanceId}_f_${fIndex}`, block.values, block.fields))}
+                                  {groupFieldsBySection(block.fields || []).map((group, groupIndex) => (
+                                    <div key={`${group.name || 'ungrouped'}_${groupIndex}`} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                      {group.name && <h4 style={{ margin: '2px 0 -4px', padding: '8px 10px', color: 'var(--color-primary)', background: 'rgba(216,180,254,0.24)', borderLeft: '3px solid var(--color-primary)', borderRadius: 6 }}>{group.name}</h4>}
+                                      {group.fields.map(({ field, index: fIndex }) => renderFieldUI(field, block.values[field.variableName], (newVal) => updateBlockValue(block.instanceId, field.variableName, newVal), `${block.instanceId}_f_${fIndex}`, block.values, block.fields))}
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
                             )

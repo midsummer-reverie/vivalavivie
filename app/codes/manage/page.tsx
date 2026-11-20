@@ -37,11 +37,14 @@ const sanitizeBlocks = (blocks: any) =>
     placeholder: typeof b?.placeholder === 'string' ? b.placeholder.trim() : b?.placeholder,
     fields: sanitizeFields(b?.fields),
   }));
-const getSectionNames = (fields: any[]) => [...new Set(
-  (Array.isArray(fields) ? fields : [])
-    .map(field => typeof field?.sectionName === 'string' ? field.sectionName.trim() : '')
-    .filter(Boolean)
-)];
+const getSectionNames = (fields: any[]): string[] => {
+  const names = new Set<string>();
+  (Array.isArray(fields) ? fields : []).forEach(field => {
+    const name = typeof field?.sectionName === 'string' ? field.sectionName.trim() : '';
+    if (name) names.add(name);
+  });
+  return Array.from(names);
+};
 const reorderSectionFields = (fields: any[], sectionName: string, direction: 'up' | 'down') => {
   const names = getSectionNames(fields);
   const index = names.indexOf(sectionName);
@@ -523,7 +526,7 @@ export default function ManageCodes() {
             </div>
           </div>
           <datalist id="custom-field-sections">
-            {[...new Set(formData.customFields.map((field: any) => field.sectionName?.trim()).filter(Boolean))].map((sectionName: string) => <option key={sectionName} value={sectionName} />)}
+            {getSectionNames(formData.customFields).map(sectionName => <option key={sectionName} value={sectionName} />)}
           </datalist>
           {getSectionNames(formData.customFields).length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 12, marginBottom: 14, borderRadius: 10, background: 'rgba(243,232,255,0.65)', border: '1px solid #d8b4fe' }}>
@@ -705,7 +708,7 @@ export default function ManageCodes() {
                       </div>
                     </div>
                     <datalist id={`block-field-sections-${block.id}`}>
-                      {[...new Set(block.fields.map((field: any) => field.sectionName?.trim()).filter(Boolean))].map((sectionName: string) => <option key={sectionName} value={sectionName} />)}
+                      {getSectionNames(block.fields).map(sectionName => <option key={sectionName} value={sectionName} />)}
                     </datalist>
                     {getSectionNames(block.fields).length > 0 && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', padding: 8, marginBottom: 10, borderRadius: 8, background: 'rgba(255,255,255,0.7)' }}>
